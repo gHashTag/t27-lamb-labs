@@ -434,5 +434,21 @@
     "attention_joint": "evidence/attention_joint/joint_iteration_report.json",
     "attention_seq": "evidence/attention_seq/sequential_iteration_report.json"
   },
-  "co_design_rule": "The KV cache stores sign + quant_w magnitude bits of an act_bits-wide signed value, so losslessness requires quant_w >= act_bits. QUANT_W is not an independent lever: narrowing it alone is lossy, narrowing act_bits alone at quant_w=8 wastes cache bits. The two must move together."
+  "co_design_rule": "The KV cache stores sign + quant_w magnitude bits of an act_bits-wide signed value, so losslessness requires quant_w >= act_bits. QUANT_W is not an independent lever: narrowing it alone is lossy, narrowing act_bits alone at quant_w=8 wastes cache bits. The two must move together.",
+  "open_source_engagement": {
+    "status": "PREPARED, NOT EXECUTED",
+    "protocol": "engagement/OPEN_SOURCE_PROTOCOL.md",
+    "trigger": "a Lamb Labs open model appears with a public model card and a licence that permits reproduction and derivative publication",
+    "steps": [
+      "read and record the licence and model card; stop if redistribution or derivatives are forbidden",
+      "reproduce the released baseline on CPU (then GPU) and record the golden outputs, tok/s, latency p50/p95",
+      "apply the same ternary recipe and sweep ACT_BITS and QUANT_W, recording output agreement, quality metric, AX7203 resources and DRAM reads/token",
+      "publish with the same evidence protocol: evidence/<experiment>/ + ARTIFACT_HASHES.txt + a JSON report separating MEASURED / ESTIMATED / TARGET + the validator extended",
+      "state the forbidden claims explicitly: no production readiness, no MPU parity, no TinyLlama on Kria, no unhashed figures, no 27B comparison beyond the normalised per-parameter label",
+      "outreach with artifact links only"
+    ],
+    "outreach_contact": "contact@lamb-labs.com",
+    "known_gap": "step 3 assumes the released model loads into the local harness; a custom architecture or non-public format turns step 3 into a re-implementation task and the protocol must be amended before running",
+    "executed": false
+  }
 }
