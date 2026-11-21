@@ -1,0 +1,75 @@
+{
+  "timestamp": "2026-11-22T00:05:00Z",
+  "iteration_id": 5,
+  "name": "clock source: CFGMCLK replaces the fabric ring oscillator, and the ring oscillator is structurally verified",
+  "status": "MEASURED (resources) + VERIFIED (netlist structure)",
+  "why_this_iteration_exists": "Every latency and throughput figure so far was derived from an ESTIMATED ring-oscillator frequency (~150 MHz). This iteration removes that estimate and separately checks whether the ring oscillator actually survives synthesis.",
+  "methodology": {
+    "synthesis": "yosys 0.67+post synth_xilinx -family xc7 -nodsp -nosrl -flatten",
+    "logs": "evidence/clock/stat_cfg_*.txt",
+    "ring_oscillator_check": "evidence/clock/verify_ring_oscillator.py walks the synthesised JSON netlist from chain[0] to chain[19] and follows the clock-buffer mapper to confirm the loop closes",
+    "clock_source_reference": "docs/fpga/clocking.md in the parent repository: STARTUPE2.CFGMCLK, the Artix-7 internal configuration oscillator, ~66 MHz, and the board has no working external oscillator"
+  },
+  "ring_oscillator_structural_verification": {
+    "netlist": "fpga/verilog/ternary_mac_demo_top.json (the netlist behind the shipped ternary_mac_demo_top_200t.bit)",
+    "elements_walked": 21,
+    "path": "INV(osc -> chain[0]) -> LUT1 inv_chain[1..19] -> BUFG(clkbufmap) -> osc",
+    "verdict": "CLOSED - the ring oscillator loop IS present in the shipped netlist",
+    "important_caveat": "Structural presence is not functional oscillation. The parent repository's docs/fpga/clocking.md states the ring oscillator does not work in this flow and that the Wukong board has no working external oscillator. Whether this loop oscillates on the AX7203 can only be settled on silicon, with a counter readback. The Digilent HS2 was disconnected during this work, so that measurement is outstanding.",
+    "note": "The repo's warning names -abc9 as the breaker. The shipped flow (synth_xilinx -family xc7 -nodsp -nosrl) evidently preserved the loop, but the warning is respected and the functional check is still required."
+  },
+  "cfgmclk_variant": {
+    "change": "clock the token-sequential attention from STARTUPE2.CFGMCLK instead of the fabric ring oscillator",
+    "why": "CFGMCLK is a silicon-specified source (~66 MHz Artix-7 family nominal) rather than an estimate, so the derived throughput no longer rests on an assumed oscillator frequency",
+    "measurements": [
+      {"act_bits": 8, "quant_w": 8, "kv_len": 8,  "luts": 510, "ffs": 275, "carry4": 70, "muxf7": 22, "estimated_lcs": 376, "dsp48e1": 0, "ram": 0, "exact_cycles_per_token": 10},
+      {"act_bits": 8, "quant_w": 8, "kv_len": 16, "luts": 611, "ffs": 341, "carry4": 71, "muxf7": 26, "estimated_lcs": 467, "dsp48e1": 0, "ram": 0, "exact_cycles_per_token": 18},
+      {"act_bits": 8, "quant_w": 8, "kv_len": 32, "luts": 813, "ffs": 471, "carry4": 72, "muxf7": 20, "estimated_lcs": 768, "dsp48e1": 0, "ram": 0, "exact_cycles_per_token": 34},
+      {"act_bits": 6, "quant_w": 6, "kv_len": 16, "luts": 589, "ffs": 325, "carry4": 71, "muxf7": 26, "estimated_lcs": 448, "dsp48e1": 0, "ram": 0, "exact_cycles_per_token": 18},
+      {"act_bits": 4, "quant_w": 4, "kv_len": 16, "luts": 553, "ffs": 305, "carry4": 70, "muxf7": 29, "estimated_lcs": 422, "dsp48e1": 0, "ram": 0, "exact_cycles_per_token": 18}
+    ]
+  },
+  "head_to_head": {
+    "config": "act=8, quant=8, kv_len=16, head_dim=8, token-sequential",
+    "ring_oscillator_clock": {"estimated_lcs": 505, "clock": "fabric ring oscillator, ESTIMATED ~150 MHz"},
+    "cfgmclk_clock": {"estimated_lcs": 467, "clock": "STARTUPE2.CFGMCLK, silicon-specified ~66 MHz family nominal"},
+    "resource_saving": "-38 estimated LCs (-7.5%), because the 19 LUT1 + 4 INV oscillator and its BUFG are no longer needed",
+    "benefit": "the derived throughput now rests on a specified clock instead of an assumed one"
+  },
+  "derived_attention_throughput_with_specified_clock": {
+    "status": "DERIVED from an exact cycle count and a family-nominal clock; still not measured on silicon",
+    "clock_mhz": 66,
+    "clock_source": "STARTUPE2.CFGMCLK (Artix-7 family nominal, per docs/fpga/clocking.md)",
+    "attention_passes_per_sec": {
+      "kv_len_8": 6600000,
+      "kv_len_16": 3666667,
+      "kv_len_32": 1941176
+    },
+    "formula": "clock_hz / exact_cycles_per_token",
+    "caveats": [
+      "CFGMCLK is a configuration oscillator: its frequency is nominal and its tolerance is wider than a dedicated clock, so it is a reference for measurement, not a production clock source.",
+      "These are attention PASSES per second for this block, not model tokens per second.",
+      "The measured 5.7 tok/s from the cycle-1 variance bitstream is a different measurement and must not be mixed with this number."
+    ]
+  },
+  "decision": "ADOPT the CFGMCLK-clocked token-sequential attention as the reference design; keep the ring-oscillator variant documented as the variant whose frequency is still unmeasured",
+  "decision_rationale": [
+    "It removes the 'estimated ~150 MHz' caveat from every derived latency and throughput figure.",
+    "It is 38 estimated LCs cheaper because the fabric oscillator and its clock buffer are gone.",
+    "It uses the clock the parent repository documents as the canonical and only working source on this board family.",
+    "Zero-DSP, zero-RAM and zero external DRAM traffic are preserved.",
+    "The cycle count per token stays exact."
+  ],
+  "still_open": [
+    "FUNCTIONAL verification of the fabric ring oscillator on silicon: flash a counter design clocked by it and read the counter back over JTAG. The Digilent HS2 was disconnected during this work.",
+    "The actual CFGMCLK frequency on this board: the family nominal (~66 MHz) is used, but the part's measured value has not been taken. openFPGALoader --read-xadc would also give die temperature and VCCINT, which the power estimate needs.",
+    "Power is still ESTIMATED.",
+    "The sequential bitstream has not been built and flashed."
+  ],
+  "next_iteration": [
+    "reconnect the Digilent HS2, flash a CFGMCLK-clocked counter with a JTAG-readable register, and read it twice with a host timestamp to measure the real clock",
+    "read the XADC for die temperature and VCCINT to support the power estimate",
+    "measure whether the fabric ring oscillator oscillates at all, so the ~150 MHz figure can be either confirmed or withdrawn",
+    "build and flash the token-sequential bitstream and close the attention latency gate"
+  ]
+}

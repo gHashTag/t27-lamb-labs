@@ -22,6 +22,7 @@ def main():
     joint  = load("evidence/attention_joint/joint_iteration_report.json")
     seq    = load("evidence/attention_seq/sequential_iteration_report.json")
     tok    = load("evidence/attention_token/token_iteration_report.json")
+    clock  = load("evidence/clock/clock_iteration_report.json")
 
     # 1. every evaluated state must be traceable to a measured config
     measured = {}
@@ -39,6 +40,8 @@ def main():
         measured[("attnseq", 8, m["kv_len"], m["quant_w"], m["act_bits"])] = m
     for m in tok["measurements"]:
         measured[("atntok", 8, m["kv_len"], m["quant_w"], m["act_bits"])] = m
+    for m in clock["cfgmclk_variant"]["measurements"]:
+        measured[("atntokcfg", 8, m["kv_len"], m["quant_w"], m["act_bits"])] = m
 
     for st in bench["already_evaluated_states"]:
         s = st["state"]
@@ -50,6 +53,8 @@ def main():
             key = ("attnseq", s.get("head_dim"), s.get("kv_len"), s.get("quant_w"), s.get("act_bits"))
         elif s["arch"] == "attention_kv_token":
             key = ("atntok", s.get("head_dim"), s.get("kv_len"), s.get("quant_w"), s.get("act_bits"))
+            if s.get("clock") == "cfgmclk":
+                key = ("atntokcfg", s.get("head_dim"), s.get("kv_len"), s.get("quant_w"), s.get("act_bits"))
         else:
             key = (s.get("loop_topology"), s.get("acc_bits"))
         if key not in measured:

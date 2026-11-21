@@ -419,6 +419,84 @@ its contribution · `phase DONE` output valid + write the new KV slot + restart.
 - The per-slot cost figure still used the uniform harness payload.
 - The sequential bitstream has **not** been built and flashed, so no silicon latency measurement exists.
 
+## Co-Design Iteration 5: clock source (✅ MEASURED + netlist VERIFIED)
+
+Every latency and throughput figure so far was derived from an **estimated** ring-oscillator
+frequency (~150 MHz). This iteration removes that estimate and separately checks whether the
+ring oscillator survives synthesis at all.
+
+### 5a. Ring oscillator: structurally VERIFIED in the shipped netlist
+
+`evidence/clock/verify_ring_oscillator.py` walks the synthesised JSON netlist behind the shipped
+`ternary_mac_demo_top_200t.bit`:
+
+```
+INV(osc -> chain[0]) -> LUT1 inv_chain[1..19] -> BUFG(clkbufmap) -> osc
+```
+
+**21 elements walked, VERDICT: CLOSED** - the ring oscillator loop IS present in the shipped
+netlist, with the clock-buffer mapper's BUFG in the clock path (normal practice).
+
+> **Honest caveat**: structural presence is not functional oscillation. The parent repository's
+> `docs/fpga/clocking.md` states the ring oscillator does **not** work in this flow and that the
+> board has no working external oscillator. The shipped flow
+> (`synth_xilinx -family xc7 -nodsp -nosrl`) evidently preserved the loop, but **whether it
+> oscillates on the AX7203 can only be settled on silicon** with a counter readback. The Digilent
+> HS2 was disconnected during this work, so that measurement is outstanding.
+
+### 5b. CFGMCLK replaces the fabric oscillator
+
+`STARTUPE2.CFGMCLK` is the Artix-7 internal configuration oscillator, **~66 MHz family nominal**
+(per the repo's `docs/fpga/clocking.md`), and the canonical clock source on this board family.
+
+| ACT | QW | KV | LUTs | FFs | CARRY4 | Est. LCs | **Exact cycles/token** | DSP | RAM |
+|---|---|---|---|---|---|---|---|---|---|
+| 8 | 8 | 8 | 510 | 275 | 70 | 376 | **10** | 0 | 0 |
+| 8 | 8 | 16 | 611 | 341 | 71 | 467 | **18** | 0 | 0 |
+| 8 | 8 | 32 | 813 | 471 | 72 | 768 | **34** | 0 | 0 |
+| 6 | 6 | 16 | 589 | 325 | 71 | 448 | **18** | 0 | 0 |
+| 4 | 4 | 16 | 553 | 305 | 70 | 422 | **18** | 0 | 0 |
+
+| Variant (act=8, quant=8, kv_len=16) | Est. LCs | Clock |
+|---|---|---|
+| ring-oscillator clocked | 505 | fabric ring oscillator, **ESTIMATED** ~150 MHz |
+| **CFGMCLK clocked** | **467** | **silicon-specified** ~66 MHz family nominal |
+| saving | **-38 (-7.5%)** | the 19 LUT1 + 4 INV oscillator and its BUFG are no longer needed |
+
+### Derived attention throughput with a specified clock (⚠️ DERIVED)
+
+| KV_LEN | Exact cycles/token | Attention passes/s at 66 MHz |
+|---|---|---|
+| 8 | 10 | 6,600,000 |
+| 16 | 18 | 3,666,667 |
+| 32 | 34 | 1,941,176 |
+
+> **Caveats**: CFGMCLK is a configuration oscillator - its tolerance is wider than a dedicated
+> clock, so it is a measurement reference, not a production clock source. These are attention
+> **passes** per second, **not** model tokens per second. The measured 5.7 tok/s from the cycle-1
+> variance bitstream is a different measurement and is kept separate.
+
+### Decision: **ADOPT the CFGMCLK-clocked token-sequential attention** as the reference design
+
+- It removes the "estimated ~150 MHz" caveat from every derived latency and throughput figure.
+- It is **38 estimated LCs cheaper** because the fabric oscillator and its clock buffer are gone.
+- It uses the clock the parent repository documents as the canonical and only working source here.
+- Zero-DSP, zero-RAM and zero external DRAM traffic are preserved; cycles/token stay exact.
+
+**Report**: `evidence/clock/clock_iteration_report.json`
+**Logs**: `evidence/clock/stat_cfg_*.txt`
+**Verifier**: `evidence/clock/verify_ring_oscillator.py`
+
+### Still open after this iteration
+
+- **Functional** ring-oscillator verification on silicon (counter + JTAG readback) - the Digilent HS2
+  was disconnected during this work.
+- The **actual** CFGMCLK frequency on this board: the family nominal (~66 MHz) is used, but the
+  part's measured value has not been taken. `openFPGALoader --read-xadc` would also give die
+  temperature and VCCINT, which the power estimate needs.
+- **Power is still ESTIMATED.**
+- The sequential bitstream has **not** been built and flashed.
+
 ## DRAM Reads Per Token (✅ MEASURED)
 
 | Metric | Value | Status |
@@ -464,7 +542,7 @@ order of magnitude.
 |---|---|---|
 | Cycle-1 runs | 5/5 PASSED | ✅ MEASURED |
 | Bit-exact match vs golden | 1.0 | ✅ MEASURED |
-| Co-design iterations completed | **4** (acc x loop-topology; joint act x KV-quant; sequential vs combinational; token-sequential control) | ✅ MEASURED |
+| Co-design iterations completed | **5** (acc x loop-topology; joint act x KV-quant; sequential vs combinational; token-sequential control; clock source) | ✅ MEASURED |
 | Timing CV | 0.46% | ✅ MEASURED |
 | Literature reference | latency 0.8-1.2%, energy 1.5-2.1% (arXiv:2511.06955) | baseline only |
 
@@ -505,14 +583,14 @@ order of magnitude.
 | BRAM_UTILIZATION | ✅ MEASURED | 0 / 365 (0.0%) |
 | LUT_UTILIZATION | ✅ MEASURED | 32 / 134,600 (0.024%) |
 | DSP_UTILIZATION | ✅ MEASURED | 0 / 740 (0.0%) |
-| CLOCK_MHZ | ✅ | 6 (JTAG), ~150 (ring osc, est.) |
+| CLOCK_MHZ | ⚠️ | 6 (JTAG), **66 CFGMCLK family nominal (specified)**, ~150 ring osc (ESTIMATED, loop structurally verified, functional check pending)** |
 | QUALITY_METRIC | ✅ MEASURED | 5/5 bit-exact, CV 0.46% |
 | CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | 1 (8 configurations, accept/reject recorded) |
 | ATTENTION_KV_STATUS | ✅ resources MEASURED (9 configs); combinational form REJECTED, sequential form is next |
 | RL_BENCHMARK_STATUS | ✅ contract + **19** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |
-| BLOCKERS | - | FPGA power: Vivado report_power (AMD login) or external meter |
+| BLOCKERS | - | FPGA power: Vivado report_power (AMD login) or external meter; board clock: Digilent HS2 disconnected, XADC read outstanding; ring osc functional check outstanding |
 
 ---
 
