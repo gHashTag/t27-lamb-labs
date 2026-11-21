@@ -497,6 +497,91 @@ netlist, with the clock-buffer mapper's BUFG in the clock path (normal practice)
 - **Power is still ESTIMATED.**
 - The sequential bitstream has **not** been built and flashed.
 
+## Co-Design Iteration 6: AX7203-native build (⚠️ PARTIAL - chipdb VERIFIED, bitstream blocked)
+
+Iteration 5 left the design clocked by CFGMCLK with an estimated frequency and no board-native
+build. This iteration targets the AX7203's real hardware.
+
+### Board facts used (from the parent repo's `fpga/HARDWARE_SSOT.md`)
+
+| Signal | AX7203 pin |
+|---|---|
+| 200 MHz differential oscillator | **R4 (P) / T4 (N)**, DIFF_SSTL15 |
+| User LEDs (active low) | **B13, C13, D14, D15** |
+| UART TX | **N15** (RX P20) |
+| Chipdb | `xc7a200tfbg484-2.bin` |
+| Cable | Digilent HS2, FT232H, serial 210512180081, busdev 0:4 on macOS |
+
+> **Correction**: the previously shipped `ternary_mac_demo_top_200t.bit` drives **R23/T23**, which the
+> SSOT records as Wukong pins that the AX7203 routes elsewhere. The AX7203's LEDs are
+> **B13/C13/D14/D15**. The new design uses the documented AX7203 pins, so the earlier bitstream's
+> LED observations are **not** evidence about this board.
+
+### Chipdb: BUILT and INDEPENDENTLY VERIFIED
+
+| Check | Value | SSOT expects | Match |
+|---|---|---|---|
+| Size | 333,207,792 B | 333,207,792 B | ✅ |
+| md5 | `59f828c441e6e6081bfee63ff994660e` | `59f828c441e6e6081bfee63ff994660e` | ✅ |
+
+Regenerated from source with `bbaexport.py --device xc7a200tfbg484-2` + `bbasm --le`, on the GPU box
+(the Mac had only 879 MiB free). The stale `xc7a200t.bin` on the Mac was rejected by nextpnr with
+"internal IDs ... inconsistent with the supplied chip database".
+
+### Design (AX7203-native)
+
+`evidence/ax7203_build/ax7203_attn.v`: the adopted token-sequential attention (act=8, quant=8,
+kv_len=16, **exact 18 cycles/token**) on the 200 MHz oscillator, with LEDs on B13/C13 and a **UART
+beacon on N15 emitting one byte per `done` pulse** - so the host can timestamp the token interval
+directly on silicon.
+
+Datapath changes made while building:
+- the ternary weight is applied as **sign selection** on the key, not as a 17x17 multiply
+- the KV cache was **flattened from 2D arrays to 1D packed words**
+- the UART transmitter was reduced to **one counter** (two counters caused a multi-driver arc conflict)
+
+### Build attempts (8 configurations, all recorded)
+
+| yosys | nextpnr | result |
+|---|---|---|
+| 0.67 | master | packer: "No wire found for port O6" |
+| 0.46 (OSS CAD) | master | same |
+| 0.46 | stable-backports | same |
+| 0.46 + `-abc9` | master | same |
+| 0.46 + `-nolutram` | master | LUT6 packing error |
+| 0.46 + `-nolutram -nowidelut` | master | placement OK; routing fails on one long ALU net |
+| 0.46 + `-nolutram -nowidelut`, 65 MHz constraint | master router1 seeds 3, 5 | **timing PASSES (71.86 / 73.15 MHz)**; routing fails: constant net and real net share a wire |
+| same | master router2 | same family |
+
+### Findings
+
+1. **CLOCK SHORTFALL 3×** — the design reaches only **65-73 MHz** on the XC7A200T against the
+   board's 200 MHz. The critical path is the **32-bit accumulator feedback loop** (one add per cycle,
+   no pipeline). The design is a 65-73 MHz design, **not** a 200 MHz design, so the throughput
+   derived at 200 MHz in iteration 5 is **not achievable**. → the accumulator must be pipelined.
+2. **openXC7 packer defects on this design** — three distinct failures (LUT6 O6 with no wire; two
+   arcs on one sink wire; a constant GND net sharing a wire with a real net), all independent of the
+   nextpnr branch, the yosys version, the ABC flow, the placer, the router and the seed.
+   → **the FPGA flow is part of the design space**: this design needs Vivado, a patched nextpnr, or a
+   LUT4/constant-net constrained variant.
+3. **Restructuring moves the failure rather than removing it**, which places the defect in the
+   packer rather than in one cell.
+
+### Decision: **ADOPT the AX7203-native RTL and XDC; DEFER the bitstream**
+
+The chipdb is no longer a blocker and the RTL/constraints are board-correct and reusable. The two
+remaining blockers are now precisely characterised: a 3× clock shortfall in the accumulator (a
+**design** fix) and a packer defect in the open-source FPGA flow (a **toolchain** choice). Shipping a
+bitstream that does not route would be a false artifact.
+
+**Report**: `evidence/ax7203_build/ax7203_build_report.json`
+**RTL + XDC**: `evidence/ax7203_build/`
+**Chipdb provenance**: `evidence/ax7203_build/chipdb_provenance.txt`
+
+### Next: co-design iteration 7 - pipeline the accumulator
+
+Measure the clock-vs-area trade (Fmax, LUTs, FFs) for a pipelined accumulator, then retry the build.
+
 ## DRAM Reads Per Token (✅ MEASURED)
 
 | Metric | Value | Status |
@@ -583,14 +668,14 @@ order of magnitude.
 | BRAM_UTILIZATION | ✅ MEASURED | 0 / 365 (0.0%) |
 | LUT_UTILIZATION | ✅ MEASURED | 32 / 134,600 (0.024%) |
 | DSP_UTILIZATION | ✅ MEASURED | 0 / 740 (0.0%) |
-| CLOCK_MHZ | ⚠️ | 6 (JTAG), **66 CFGMCLK family nominal (specified)**, ~150 ring osc (ESTIMATED, loop structurally verified, functional check pending)** |
+| CLOCK_MHZ | ⚠️ | 6 (JTAG); **attention design achieves 65-73 MHz on XC7A200T** (accumulator-limited, 3x below the board's 200 MHz); CFGMCLK 66 family nominal; ring osc ~150 ESTIMATED |
 | QUALITY_METRIC | ✅ MEASURED | 5/5 bit-exact, CV 0.46% |
 | CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | 1 (8 configurations, accept/reject recorded) |
 | ATTENTION_KV_STATUS | ✅ resources MEASURED (9 configs); combinational form REJECTED, sequential form is next |
 | RL_BENCHMARK_STATUS | ✅ contract + **19** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |
-| BLOCKERS | - | FPGA power: Vivado report_power (AMD login) or external meter; board clock: Digilent HS2 disconnected, XADC read outstanding; ring osc functional check outstanding |
+| BLOCKERS | - | FPGA power: Vivado report_power (AMD login) or external meter; **accumulator must be pipelined for 200 MHz**; **openXC7 packer defect blocks the bitstream**; Digilent HS2 disconnected (XADC + UART beacon + silicon latency outstanding) |
 
 ---
 

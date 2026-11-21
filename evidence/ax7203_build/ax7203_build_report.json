@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-11-22T02:30:00Z",
+  "iteration_id": 6,
+  "name": "AX7203-native build attempt: chipdb built and verified, design does not route in openXC7",
+  "status": "PARTIAL - chipdb VERIFIED, bitstream NOT produced, root causes DIAGNOSED",
+  "why_this_iteration_exists": "Iteration 5 left the design clocked by CFGMCLK with an estimated frequency and no board-native build. This iteration targets the AX7203's real 200 MHz oscillator, the documented LED and UART pins, and produces a flashable bitstream.",
+  "board_facts_from_parent_repo": {
+    "source": "fpga/HARDWARE_SSOT.md in the parent repository (t27)",
+    "clock": "200 MHz differential oscillator on R4 (P) / T4 (N), DIFF_SSTL15",
+    "user_leds_active_low": ["B13", "C13", "D14", "D15"],
+    "uart": "N15 TX, P20 RX",
+    "chipdb": "xc7a200tfbg484-2.bin, 333207792 B, md5 59f828c441e6e6081bfee63ff994660e",
+    "cable": "Digilent HS2, FT232H, serial 210512180081, busdev 0:4 on macOS",
+    "important_correction": "The previously shipped ternary_mac_demo_top_200t.bit drives R23/T23. The SSOT states R23/T23 are Wukong pins that the AX7203 routes elsewhere; the AX7203's user LEDs are B13/C13/D14/D15. The new design uses the documented AX7203 pins."
+  },
+  "chipdb": {
+    "status": "BUILT AND INDEPENDENTLY VERIFIED",
+    "method": "openXC7/nextpnr-xilinx (stable-backports and master both built on the GPU box); bbaexport.py --device xc7a200tfbg484-2 --xray prjxray-db/artix7; bbasm --le to the binary chipdb",
+    "size_bytes": 333207792,
+    "size_matches_ssot": true,
+    "md5": "59f828c441e6e6081bfee63ff994660e",
+    "md5_matches_ssot": true,
+    "note": "The chipdb was regenerated from source and matches the SSOT's recorded size AND md5 exactly, so it is the correct AX7203 database. The stale xc7a200t.bin on the Mac was rejected by nextpnr with 'internal IDs ... inconsistent with the supplied chip database'."
+  },
+  "design": {
+    "rtl": "evidence/ax7203_build/ax7203_attn.v (with UART timing beacon), ax7203_min.v (LED-only)",
+    "attention": "attn_token.v - the adopted token-sequential form, act_bits=8, quant_w=8, kv_len=16, head_dim=8, exact 18 cycles/token",
+    "clocking": "IBUFDS on R4/T4, the board's 200 MHz differential oscillator",
+    "outputs": "LEDs on B13/C13; UART TX on N15 emitting one byte per done pulse, so the host can timestamp the token interval directly on silicon",
+    "datapath_changes_made": [
+      "the ternary weight is applied as SIGN SELECTION on the key, not as a 17x17 multiply: one (ACT_BITS x QUANT_W) multiply per channel instead of two wide ones",
+      "the KV cache was flattened from 2D arrays to 1D arrays of packed words, which removed the per-channel wide muxes",
+      "the UART transmitter was reduced to ONE counter, because two counters produced a multi-driver arc conflict"
+    ]
+  },
+  "build_attempts": [
+    {"yosys": "0.67 (homebrew)", "nextpnr": "openXC7 master", "result": "packer error: 'No wire found for port O6 on source cell'"},
+    {"yosys": "0.46 (OSS CAD Suite)", "nextpnr": "openXC7 master", "result": "same packer error"},
+    {"yosys": "0.46", "nextpnr": "openXC7 stable-backports", "result": "same packer error"},
+    {"yosys": "0.46 with -abc9", "nextpnr": "openXC7 master", "result": "same packer error"},
+    {"yosys": "0.46 with -nolutram", "nextpnr": "openXC7 master", "result": "LUT6 packing error"},
+    {"yosys": "0.46 with -nolutram -nowidelut", "nextpnr": "openXC7 master", "result": "progress: placement succeeds; routing fails on one long ALU net"},
+    {"yosys": "0.46 with -nolutram -nowidelut, clock constrained to 15.385 ns", "nextpnr": "openXC7 master, router1, seeds 3 and 5", "result": "TIMING PASSES (71.86 MHz and 73.15 MHz against a 65 MHz target) but routing fails with 'Wire ... used as source and sink in different nets: $PACKER_GND_NET$legal$...'"},
+    {"yosys": "0.46 with -nolutram -nowidelut, clock constrained to 15.385 ns", "nextpnr": "openXC7 master, router2", "result": "same constant-net conflict"}
+  ],
+  "findings": [
+    {
+      "id": "CLOCK_SHORTFALL_3X",
+      "claim": "The token-sequential attention at act_bits=8/quant_w=8 reaches only 65-73 MHz on the XC7A200T, against the AX7203's 200 MHz board oscillator. The critical path is the 32-bit accumulator feedback loop (one add per cycle, no pipeline). The design is therefore a 65-73 MHz design, NOT a 200 MHz design, and the throughput derived at 200 MHz in iteration 5 is not achievable.",
+      "status": "MEASURED (nextpnr timing analysis over 6 placement runs)",
+      "action": "Pipeline or retime the accumulator. This is the next co-design iteration and it is a DESIGN change, not a toolchain issue."
+    },
+    {
+      "id": "OPENXC7_PACKER_BUGS_ON_THIS_DESIGN",
+      "claim": "nextpnr-openxc7 mis-packs this design in three distinct ways: (a) 'No wire found for port O6' on LUT6 outputs, (b) 'Found two arcs with same sink wire' when a 2D register array is indexed dynamically, (c) 'Wire ... used as source and sink in different nets: $PACKER_GND_NET$legal$...' - a constant net and a real net assigned to the same wire. The failures are independent of the nextpnr branch (master and stable-backports), of the yosys version (0.46 and 0.67), of the ABC flow (-abc9 on and off), of the placer, of the router (router1 and router2), and of the seed.",
+      "status": "MEASURED (8 build configurations, all failing in the same family of packer defects)",
+      "action": "Use Vivado for this design, or patch nextpnr-openxc7, or constrain the design to LUT4 and constant-free nets. A toolchain constraint is a real deliverable constraint for the Lamb Labs co-design loop: the FPGA flow is part of the design space, not an afterthought."
+    },
+    {
+      "id": "FLATTENING_THE_KV_CACHE_CHANGES_THE_FAILURE_MODE",
+      "claim": "Flattening the 2D KV arrays into 1D packed words changed the failure from a LUT6 packer error to a distributed-RAM (DPR2) routing error, and adding -nolutram changed it again. Each restructuring moves the failure rather than removing it, which confirms the failure is in the packer rather than in one specific cell.",
+      "status": "MEASURED"
+    },
+    {
+      "id": "BOARD_PIN_CORRECTION",
+      "claim": "The previously shipped ternary_mac_demo_top_200t.bit drives R23/T23, which the SSOT records as Wukong pins that the AX7203 routes elsewhere. The AX7203's user LEDs are B13/C13/D14/D15. The new design uses the documented AX7203 pins. The earlier bitstream's LED observations are therefore not evidence about this board.",
+      "status": "MEASURED from the netlist and the SSOT",
+      "action": "Any future flash of the earlier bitstream must be read with this in mind."
+    }
+  ],
+  "decision": "ADOPT the AX7203-native design (R4/T4 clock, B13/C13 LEDs, N15 UART beacon) as the reference RTL and XDC; DEFER the bitstream until either the accumulator is pipelined or a working Xilinx flow is available",
+  "decision_rationale": [
+    "The chipdb is built and independently verified against the SSOT's size and md5, so the board database is no longer a blocker.",
+    "The RTL and constraints are correct for the board and are reusable immediately.",
+    "The two blockers are now precisely characterised: a 3x clock shortfall in the accumulator (a design fix) and a packer defect in the open-source FPGA flow (a toolchain choice).",
+    "Shipping a bitstream that does not route would be a false artifact. The honest state is recorded instead."
+  ],
+  "still_open": [
+    "Pipeline the 32-bit accumulator so the design can approach the board's 200 MHz. This is co-design iteration 7.",
+    "Obtain a working FPGA flow for this design: Vivado (AMD account), a patched nextpnr, or a LUT4/constant-net constrained variant.",
+    "Flash and measure once the Digilent HS2 is connected: XADC for die temperature and VCCINT, the UART beacon for the token interval, the LED pattern for a sanity check.",
+    "Power and J/token remain ESTIMATED until Vivado report_power or an external meter is available."
+  ],
+  "next_iteration": [
+    "co-design iteration 7: pipeline the accumulator (a carry-select or two-stage accumulator) and re-measure Fmax, LUTs and FFs; report the clock-vs-area trade",
+    "retry the build with the pipelined accumulator under -nolutram -nowidelut",
+    "if the openXC7 packer still fails, record a minimal reproduction and file it as a toolchain defect"
+  ]
+}

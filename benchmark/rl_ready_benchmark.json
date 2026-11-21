@@ -514,7 +514,8 @@
     "attention_joint": "evidence/attention_joint/joint_iteration_report.json",
     "attention_seq": "evidence/attention_seq/sequential_iteration_report.json",
     "attention_token": "evidence/attention_token/token_iteration_report.json",
-    "clock": "evidence/clock/clock_iteration_report.json"
+    "clock": "evidence/clock/clock_iteration_report.json",
+    "ax7203_build": "evidence/ax7203_build/ax7203_build_report.json"
   },
   "co_design_rule": "The KV cache stores sign + quant_w magnitude bits of an act_bits-wide signed value, so losslessness requires quant_w >= act_bits. QUANT_W is not an independent lever: narrowing it alone is lossy, narrowing act_bits alone at quant_w=8 wastes cache bits. The two must move together.",
   "open_source_engagement": {
@@ -545,6 +546,62 @@
       "estimated_mhz": 150,
       "status": "ESTIMATED; the loop is VERIFIED CLOSED in the shipped netlist by evidence/clock/verify_ring_oscillator.py, but FUNCTIONAL oscillation is unverified on silicon",
       "reference": "evidence/clock/clock_iteration_report.json"
+    }
+  },
+  "board_reference": {
+    "board": "ALINX AX7203",
+    "fpga": "xc7a200tfbg484-2",
+    "clock_200mhz_diff_pins": [
+      "R4 (P)",
+      "T4 (N)"
+    ],
+    "user_leds_active_low": [
+      "B13",
+      "C13",
+      "D14",
+      "D15"
+    ],
+    "uart_tx_pin": "N15",
+    "uart_rx_pin": "P20",
+    "chipdb": {
+      "file": "xc7a200tfbg484-2.bin",
+      "size_bytes": 333207792,
+      "md5": "59f828c441e6e6081bfee63ff994660e",
+      "status": "BUILT AND VERIFIED against the SSOT's size and md5"
+    },
+    "important_correction": "The earlier shipped ternary_mac_demo_top_200t.bit drives R23/T23, which the SSOT records as Wukong pins that the AX7203 routes elsewhere. The AX7203's user LEDs are B13/C13/D14/D15, so that bitstream's LED observations are not evidence about this board.",
+    "cable": {
+      "type": "Digilent HS2",
+      "probe": "FT232H",
+      "serial": "210512180081",
+      "macos_busdev": "0:4",
+      "status": "DISCONNECTED during this work"
+    }
+  },
+  "toolchain_constraints": {
+    "clock_shortfall": {
+      "achieved_mhz": "65-73",
+      "board_oscillator_mhz": 200,
+      "critical_path": "the 32-bit accumulator feedback loop (one add per cycle, no pipeline)",
+      "status": "MEASURED over 6 placement runs",
+      "action": "pipeline the accumulator - co-design iteration 7"
+    },
+    "openxc7_packer_defect": {
+      "failures_observed": [
+        "No wire found for port O6 on source cell (LUT6)",
+        "Found two arcs with same sink wire (2D register array with a dynamic index)",
+        "Wire ... used as source and sink in different nets: $PACKER_GND_NET$legal$... (a constant net and a real net on one wire)"
+      ],
+      "independent_of": [
+        "nextpnr branch (master, stable-backports)",
+        "yosys version (0.46, 0.67)",
+        "ABC flow (-abc9 on and off)",
+        "placer",
+        "router (router1, router2)",
+        "seed"
+      ],
+      "configurations_tried": 8,
+      "action": "Vivado, a patched nextpnr, or a LUT4/constant-net constrained variant. The FPGA flow is part of the design space."
     }
   }
 }

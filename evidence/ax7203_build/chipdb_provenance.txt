@@ -1,0 +1,2 @@
+59f828c441e6e6081bfee63ff994660e  /home/t27ssh/t27os/fpga/xc7a200tfbg484-2.bin
+-rw-rw-r-- 1 t27ssh t27ssh 333207792 Nov 21 19:52 /home/t27ssh/t27os/fpga/xc7a200tfbg484-2.bin

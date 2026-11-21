@@ -1,0 +1,7 @@
+set_property -dict {PACKAGE_PIN R4 IOSTANDARD DIFF_SSTL15} [get_ports clk200_p]
+set_property -dict {PACKAGE_PIN T4 IOSTANDARD DIFF_SSTL15} [get_ports clk200_n]
+create_clock -period 5.000 -name clk200 [get_ports clk200_p]
+set_property -dict {PACKAGE_PIN B13 IOSTANDARD LVCMOS33} [get_ports led0]
+set_property -dict {PACKAGE_PIN C13 IOSTANDARD LVCMOS33} [get_ports led1]
+set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
+set_property BITSTREAM.CONFIG.UNUSEDPIN PULLDOWN [current_design]
