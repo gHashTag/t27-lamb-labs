@@ -555,11 +555,13 @@ Datapath changes made while building:
 
 ### Findings
 
-1. **CLOCK SHORTFALL 3×** — the design reaches only **65-73 MHz** on the XC7A200T against the
-   board's 200 MHz. The design is a 65-73 MHz design, **not** a 200 MHz design, so the throughput
-   derived at 200 MHz in iteration 5 is **not achievable**.
-   → **Iteration 7 corrected the cause**: the critical path is the **KV-cache read mux**, not the
-   accumulator feedback (removing the accumulator feedback made Fmax *worse*, 71.86 → 59.77 MHz).
+1. **CLOCK SHORTFALL - CLAIM WITHDRAWN BY ITERATION 8.** This section originally read "the design
+   reaches only 65-73 MHz ... a 3x shortfall against the board's 200 MHz". Iteration 8 measured the
+   same netlist at 45.13-73.15 MHz across five seed/router combinations (a 62% spread), which shows
+   the reported Fmax is **placement noise**, not a measure of this design. **The design's true
+   achievable clock is UNKNOWN** until Vivado's timing report or silicon says otherwise.
+   Iteration 7's correction of the cause was itself withdrawn: deleting the KV read mux it blamed
+   made the number *worse* (55.03 MHz), and the BRAM version was identical (71.86 MHz).
 2. **openXC7 packer defects on this design** — three distinct failures (LUT6 O6 with no wire; two
    arcs on one sink wire; a constant GND net sharing a wire with a real net), all independent of the
    nextpnr branch, the yosys version, the ABC flow, the placer, the router and the seed.
@@ -613,15 +615,11 @@ settings (yosys 0.46, `-nolutram -nowidelut`, chipdb `xc7a200tfbg484-2`, 65 MHz 
 
 ### Decision: **REJECT the accumulator-pipelining plan; ADOPT KV-read pipelining**
 
-Pipelining the accumulator would not have bought frequency. The measured limiter is the KV-cache
-read mux, so that is where a pipeline stage has to go.
-
-| | |
-|---|---|
-| Cycles/token now | 18 |
-| Cycles/token after the KV pipeline | **19 (+5.6%)** |
-| Expected benefit | the 32-to-1 mux leaves the critical path |
-| Achievable Fmax | **TARGET, not yet measured** |
+> **WITHDRAWN BY ITERATION 8.** The KV-read pipelining built here measured **40.52 MHz**, worse than
+> the 71.86 MHz baseline, and the direct test of the blamed path (deleting the read mux) measured
+> **55.03 MHz**, also worse. The Fmax these numbers rest on is placement noise. The plan is
+> withdrawn, not because it was refuted on its merits but because the metric it used cannot decide
+> the question. The cycles/token cost (+5.6%) and the resource costs remain valid.
 
 The KV-read pipeline would fetch slot N+1 while accumulating slot N, needing a one-slot lookahead
 and special handling of the last slot.
@@ -634,6 +632,70 @@ and special handling of the last slot.
 This iteration changed no claim without a measurement, and it changed a **previous** claim -
 iteration 6's critical-path attribution - on the strength of the exclusion experiment. Both are in
 the record.
+
+## Co-Design Iteration 8: the Fmax numbers were placement noise (✅ MEASURED - two claims withdrawn)
+
+Iteration 7 concluded, by exclusion, that the KV-cache read mux was the critical path. Iteration 6
+concluded the design had a "3× clock shortfall". **Both rest on nextpnr's reported Fmax.** This
+iteration tests whether that number is a valid measure at all.
+
+### Three new controlled variants
+
+| Variant | Change | Fmax | vs baseline | Verdict |
+|---|---|---|---|---|
+| `kvpipe` | KV read pipelined (iteration 7's proposed fix: fetch slot N+1 while accumulating slot N) | 40.52 MHz | **-43%** | WORSE |
+| `fixedread` | KV read index fixed to slot 0 - the 32-to-1 read mux **deleted entirely** | 55.03 MHz | **-23%** | WORSE |
+| `bram` | KV cache inferred into block RAM - the read becomes a hard macro, no mux | 71.86 MHz | **0%** | IDENTICAL (1 RAMB36) |
+
+### Seed sweep on ONE identical netlist
+
+| Router | Seed | Fmax |
+|---|---|---|
+| router2 | 1 | 57.30 MHz |
+| router2 | 2 | 48.98 MHz |
+| router2 | 4 | 45.13 MHz |
+| router1 | 3 | 71.86 MHz |
+| router1 | 5 | 73.15 MHz |
+
+**min 45.13 - max 73.15 MHz = 28.02 MHz spread = 62% of the minimum, on a byte-identical netlist.**
+
+### Findings
+
+1. **Fmax from this toolchain is PLACEMENT NOISE on this design.** A property of the logic cannot
+   vary by 62% when the logic is unchanged. **No frequency conclusion may rest on it.**
+2. **Iteration 7's conclusion is withdrawn.** The direct test deletes the mux it blamed; the
+   reported Fmax *falls*, and the BRAM version - where the read is a hard macro with no mux at all -
+   is *identical*. Iteration 7's method was sound; its conclusion was inferred, and the direct
+   measurement contradicts it.
+3. **Iteration 6's "3× clock shortfall" is withdrawn as an established fact.** The same netlist
+   also measures 45.13 MHz, so the design's true frequency limit is **UNKNOWN**. It may well run at
+   200 MHz; the toolchain simply does not say so.
+4. **BRAM is area-free and frequency-free here.** Moving the KV cache to block RAM costs 1 RAMB36
+   of 365 and leaves Fmax identical. The dashboard's "BRAM = 0" is a property of the *register*
+   implementation, not of the architecture.
+
+### Decision: **WITHDRAW the frequency claims of iterations 6 and 7**
+
+The resource numbers (LUT/FF/BRAM/DSP), the quality metric, the combinational-vs-sequential
+comparison and the lossless rule are stable across seeds and **remain the portfolio's solid
+ground**. The timing number is not, so frequency is recorded as **UNKNOWN** pending Vivado's
+timing report or silicon.
+
+### What this means for the pitch
+
+- An FPGA flow is part of the design space, not a formality: on this design the open toolchain's
+  timing number was **not a measurement**.
+- Any J/token or tok/s figure produced from a nextpnr-reported Fmax would be an estimate of an
+  estimate. The protocol requires a silicon measurement or a vendor-tool timing report first.
+- The **resource-side** co-design results are unaffected and stay solid.
+
+**Report**: `evidence/fmax_noise/fmax_noise_report.json`
+**Variants**: `evidence/fmax_noise/attn_token{,_kvpipe,_fixedread,_bram}.v`
+
+### Note on method
+
+Two claims made by this project were withdrawn by its own measurement. That is the point of an
+evidence-first portfolio: the rule is applied to the tool's numbers as carefully as to the design's.
 
 ## DRAM Reads Per Token (✅ MEASURED)
 
@@ -721,14 +783,14 @@ order of magnitude.
 | BRAM_UTILIZATION | ✅ MEASURED | 0 / 365 (0.0%) |
 | LUT_UTILIZATION | ✅ MEASURED | 32 / 134,600 (0.024%) |
 | DSP_UTILIZATION | ✅ MEASURED | 0 / 740 (0.0%) |
-| CLOCK_MHZ | ⚠️ | 6 (JTAG); **attention design achieves 65-73 MHz on XC7A200T** (KV-read-mux limited, 3x below the board's 200 MHz); CFGMCLK 66 family nominal; ring osc ~150 ESTIMATED |
+| CLOCK_MHZ | ⚠️ | 6 (JTAG); **attention design's achievable clock is UNKNOWN** (nextpnr Fmax varies 45-73 MHz on an identical netlist, so it is placement noise); CFGMCLK 66 family nominal; ring osc ~150 ESTIMATED |
 | QUALITY_METRIC | ✅ MEASURED | 5/5 bit-exact, CV 0.46% |
 | CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | 1 (8 configurations, accept/reject recorded) |
 | ATTENTION_KV_STATUS | ✅ resources MEASURED (9 configs); combinational form REJECTED, sequential form is next |
 | RL_BENCHMARK_STATUS | ✅ contract + **19** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |
-| BLOCKERS | - | FPGA power: Vivado report_power (AMD login) or external meter; **KV-read mux must be pipelined for 200 MHz** (iteration 8); **openXC7 packer defect blocks the bitstream**; Digilent HS2 disconnected (XADC + UART beacon + silicon latency outstanding) |
+| BLOCKERS | - | FPGA power: Vivado report_power (AMD login) or external meter; **achievable clock UNKNOWN** (needs Vivado timing or silicon; nextpnr Fmax is placement noise); **openXC7 packer defect blocks the bitstream**; Digilent HS2 disconnected (XADC + UART beacon + silicon latency outstanding) |
 
 ---
 

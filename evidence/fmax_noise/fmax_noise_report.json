@@ -1,0 +1,77 @@
+{
+  "timestamp": "2026-11-22T03:05:00Z",
+  "iteration_id": 8,
+  "name": "the Fmax numbers were placement noise - two earlier claims corrected",
+  "status": "MEASURED",
+  "question": "Iteration 7 concluded, by exclusion, that the KV-cache read mux was the critical path, and iteration 6 concluded the design had a '3x clock shortfall'. Both rest on nextpnr's reported Fmax. This iteration tests whether that number is a valid measure at all.",
+  "method": {
+    "technique": "three new controlled variants plus a seed/router sweep on one identical netlist",
+    "synthesis": "yosys 0.46 (OSS CAD Suite), synth_xilinx -family xc7 -nodsp -nosrl -nolutram -nowidelut",
+    "pnr": "nextpnr-xilinx (openXC7), chipdb xc7a200tfbg484-2, xdc clock constrained to 15.385 ns (65 MHz), placer sa",
+    "note": "all numbers below come from the same toolchain; only the stated variable changes"
+  },
+  "new_variants": [
+    {"variant": "kvpipe", "change": "the KV read is pipelined: slot N+1 is fetched into registers while slot N is accumulated (iteration 7's proposed fix)", "fmax_mhz": 40.52, "vs_baseline": "-43%", "verdict": "WORSE"},
+    {"variant": "fixedread", "change": "the KV read index is fixed to slot 0, so the 32-to-1 read mux is deleted entirely while the write decode is untouched", "fmax_mhz": 55.03, "vs_baseline": "-23%", "verdict": "WORSE"},
+    {"variant": "bram", "change": "the KV cache is inferred into block RAM (ram_style=block) instead of registers, so the read becomes a hard macro", "fmax_mhz": 71.86, "vs_baseline": "0%", "ramb36_used": 1, "verdict": "IDENTICAL"}
+  ],
+  "seed_sweep_on_one_identical_netlist": {
+    "netlist": "the baseline, byte-identical in every run",
+    "runs": [
+      {"router": "router2", "seed": 1, "fmax_mhz": 57.30},
+      {"router": "router2", "seed": 2, "fmax_mhz": 48.98},
+      {"router": "router2", "seed": 4, "fmax_mhz": 45.13},
+      {"router": "router1", "seed": 3, "fmax_mhz": 71.86},
+      {"router": "router1", "seed": 5, "fmax_mhz": 73.15}
+    ],
+    "min_mhz": 45.13,
+    "max_mhz": 73.15,
+    "spread_mhz": 28.02,
+    "spread_pct_of_min": 62
+  },
+  "findings": [
+    {
+      "id": "FMAX_IS_PLACEMENT_NOISE_ON_THIS_DESIGN",
+      "claim": "The SAME logical netlist yields Fmax from 45.13 MHz to 73.15 MHz across five seed/router combinations - a 62% spread. A property of the logic cannot vary by 62% when the logic is unchanged. The number nextpnr-openxc7 reports for this design is dominated by placement luck.",
+      "status": "MEASURED",
+      "consequence": "Fmax from this toolchain is not a valid measure of this design's logic depth. No frequency conclusion may rest on it."
+    },
+    {
+      "id": "ITERATION_7_CONCLUSION_UNSUPPORTED",
+      "claim": "Iteration 7 concluded the KV read mux was the critical path by exclusion. The direct test removes that mux entirely (fixedread) and the reported Fmax FALLS from 71.86 MHz to 55.03 MHz, and the BRAM version, where the read is a hard macro with no mux at all, is IDENTICAL at 71.86 MHz. The conclusion is not supported.",
+      "status": "MEASURED",
+      "correction": "Iteration 7's finding is withdrawn. Its method - controlled removal - was sound; its conclusion was inferred rather than measured, and the direct measurement contradicts it."
+    },
+    {
+      "id": "ITERATION_6_CLOCK_SHORTFALL_NOT_ESTABLISHED",
+      "claim": "Iteration 6 called the design '65-73 MHz, a 3x shortfall against the board's 200 MHz'. Given that the same netlist also measures 45.13 MHz, the true frequency limit of the design is UNKNOWN. The design may well run at 200 MHz; the toolchain simply does not say so.",
+      "status": "MEASURED",
+      "correction": "The '3x clock shortfall' is withdrawn as an established fact. It becomes: the reported Fmax is unreliable, and the real limit is unknown until Vivado or silicon says otherwise."
+    },
+    {
+      "id": "BRAM_CACHE_IS_AREA_FREE_AND_FREQUENCY_FREE",
+      "claim": "Moving the KV cache to block RAM costs 1 RAMB36 (of 365) and leaves the reported Fmax identical. The earlier claim that the KV cache sits in fabric with '0 BRAM' is a property of the register implementation, not of the architecture.",
+      "status": "MEASURED",
+      "note": "This is the first configuration in the whole portfolio that uses BRAM, so the 'BRAM = 0' figure in the dashboard applies to the register-file variant only."
+    }
+  ],
+  "decision": "WITHDRAW the frequency claims of iterations 6 and 7; keep the designs and the resource measurements; treat frequency as UNKNOWN pending Vivado or silicon",
+  "decision_rationale": [
+    "A measurement that varies by 62% on an unchanged netlist cannot support a conclusion about logic depth.",
+    "The resource numbers (LUT/FF/BRAM/DSP) are stable across seeds and remain valid; only the timing number is unstable.",
+    "The KV-read pipelining proposal is withdrawn: it was aimed at a path that the direct measurement does not implicate, and it made the reported number worse.",
+    "The honest state is that the design's achievable clock is unknown. That is a true statement and it is more useful to a co-design partner than a false one."
+  ],
+  "implications_for_the_lamb_labs_pitch": [
+    "An FPGA flow is part of the design space, not a formality: on this design the open toolchain's timing number was not a measurement.",
+    "Any J/token or tok/s figure produced from a nextpnr-reported Fmax would be an estimate of an estimate. The protocol requires a silicon measurement or a vendor-tool timing report before such a figure is published.",
+    "The resource-side co-design results - LUT/FF/BRAM/DSP, the quality metric, the combinational-vs-sequential comparison, the lossless rule - are unaffected and remain the portfolio's solid ground."
+  ],
+  "still_open": [
+    "The true achievable clock needs Vivado's timing report or a silicon measurement with a known-good clock (the AX7203's 200 MHz oscillator).",
+    "The openXC7 packer defect still blocks the bitstream; it appeared in every run of every variant, independent of the logic.",
+    "Power and J/token remain ESTIMATED.",
+    "No silicon measurement: the Digilent HS2 was disconnected throughout."
+  ],
+  "method_note": "Two claims made by this project were withdrawn by its own measurement. That is the point of an evidence-first portfolio: the rule is applied to the tool's numbers as carefully as to the design's numbers."
+}

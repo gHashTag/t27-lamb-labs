@@ -524,7 +524,8 @@
     "attention_token": "evidence/attention_token/token_iteration_report.json",
     "clock": "evidence/clock/clock_iteration_report.json",
     "ax7203_build": "evidence/ax7203_build/ax7203_build_report.json",
-    "critical_path": "evidence/critical_path/critical_path_report.json"
+    "critical_path": "evidence/critical_path/critical_path_report.json",
+    "fmax_noise": "evidence/fmax_noise/fmax_noise_report.json"
   },
   "co_design_rule": "The KV cache stores sign + quant_w magnitude bits of an act_bits-wide signed value, so losslessness requires quant_w >= act_bits. QUANT_W is not an independent lever: narrowing it alone is lossy, narrowing act_bits alone at quant_w=8 wastes cache bits. The two must move together.",
   "open_source_engagement": {
@@ -589,17 +590,19 @@
   },
   "toolchain_constraints": {
     "clock_shortfall": {
-      "achieved_mhz": "65-73",
-      "board_oscillator_mhz": 200,
-      "critical_path": {
-        "measured": "the KV-cache read mux (a 32-to-1 dynamic-index mux per channel, in series with the sign select, the add and the accumulator mux)",
-        "evidence": "controlled removal: removing the accumulator feedback made Fmax WORSE (71.86 -> 59.77 MHz); removing the score multiply moved it 3.2% (71.86 -> 74.13 MHz)",
-        "not": "the 32-bit accumulator feedback loop - iteration 6 attributed it there and iteration 7 measured that it was wrong",
-        "fix": "pipeline the KV read (fetch slot N+1 while accumulating slot N): 18 -> 19 cycles/token, +5.6%",
-        "status": "FIX NOT YET BUILT OR MEASURED"
+      "status": "WITHDRAWN - the achievable clock is UNKNOWN",
+      "what_was_claimed": "iterations 6 and 7 claimed a 3x shortfall against the board's 200 MHz and blamed the KV read mux",
+      "why_withdrawn": "the same byte-identical netlist measured 45.13, 48.98, 57.30, 71.86 and 73.15 MHz across five seed/router combinations - a 62% spread - so nextpnr's reported Fmax is placement noise on this design, not a measure of logic depth",
+      "direct_tests": {
+        "kv_read_mux_deleted": 55.03,
+        "kv_cache_in_bram": 71.86,
+        "kv_read_pipelined": 40.52,
+        "baseline": 71.86,
+        "reading": "removing the path iteration 7 blamed made the reported number WORSE, and the BRAM version was IDENTICAL"
       },
-      "status": "MEASURED over 6 placement runs",
-      "action": "pipeline the accumulator - co-design iteration 7"
+      "what_survives": "the resource numbers (LUT/FF/BRAM/DSP), the quality metric, the combinational-vs-sequational comparison and the lossless rule are stable across seeds",
+      "what_is_needed": "a Vivado timing report or a silicon measurement against the AX7203's 200 MHz oscillator",
+      "consequence": "no tok/s or J/token figure may be derived from a nextpnr-reported Fmax"
     },
     "openxc7_packer_defect": {
       "failures_observed": [
@@ -618,5 +621,6 @@
       "configurations_tried": 8,
       "action": "Vivado, a patched nextpnr, or a LUT4/constant-net constrained variant. The FPGA flow is part of the design space."
     }
-  }
+  },
+  "bram_note": "the KV cache sits in fabric with 0 BRAM in the register-file implementation; moving it to block RAM costs 1 RAMB36 of 365 and leaves the reported Fmax identical. The 'BRAM = 0' figure is a property of the register implementation, not of the architecture."
 }
