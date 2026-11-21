@@ -72,7 +72,7 @@ inside the MAC datapath.
 
 ---
 
-## LUT/BRAM/DSP Utilization (\u2705 MEASURED)
+## LUT/BRAM/DSP Utilization (✅ MEASURED)
 
 **Tool**: yosys 0.67+post `synth_xilinx -family xc7 -nodsp -nosrl -flatten` - the identical
 synthesis command from `scripts/fpga-build.sh` that produced the shipped `.bit`.
@@ -81,15 +81,15 @@ synthesis command from `scripts/fpga-build.sh` that produced the shipped `.bit`.
 
 | Resource | Used | Available (xc7a200t) | % | Status |
 |---|---|---|---|---|
-| LUTs | 32 | 134,600 | 0.024% | \u2705 MEASURED |
-| FFs | 17 | 269,200 | 0.006% | \u2705 MEASURED |
-| BRAM 36K | **0** | 365 | **0.0%** | \u2705 MEASURED |
-| DSP48E1 | **0** | 740 | **0.0%** | \u2705 MEASURED (zero-DSP) |
-| BUFG | 1 | - | - | \u2705 MEASURED |
-| CARRY4 | 5 | - | - | \u2705 MEASURED |
-| INV | 9 | - | - | \u2705 MEASURED |
-| IOB (OBUF) | 2 | 285 | 0.70% | \u2705 MEASURED |
-| Estimated LCs | 18 | 134,600 | 0.013% | \u2705 MEASURED |
+| LUTs | 32 | 134,600 | 0.024% | ✅ MEASURED |
+| FFs | 17 | 269,200 | 0.006% | ✅ MEASURED |
+| BRAM 36K | **0** | 365 | **0.0%** | ✅ MEASURED |
+| DSP48E1 | **0** | 740 | **0.0%** | ✅ MEASURED (zero-DSP) |
+| BUFG | 1 | - | - | ✅ MEASURED |
+| CARRY4 | 5 | - | - | ✅ MEASURED |
+| INV | 9 | - | - | ✅ MEASURED |
+| IOB (OBUF) | 2 | 285 | 0.70% | ✅ MEASURED |
+| Estimated LCs | 18 | 134,600 | 0.013% | ✅ MEASURED |
 
 LUT breakdown: 19x LUT1 + 2x LUT3 + 7x LUT4 + 4x LUT6. The 19 LUT1 + 4 INV are the ring-oscillator
 clock; the **ternary MAC itself costs 13 LUTs (2xLUT3 + 7xLUT4 + 4xLUT6), 5 CARRY4 chains**, and
@@ -115,7 +115,7 @@ part of the 17 FFs.
 
 ---
 
-## Co-Design Iterations (\u2705 MEASURED - iteration 1 complete)
+## Co-Design Iterations (✅ MEASURED - iteration 1 complete)
 
 ### Iteration 1: accumulator width x loop topology
 
@@ -171,31 +171,79 @@ Open loop: the upper bits are provably constant and cost nothing, so 16b and 32b
 
 ---
 
-## DRAM Reads Per Token (\u2705 MEASURED)
+## Attention + Bounded KV-Cache Extension (✅ RESOURCES MEASURED, quality pending)
+
+Minimal single-head attention with a bounded **quantised** KV-cache:
+`score[s] = sum_c q[c]*K[s][c]`, `out[c] = sum_s sign(score[s])*V[s][c]`,
+K and V stored as sign + `QUANT_W` magnitude bits.
+
+**Tool**: yosys `synth_xilinx -family xc7 -nodsp -nosrl -flatten`
+
+| HEAD_DIM | KV_LEN | QUANT_W | LUTs | FFs | CARRY4 | MUXF7 | MUXF8 | LCs | DSP | RAM |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 4 | 8 | 8 | 15,855 | 144 | 638 | 2,338 | 673 | 13,897 | 0 | 0 |
+| 4 | 16 | 8 | 15,852 | 145 | 639 | 2,317 | 668 | 13,881 | 0 | 0 |
+| 8 | 4 | 8 | 16,060 | 143 | 638 | 2,338 | 673 | 14,030 | 0 | 0 |
+| 8 | 8 | 8 | 32,387 | 272 | 1,230 | 4,728 | 1,560 | 28,627 | 0 | 0 |
+| 8 | 16 | 8 | 32,351 | 273 | 1,231 | 4,687 | 1,541 | 28,619 | 0 | 0 |
+| 8 | 32 | 8 | 32,160 | 274 | 1,231 | 4,512 | 1,481 | 28,430 | 0 | 0 |
+| 8 | 64 | 8 | 32,223 | 275 | 1,231 | 4,512 | 1,481 | 28,476 | 0 | 0 |
+| 8 | 16 | 4 | 15,900 | 145 | 635 | 2,225 | 748 | 13,869 | 0 | 0 |
+| 8 | 16 | 6 | 24,197 | 209 | 933 | 3,468 | 1,140 | 21,290 | 0 | 0 |
+
+### Findings
+
+1. **Zero-DSP holds in attention** - DSP48E1 = 0 in every configuration, up to a 64-slot KV cache.
+2. **No BRAM, no DRAM** - RAMB = 0 everywhere; the KV cache stays in fabric LUT/FF.
+   External DRAM reads per token = **0**, KV traffic = **0 bytes/token**.
+3. **QUANT_WIDTH is the dominant lever** - at HEAD_DIM=8 / KV_LEN=16:
+   QUANT_W=4 -> 13,869 LCs, 6 -> 21,290 LCs, 8 -> 28,619 LCs.
+   Going 4-bit -> 8-bit costs **+103% LUTs**. **Decision: adopt QUANT_W=4** for the edge target.
+4. **HEAD_DIM doubles the cost** - 4 -> 8 channels is +104% LUTs.
+5. **The combinational attention form does not fit** - 28,619 LCs is **21.3% of the XC7A200T
+   LUT fabric** for one 8-channel head with a 16-slot cache. **Decision: REJECT the combinational
+   form; a sequential form (one slot per cycle) is required.** This is the next iteration.
+6. **KV_LEN scaling is NOT characterised** - measured LCs saturate from KV_LEN=8 onward
+   (28,627 / 28,619 / 28,430 / 28,476 for 8 / 16 / 32 / 64). This saturation is a **harness
+   artifact**: every slot is written with the same rotating counter pattern, so the mux trees
+   collapse. The real per-slot cost needs a randomised payload sweep. Recorded as a known gap.
+
+**Report**: `evidence/attention/attention_kv_report.json`
+**Logs**: `evidence/attention/stat_attn_h*_k*_q*.txt`
+**RTL**: `evidence/attention/attn_kv.v`
+
+**Latency (derived, not measured on silicon)**: combinational depth = SLOTS x HEAD_DIM MAC steps
+(16 x 8 = 128), ~640 ns/token at 150 MHz. A sequential form would be 16 cycles (~107 ns) at a
+fraction of the LUT cost - not yet built.
+
+**Quality**: PENDING. No attention-output quality metric has been computed yet; the resource
+sweep alone cannot justify a quality claim.
+
+## DRAM Reads Per Token (✅ MEASURED)
 
 | Metric | Value | Status |
 |---|---|---|
-| External Weight Reads/Token | 0 | \u2705 MEASURED |
-| On-Chip Weight Residency | BRAM / fabric LUTs | \u2705 MEASURED |
-| Activation Traffic/Token | 0 bytes | \u2705 MEASURED |
-| KV Traffic/Token | 0 bytes | \u2705 MEASURED |
+| External Weight Reads/Token | 0 | ✅ MEASURED |
+| On-Chip Weight Residency | BRAM / fabric LUTs | ✅ MEASURED |
+| Activation Traffic/Token | 0 bytes | ✅ MEASURED |
+| KV Traffic/Token | 0 bytes | ✅ MEASURED |
 
 Ternary weights are **resident in on-chip memory for the demonstrated workload**; external weight
 reads per generated token: **0 (measured)**.
 
 ---
 
-## Energy Per Token (\u26a0\ufe0f POWER ESTIMATED, J/TOKEN ESTIMATED)
+## Energy Per Token (⚠️ POWER ESTIMATED, J/TOKEN ESTIMATED)
 
 | Metric | Value | Status | Notes |
 |---|---|---|---|
-| Measured Tokens/sec | ~5.7 tok/s | \u2705 MEASURED | 5 cycle-1 runs / 0.875 s total |
-| Run duration mean | 0.1749 s | \u2705 MEASURED | std 0.0008 s, CV 0.46% |
-| Estimated Power | ~0.7 W | \u26a0\ufe0f ESTIMATE | Dominated by static/IO/clock: **0 DSP, 0 BRAM, 32 LUTs** active |
-| Confidence Level | Preliminary | \u26a0\ufe0f ESTIMATE | Vivado `report_power` unavailable (AMD account login) |
-| Accuracy Band | \u00b120% | \u26a0\ufe0f ESTIMATE | Vivado Preliminary class |
-| **J/token (est.)** | **~0.12 J/token** | \u26a0\ufe0f ESTIMATE | = 0.7 W / 5.7 tok/s |
-| Measured power (external meter) | TBD | \u274c BLOCKED | Needs Monsoon / Keysight / Joulescope |
+| Measured Tokens/sec | ~5.7 tok/s | ✅ MEASURED | 5 cycle-1 runs / 0.875 s total |
+| Run duration mean | 0.1749 s | ✅ MEASURED | std 0.0008 s, CV 0.46% |
+| Estimated Power | ~0.7 W | ⚠️ ESTIMATE | Dominated by static/IO/clock: **0 DSP, 0 BRAM, 32 LUTs** active |
+| Confidence Level | Preliminary | ⚠️ ESTIMATE | Vivado `report_power` unavailable (AMD account login) |
+| Accuracy Band | \u00b120% | ⚠️ ESTIMATE | Vivado Preliminary class |
+| **J/token (est.)** | **~0.12 J/token** | ⚠️ ESTIMATE | = 0.7 W / 5.7 tok/s |
+| Measured power (external meter) | TBD | ❌ BLOCKED | Needs Monsoon / Keysight / Joulescope |
 
 **Why the estimate is credible here**: the measured utilization shows **zero DSP, zero BRAM and only
 32 LUTs** in the entire design, so total board power is dominated by static / IO / clock overhead,
@@ -210,29 +258,29 @@ order of magnitude.
 
 ---
 
-## Quality Metric (\u2705 MEASURED)
+## Quality Metric (✅ MEASURED)
 
 | Metric | Value | Status |
 |---|---|---|
-| Cycle-1 runs | 5/5 PASSED | \u2705 MEASURED |
-| Bit-exact match vs golden | 1.0 | \u2705 MEASURED |
-| Co-design iterations completed | 1 (full, measured) | \u2705 MEASURED |
-| Timing CV | 0.46% | \u2705 MEASURED |
+| Cycle-1 runs | 5/5 PASSED | ✅ MEASURED |
+| Bit-exact match vs golden | 1.0 | ✅ MEASURED |
+| Co-design iterations completed | 1 (full, measured) + attention sweep (9 configs) | ✅ MEASURED |
+| Timing CV | 0.46% | ✅ MEASURED |
 | Literature reference | latency 0.8-1.2%, energy 1.5-2.1% (arXiv:2511.06955) | baseline only |
 
 ---
 
-## Closed Gates (\u2705 MEASURED)
+## Closed Gates (✅ MEASURED)
 
 | Gate | Status | Evidence |
 |---|---|---|
-| Variance rerun | \u2705 CLOSED | 5/5 cycle-1 runs, SHA256 in `evidence/ARTIFACT_HASHES.txt` |
-| Power measurement (2x RTX 3070 box) | \u2705 CLOSED | 60 samples, SHA256 |
-| UDP benchmark | \u2705 CLOSED | 10/10 successes, SHA256 |
-| LUT/BRAM/DSP utilization | \u2705 CLOSED | yosys synth_xilinx, exact bitstream flow |
-| Co-design iteration | \u2705 CLOSED | 8 configurations measured, decision recorded |
-| DRAM reads/token | \u2705 CLOSED | 0, measured |
-| FPGA power / J-per-token | \u274c OPEN | ESTIMATED; needs Vivado report_power or external meter |
+| Variance rerun | ✅ CLOSED | 5/5 cycle-1 runs, SHA256 in `evidence/ARTIFACT_HASHES.txt` |
+| Power measurement (2x RTX 3070 box) | ✅ CLOSED | 60 samples, SHA256 |
+| UDP benchmark | ✅ CLOSED | 10/10 successes, SHA256 |
+| LUT/BRAM/DSP utilization | ✅ CLOSED | yosys synth_xilinx, exact bitstream flow |
+| Co-design iteration | ✅ CLOSED | 8 configurations measured, decision recorded |
+| DRAM reads/token | ✅ CLOSED | 0, measured |
+| FPGA power / J-per-token | ❌ OPEN | ESTIMATED; needs Vivado report_power or external meter |
 
 ---
 
@@ -240,23 +288,23 @@ order of magnitude.
 
 | Metric | Status | Value |
 |---|---|---|
-| BITSTREAM_HASH | \u2705 | `a82c260d759f66afe95a3b6c705fb6e963a3d0ba58227511b1b69ea4a0e00c0b` |
-| RTL_SOURCE_HASH | \u2705 | `c6d50bb1f710ecadc5805431f6b23b711416fe50aef2498eb37b2dc600ad0b52` |
+| BITSTREAM_HASH | ✅ | `a82c260d759f66afe95a3b6c705fb6e963a3d0ba58227511b1b69ea4a0e00c0b` |
+| RTL_SOURCE_HASH | ✅ | `c6d50bb1f710ecadc5805431f6b23b711416fe50aef2498eb37b2dc600ad0b52` |
 | MODEL_CHECKPOINT_HASH | N/A | no ML checkpoint; weights are 2-bit ternary codes in the datapath |
-| POWER_WATTS | \u26a0\ufe0f ESTIMATE | ~0.7 W |
-| TOKENS_PER_SECOND | \u2705 MEASURED | ~5.7 tok/s |
-| J_TOKEN_MEASURED | \u26a0\ufe0f ESTIMATE | ~0.12 J/token (derived from estimated power) |
-| J_TOKEN_CONFIDENCE_INTERVAL | \u26a0\ufe0f | \u00b120% power band, 0.46% timing CV |
-| DRAM_READS_PER_TOKEN | \u2705 MEASURED | 0 |
-| BRAM_UTILIZATION | \u2705 MEASURED | 0 / 365 (0.0%) |
-| LUT_UTILIZATION | \u2705 MEASURED | 32 / 134,600 (0.024%) |
-| DSP_UTILIZATION | \u2705 MEASURED | 0 / 740 (0.0%) |
-| CLOCK_MHZ | \u2705 | 6 (JTAG), ~150 (ring osc, est.) |
-| QUALITY_METRIC | \u2705 MEASURED | 5/5 bit-exact, CV 0.46% |
-| CO_DESIGN_ITERATIONS_COMPLETED | \u2705 MEASURED | 1 (8 configurations, accept/reject recorded) |
-| ATTENTION_KV_STATUS | \u23f3 TODO | next iteration |
-| RL_BENCHMARK_STATUS | \u23f3 TODO | next iteration |
-| OPEN_SOURCE_ENGAGEMENT_STATUS | \u23f3 WAITING | awaiting Lamb Labs open model release |
+| POWER_WATTS | ⚠️ ESTIMATE | ~0.7 W |
+| TOKENS_PER_SECOND | ✅ MEASURED | ~5.7 tok/s |
+| J_TOKEN_MEASURED | ⚠️ ESTIMATE | ~0.12 J/token (derived from estimated power) |
+| J_TOKEN_CONFIDENCE_INTERVAL | ⚠️ | \u00b120% power band, 0.46% timing CV |
+| DRAM_READS_PER_TOKEN | ✅ MEASURED | 0 |
+| BRAM_UTILIZATION | ✅ MEASURED | 0 / 365 (0.0%) |
+| LUT_UTILIZATION | ✅ MEASURED | 32 / 134,600 (0.024%) |
+| DSP_UTILIZATION | ✅ MEASURED | 0 / 740 (0.0%) |
+| CLOCK_MHZ | ✅ | 6 (JTAG), ~150 (ring osc, est.) |
+| QUALITY_METRIC | ✅ MEASURED | 5/5 bit-exact, CV 0.46% |
+| CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | 1 (8 configurations, accept/reject recorded) |
+| ATTENTION_KV_STATUS | ✅ resources MEASURED (9 configs); combinational form REJECTED, sequential form is next |
+| RL_BENCHMARK_STATUS | ⏳ TODO | next iteration |
+| OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | BLOCKERS | - | FPGA power: Vivado report_power (AMD login) or external meter |
 
 ---

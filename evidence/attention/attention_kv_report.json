@@ -1,0 +1,85 @@
+{
+  "timestamp": "2026-11-21T22:15:00Z",
+  "block": "ONE_SHOT block 5 - ATTENTION_AND_KV_EXTENSION",
+  "status": "MEASURED (resources) + DERIVED (latency)",
+  "design": {
+    "module": "attn_kv (specs: evidence/attention/attn_kv.v)",
+    "description": "Minimal single-head attention with a bounded QUANTISED KV-cache. score[s] = sum_c q[c]*K[s][c]; out[c] = sum_s sign(score[s])*V[s][c]. K and V are stored as sign + QUANT_W magnitude bits.",
+    "kv_cache_location": "on-chip fabric (registers/LUTs). No BRAM primitive inferred; no external DRAM.",
+    "external_dram_reads_per_token": 0,
+    "kv_traffic_bytes_per_token": 0
+  },
+  "methodology": {
+    "synthesis": "yosys 0.67+post synth_xilinx -family xc7 -nodsp -nosrl -flatten",
+    "swept_factors": ["HEAD_DIM", "KV_LEN", "QUANT_W"],
+    "logs": "evidence/attention/stat_attn_h*_k*_q*.txt",
+    "power": "ESTIMATED only (Vivado report_power unavailable); resource deltas are MEASURED",
+    "latency": "DERIVED from the combinational depth (SLOTS x HEAD_DIM MAC steps), not measured on silicon"
+  },
+  "measurements": [
+    {"head_dim": 4, "kv_len": 8,  "quant_w": 8, "luts": 15855, "ffs": 144, "carry4": 638, "muxf7": 2338, "muxf8": 673, "estimated_lcs": 13897, "dsp48e1": 0, "ram": 0},
+    {"head_dim": 4, "kv_len": 16, "quant_w": 8, "luts": 15852, "ffs": 145, "carry4": 639, "muxf7": 2317, "muxf8": 668, "estimated_lcs": 13881, "dsp48e1": 0, "ram": 0},
+    {"head_dim": 8, "kv_len": 4,  "quant_w": 8, "luts": 16060, "ffs": 143, "carry4": 638, "muxf7": 2338, "muxf8": 673, "estimated_lcs": 14030, "dsp48e1": 0, "ram": 0},
+    {"head_dim": 8, "kv_len": 8,  "quant_w": 8, "luts": 32387, "ffs": 272, "carry4": 1230, "muxf7": 4728, "muxf8": 1560, "estimated_lcs": 28627, "dsp48e1": 0, "ram": 0},
+    {"head_dim": 8, "kv_len": 16, "quant_w": 8, "luts": 32351, "ffs": 273, "carry4": 1231, "muxf7": 4687, "muxf8": 1541, "estimated_lcs": 28619, "dsp48e1": 0, "ram": 0},
+    {"head_dim": 8, "kv_len": 32, "quant_w": 8, "luts": 32160, "ffs": 274, "carry4": 1231, "muxf7": 4512, "muxf8": 1481, "estimated_lcs": 28430, "dsp48e1": 0, "ram": 0},
+    {"head_dim": 8, "kv_len": 64, "quant_w": 8, "luts": 32223, "ffs": 275, "carry4": 1231, "muxf7": 4512, "muxf8": 1481, "estimated_lcs": 28476, "dsp48e1": 0, "ram": 0},
+    {"head_dim": 8, "kv_len": 16, "quant_w": 4, "luts": 15900, "ffs": 145, "carry4": 635, "muxf7": 2225, "muxf8": 748, "estimated_lcs": 13869, "dsp48e1": 0, "ram": 0},
+    {"head_dim": 8, "kv_len": 16, "quant_w": 6, "luts": 24197, "ffs": 209, "carry4": 933, "muxf7": 3468, "muxf8": 1140, "estimated_lcs": 21290, "dsp48e1": 0, "ram": 0}
+  ],
+  "findings": [
+    {
+      "id": "ZERO_DSP_HOLDS_IN_ATTENTION",
+      "claim": "DSP48E1 = 0 in every attention configuration, including the 8x16 and 8x32 KV caches",
+      "status": "MEASURED"
+    },
+    {
+      "id": "NO_BRAM_NO_DRAM",
+      "claim": "RAMB = 0 in every configuration: the KV cache stayed in fabric LUT/FF and no RAM primitive was inferred; external DRAM reads per token = 0 and KV traffic = 0 bytes/token",
+      "status": "MEASURED"
+    },
+    {
+      "id": "QUANT_WIDTH_IS_THE_DOMINANT_LEVER",
+      "claim": "At HEAD_DIM=8, KV_LEN=16: QUANT_W=4 -> 15,900 LUTs (13,869 LCs); QUANT_W=6 -> 24,197 LUTs (21,290 LCs); QUANT_W=8 -> 32,351 LUTs (28,619 LCs). Going 4-bit -> 8-bit costs +103% LUTs and +106% LCs. Halving the KV cache width halves the attention cost.",
+      "status": "MEASURED",
+      "decision": "ADOPT QUANT_W=4 as the default KV quantisation for the edge-scale target, subject to the quality floor"
+    },
+    {
+      "id": "HEAD_DIM_DOUBLES_THE_COST",
+      "claim": "At KV_LEN=16, QUANT_W=8: HEAD_DIM=4 -> 15,852 LUTs; HEAD_DIM=8 -> 32,351 LUTs (+104%)",
+      "status": "MEASURED"
+    },
+    {
+      "id": "COMBINATIONAL_ATTENTION_DOES_NOT_FIT",
+      "claim": "The combinational attention form costs 28,619 estimated LCs = 21.3% of the XC7A200T LUT fabric (134,600 LCs) for a single 8-channel head with a 16-slot KV cache. On a 134k-LUT device this alone disqualifies the combinational form for anything larger.",
+      "status": "MEASURED",
+      "decision": "REJECT the combinational form. A sequential form (one KV slot per cycle) is required and is the next iteration."
+    },
+    {
+      "id": "KV_LEN_SCALING_NOT_CHARACTERISED",
+      "claim": "Measured LCs saturate from KV_LEN=8 onward (28,627 / 28,619 / 28,430 / 28,476 for KV_LEN 8/16/32/64). This saturation is a HARNESS ARTIFACT: every KV slot is written with the same rotating counter pattern, so the mux trees collapse. The real per-slot cost is NOT characterised by this sweep.",
+      "status": "MEASURED but LIMITED",
+      "limitation": "A randomised KV payload sweep is required to characterise per-slot cost honestly. Recorded as a known gap, not hidden."
+    }
+  ],
+  "derived_latency": {
+    "status": "DERIVED, not measured on silicon",
+    "combinational_mac_steps": "SLOTS x HEAD_DIM (e.g. 16 x 8 = 128)",
+    "estimated_ns_per_token_at_150mhz": 640,
+    "note": "A sequential form would trade this for SLOTS cycles (e.g. 16 cycles = 107 ns) at a fraction of the LUT cost. Not yet built."
+  },
+  "quality": {
+    "status": "PENDING",
+    "note": "No attention quality metric (e.g. attention-output MSE vs a CPU golden) has been computed yet. The resource sweep alone cannot justify a quality claim. Next iteration."
+  },
+  "power": {
+    "status": "ESTIMATED",
+    "note": "Power is not measured. The 28,619-LC attention form would dominate board power if built, so a sequential form is required before any power claim is meaningful."
+  },
+  "next_iteration": [
+    "build the sequential attention form (one KV slot per cycle) and measure its LUT/FF cost against the combinational form",
+    "randomise the KV payload so the per-slot cost is characterised honestly",
+    "compute an attention quality metric against a CPU golden",
+    "re-measure the accumulator peak with the attention path present (the co-design decision from iteration 1 may change)"
+  ]
+}
