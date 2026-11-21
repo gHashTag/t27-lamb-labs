@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0",
+  "name": "t27-lamb-labs ternary MAC co-design benchmark",
+  "purpose": "Machine-readable state/action/reward definition for an automated ternary model-hardware co-design loop on a Kria-class FPGA. This is the BENCHMARK CONTRACT; it is not an RL agent and not a trained policy.",
+  "not_an_rl_system": "No state-action-reward LOOP exists yet. This file defines the interface such a loop would use. Calling the current work 'RL' would be false.",
+  "device": {
+    "board": "ALINX AX7203",
+    "fpga": "xc7a200tfbg484-2",
+    "luts": 134600,
+    "ffs": 269200,
+    "bram_36k": 365,
+    "dsp48e1": 740
+  },
+  "state": {
+    "description": "Architecture + quantisation parameters of a candidate design.",
+    "schema": {
+      "arch": "enum { ternary_mac, ternary_mac_closed_loop, attention_kv }",
+      "acc_bits": "int, accumulator/output width",
+      "head_dim": "int, attention channels (attention_kv only)",
+      "kv_len": "int, bounded KV slots (attention_kv only)",
+      "quant_w": "int, KV magnitude bits (attention_kv only)",
+      "loop_topology": "enum { open, closed }",
+      "seq_len": "int, generated sequence length",
+      "batch": "int, batch size"
+    },
+    "example": {
+      "arch": "attention_kv",
+      "acc_bits": 32,
+      "head_dim": 8,
+      "kv_len": 16,
+      "quant_w": 4,
+      "loop_topology": "closed",
+      "seq_len": 16,
+      "batch": 1
+    }
+  },
+  "action": {
+    "description": "One allowed, single-parameter change to the state.",
+    "allowed_actions": [
+      {"name": "set_acc_bits",   "field": "acc_bits",   "domain": [4, 8, 16, 32]},
+      {"name": "set_head_dim",   "field": "head_dim",   "domain": [4, 8]},
+      {"name": "set_kv_len",     "field": "kv_len",     "domain": [4, 8, 16, 32, 64]},
+      {"name": "set_quant_w",    "field": "quant_w",    "domain": [4, 6, 8]},
+      {"name": "set_loop_topo",  "field": "loop_topology", "domain": ["open", "closed"]},
+      {"name": "set_seq_len",    "field": "seq_len",    "domain": [8, 16, 32, 64, 128]},
+      {"name": "set_batch",      "field": "batch",      "domain": [1, 2, 4, 8]}
+    ],
+    "constraint": "exactly one field changes per action; every action must be inside the declared domain"
+  },
+  "reward": {
+    "definition": "negative normalised J/token, subject to a quality floor and a resource constraint",
+    "formula": "reward = -(J_per_token / J_per_token_reference)",
+    "reference": {
+      "name": "closed-loop ternary MAC, 32-bit accumulator",
+      "j_per_token": 0.12,
+      "status": "ESTIMATED",
+      "note": "Derived from estimated power (0.7 W) / measured tok/s (5.7). When measured power lands, the reference is re-measured and the normalisation is updated."
+    },
+    "quality_floor": {
+      "metric": "bit_exact_match_rate",
+      "threshold": 1.0,
+      "meaning": "the candidate must remain bit-exact against the CPU golden",
+      "measured_now": {
+        "closed_loop_32b": 1.0,
+        "closed_loop_16b": 0.0,
+        "closed_loop_8b": 0.0,
+        "closed_loop_4b": 0.0,
+        "open_loop_32b": 1.0,
+        "open_loop_16b": 1.0,
+        "open_loop_8b": 1.0,
+        "open_loop_4b": 0.0,
+        "source": "evidence/codesign/accumulator_range_sim.py"
+      }
+    },
+    "resource_constraint": {
+      "max_estimated_lcs": 13460,
+      "max_lcs_fraction_of_device": 0.10,
+      "rationale": "the combinational attention form measured 28,619 LCs = 21.3% of the device and was rejected; the benchmark caps candidates at 10% of the LUT fabric",
+      "device_lcs": 134600
+    }
+  },
+  "reproducible_protocol": {
+    "synthesis": "yosys 0.67+post synth_xilinx -family xc7 -nodsp -nosrl -flatten",
+    "measurements": [
+      "estimated_lcs, luts, ffs, bram_36k, dsp48e1, carry4, muxf7, muxf8",
+      "bit_exact_match_rate against the CPU golden",
+      "tok_per_s (measured on the board, 5 cycle-1 runs)",
+      "J_per_token = measured_W / measured_tok_per_s"
+    ],
+    "hash_requirements": "every candidate produces a SHA256 of its netlist, its stats log and its quality log; a result without the hash is not accepted",
+    "repeat_policy": "5 cycle-1 runs per candidate; report mean, stddev and CV"
+  },
+  "already_evaluated_states": [
+    {"state": {"arch": "ternary_mac_closed_loop", "acc_bits": 32, "loop_topology": "closed"}, "estimated_lcs": 41, "dsp": 0, "bram": 0, "bit_exact": 1.0, "decision": "ACCEPT"},
+    {"state": {"arch": "ternary_mac_closed_loop", "acc_bits": 16, "loop_topology": "closed"}, "estimated_lcs": 26, "dsp": 0, "bram": 0, "bit_exact": 0.0, "decision": "REJECT: overflows, peak |acc| = 1,048,671"},
+    {"state": {"arch": "ternary_mac_closed_loop", "acc_bits": 8, "loop_topology": "closed"}, "estimated_lcs": 22, "dsp": 0, "bram": 0, "bit_exact": 0.0, "decision": "REJECT: overflows"},
+    {"state": {"arch": "ternary_mac_closed_loop", "acc_bits": 4, "loop_topology": "closed"}, "estimated_lcs": 14, "dsp": 0, "bram": 0, "bit_exact": 0.0, "decision": "REJECT: overflows"},
+    {"state": {"arch": "ternary_mac", "acc_bits": 32, "loop_topology": "open"}, "estimated_lcs": 18, "dsp": 0, "bram": 0, "bit_exact": 1.0, "decision": "ACCEPT"},
+    {"state": {"arch": "ternary_mac", "acc_bits": 16, "loop_topology": "open"}, "estimated_lcs": 18, "dsp": 0, "bram": 0, "bit_exact": 1.0, "decision": "ACCEPT (cost-identical to 32b)"},
+    {"state": {"arch": "ternary_mac", "acc_bits": 8, "loop_topology": "open"}, "estimated_lcs": 18, "dsp": 0, "bram": 0, "bit_exact": 1.0, "decision": "ACCEPT but saves only 1 LUT / 1 FF"},
+    {"state": {"arch": "ternary_mac", "acc_bits": 4, "loop_topology": "open"}, "estimated_lcs": 12, "dsp": 0, "bram": 0, "bit_exact": 0.0, "decision": "REJECT: overflows"},
+    {"state": {"arch": "attention_kv", "head_dim": 8, "kv_len": 16, "quant_w": 8}, "estimated_lcs": 28619, "dsp": 0, "bram": 0, "bit_exact": null, "decision": "REJECT: 21.3% of device LUT fabric"},
+    {"state": {"arch": "attention_kv", "head_dim": 8, "kv_len": 16, "quant_w": 4}, "estimated_lcs": 13869, "dsp": 0, "bram": 0, "bit_exact": null, "decision": "CANDIDATE: fits the 10% cap, quality pending"},
+    {"state": {"arch": "attention_kv", "head_dim": 4, "kv_len": 16, "quant_w": 8}, "estimated_lcs": 13881, "dsp": 0, "bram": 0, "bit_exact": null, "decision": "CANDIDATE: fits the 10% cap, quality pending"}
+  ],
+  "source_of_truth": {
+    "utilization": "evidence/utilization/utilization_report.json",
+    "codesign": "evidence/codesign/codesign_iteration_report.json",
+    "attention": "evidence/attention/attention_kv_report.json",
+    "evidence_dashboard": "target/lamb_labs_evidence.md"
+  }
+}

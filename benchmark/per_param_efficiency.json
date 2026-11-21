@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.0",
+  "title": "Per-parameter efficiency, edge-scale prototype",
+  "label": "edge-scale prototype comparison, not performance parity with 27B-class MPU",
+  "methodology": {
+    "basis": "Measured synthesis of the shipped bitstream's design and of the full ternary-MAC datapath probe (yosys synth_xilinx -family xc7 -nodsp -nosrl -flatten).",
+    "params_definition": "The ternary MAC datapath implements one 8-bit-activation x ternary-weight product stage. Parameter count is reported for the DEMONSTRATED workload only: the weights that would be resident in the fabric for a 1-2M-parameter tiny ternary transformer block are counted at 2 bits each (ternary {-1,0,+1} in 2-bit code).",
+    "params_scope": "1-2M parameter tiny ternary transformer block, per LL1_RESOURCE_BUDGET.md. This is NOT a 27B model and the table is NOT a parity benchmark.",
+    "caveat": "The token/s and J/token columns are the values measured on the demonstrated MAC+ring-oscillator bitstream, not on a 1-2M-parameter transformer. The per-parameter normalisation therefore says how much headroom the measured primitive leaves, not what a full 1-2M block would achieve."
+  },
+  "measured_primitives": {
+    "ternary_mac_datapath_probe": {
+      "description": "full ternary MAC with all 32 accumulator bits observed",
+      "luts": 32,
+      "ffs": 17,
+      "carry4": 5,
+      "dsp48e1": 0,
+      "bram_36k": 0,
+      "estimated_lcs": 18,
+      "status": "MEASURED"
+    },
+    "shipped_bitstream": {
+      "description": "ternary_mac_demo_top (2 observed accumulator bits)",
+      "luts": 19,
+      "ffs": 6,
+      "carry4": 1,
+      "dsp48e1": 0,
+      "bram_36k": 0,
+      "estimated_lcs": 10,
+      "status": "MEASURED"
+    },
+    "attention_kv_8ch_16slot_q4": {
+      "luts": 15900,
+      "ffs": 145,
+      "carry4": 635,
+      "dsp48e1": 0,
+      "bram_36k": 0,
+      "estimated_lcs": 13869,
+      "status": "MEASURED"
+    }
+  },
+  "measured_throughput_and_energy": {
+    "tokens_per_sec": 5.7,
+    "tokens_per_sec_status": "MEASURED (5 cycle-1 runs / 0.875 s total, CV 0.46%)",
+    "j_per_token": 0.12,
+    "j_per_token_status": "ESTIMATED (estimated power 0.7 W / measured tok/s)",
+    "clock_mhz": 150,
+    "clock_status": "ring-oscillator estimate"
+  },
+  "per_parameter_table": {
+    "rows": [
+      {
+        "workload": "ternary MAC primitive (measured bitstream)",
+        "params_M": 0.000064,
+        "params_note": "one 8-bit-activation ternary-weight stage; 64 ternary weights at 2 bits = 128 bits = 0.000064 M params",
+        "tok_s_per_M_params": 89062.5,
+        "j_per_token_per_M_params": 1875.0,
+        "estimated_lcs_per_M_params": 281250.0,
+        "dsp_per_M_params": 0,
+        "bram_36k_per_M_params": 0,
+        "status": "MEASURED resources, ESTIMATED energy"
+      },
+      {
+        "workload": "tiny ternary transformer block, 1M params (target scope)",
+        "params_M": 1.0,
+        "tok_s_per_M_params": null,
+        "j_per_token_per_M_params": null,
+        "estimated_lcs_per_M_params": null,
+        "note": "NOT MEASURED. 1M ternary weights at 2 bits = 250 kB. The MAC probe uses 18 LCs, so 1M weights would need roughly 1M/64 x 18 = 281k LCs if each weight consumed a full MAC stage - more than twice the XC7A200T fabric. The weights must be packed in BRAM and streamed, which changes the design entirely. Recorded as an open feasibility question, not a claim.",
+        "status": "NOT MEASURED"
+      },
+      {
+        "workload": "tiny ternary transformer block, 2M params (target scope)",
+        "params_M": 2.0,
+        "tok_s_per_M_params": null,
+        "j_per_token_per_M_params": null,
+        "estimated_lcs_per_M_params": null,
+        "note": "NOT MEASURED. Same open feasibility question as the 1M row.",
+        "status": "NOT MEASURED"
+      }
+    ]
+  },
+  "explicit_non_claims": [
+    "This is NOT a comparison against a 27B-class MPU.",
+    "The 1M and 2M rows are NOT measurements; they are scope markers with an open feasibility question.",
+    "No claim of tokens/sec at 1-2M scale, no claim of J/token at 1-2M scale.",
+    "The only measured throughput belongs to the demonstrated MAC primitive.",
+    "Literature baselines (TeLLMe 0.7B @ 9.51 tok/s / 7 W on Kria KV260) are context only, not a comparison target, because they are a different model class and a different measurement contract."
+  ],
+  "source_of_truth": {
+    "utilization": "evidence/utilization/utilization_report.json",
+    "codesign": "evidence/codesign/codesign_iteration_report.json",
+    "attention": "evidence/attention/attention_kv_report.json",
+    "scope": "docs/LL1_RESOURCE_BUDGET.md"
+  }
+}

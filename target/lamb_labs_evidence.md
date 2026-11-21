@@ -280,6 +280,10 @@ order of magnitude.
 | LUT/BRAM/DSP utilization | ✅ CLOSED | yosys synth_xilinx, exact bitstream flow |
 | Co-design iteration | ✅ CLOSED | 8 configurations measured, decision recorded |
 | DRAM reads/token | ✅ CLOSED | 0, measured |
+| Attention + KV-cache resources | ✅ CLOSED | 9 configurations measured; combinational form rejected |
+| RL-ready benchmark contract | ✅ CLOSED | 11 evaluated states + drift validator |
+| Per-parameter efficiency table | ✅ CLOSED | normalised, labelled non-parity |
+| Attention quality metric | ❌ OPEN | PENDING (needs a CPU golden) |
 | FPGA power / J-per-token | ❌ OPEN | ESTIMATED; needs Vivado report_power or external meter |
 
 ---
@@ -303,11 +307,64 @@ order of magnitude.
 | QUALITY_METRIC | ✅ MEASURED | 5/5 bit-exact, CV 0.46% |
 | CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | 1 (8 configurations, accept/reject recorded) |
 | ATTENTION_KV_STATUS | ✅ resources MEASURED (9 configs); combinational form REJECTED, sequential form is next |
-| RL_BENCHMARK_STATUS | ⏳ TODO | next iteration |
+| RL_BENCHMARK_STATUS | ✅ contract + 11 evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
+| PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |
 | BLOCKERS | - | FPGA power: Vivado report_power (AMD login) or external meter |
 
 ---
+
+## RL-Ready Benchmark (✅ MACHINE-READABLE, contract only)
+
+`benchmark/rl_ready_benchmark.json` - state / action / reward contract for an automated
+ternary model-hardware co-design loop, plus the **11 already-evaluated states** with their
+measured numbers.
+
+- **State**: arch, acc_bits, head_dim, kv_len, quant_w, loop_topology, seq_len, batch
+- **Action**: one single-field change from a declared domain
+- **Reward**: `-(J_per_token / J_per_token_reference)`, subject to
+  - **quality floor**: `bit_exact_match_rate >= 1.0`
+  - **resource constraint**: `estimated_lcs <= 13,460` (10% of the XC7A200T LUT fabric)
+- **Reproducible protocol**: yosys synthesis + 5 cycle-1 runs + SHA256 of netlist, stats log
+  and quality log; a result without the hash is not accepted.
+
+**This is a benchmark CONTRACT, not an RL system.** No state-action-reward loop exists yet.
+Calling the current work "RL" would be false - the file says so explicitly.
+
+`benchmark/validate_benchmark.py` checks every number against the measured evidence and
+**fails on drift**:
+```
+BENCHMARK VALIDATION PASSED
+  states checked      : 11
+  per-param rows      : 3
+  zero-DSP invariant  : holds in every measured configuration
+  non-parity label    : present
+```
+
+---
+
+## Per-Parameter Efficiency (✅ NORMALISED, labelled)
+
+> **edge-scale prototype comparison, not performance parity with 27B-class MPU**
+
+| Workload | Params (M) | tok/s per M params | J/token per M params | est. LCs per M params | DSP per M params | BRAM per M params | Status |
+|---|---|---|---|---|---|---|---|
+| ternary MAC primitive (measured bitstream) | 0.000064 | 89,062.5 | 1,875.0 | 281,250.0 | 0 | 0 | MEASURED resources, ESTIMATED energy |
+| tiny ternary block, 1M params (target scope) | 1.0 | - | - | - | - | - | **NOT MEASURED** |
+| tiny ternary block, 2M params (target scope) | 2.0 | - | - | - | - | - | **NOT MEASURED** |
+
+**Honest caveat**: the token/s and J/token columns belong to the demonstrated MAC + ring-oscillator
+bitstream, **not** to a 1-2M-parameter transformer. The per-parameter normalisation says how much
+headroom the measured primitive leaves, not what a full 1-2M block would achieve.
+
+**Open feasibility question (recorded, not claimed)**: 1M ternary weights at 2 bits = 250 kB. The
+measured MAC probe is 18 LCs, so one MAC stage per weight would need roughly 281k LCs - more than
+twice the XC7A200T fabric. The weights must be packed in BRAM and streamed, which changes the
+design entirely.
+
+**Explicit non-claims**: not a comparison against a 27B-class MPU; no tokens/sec or J/token claim
+at 1-2M scale; literature baselines (TeLLMe 0.7B @ 9.51 tok/s / 7 W) are context only, not a
+comparison target - different model class, different measurement contract.
 
 ## Limitations & Non-Goals
 
