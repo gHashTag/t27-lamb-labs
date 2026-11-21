@@ -20,6 +20,7 @@ def main():
     cd     = load("evidence/codesign/codesign_iteration_report.json")
     attn   = load("evidence/attention/attention_kv_report.json")
     joint  = load("evidence/attention_joint/joint_iteration_report.json")
+    seq    = load("evidence/attention_seq/sequential_iteration_report.json")
 
     # 1. every evaluated state must be traceable to a measured config
     measured = {}
@@ -33,6 +34,8 @@ def main():
             measured[("attn", 8, 16, m["quant_w"], m["act_bits"])] = m
     for m in attn["measurements"]:
         measured.setdefault(("attn", m["head_dim"], m["kv_len"], m["quant_w"]), m)
+    for m in seq["measurements"]:
+        measured[("attnseq", 8, m["kv_len"], m["quant_w"], m["act_bits"])] = m
 
     for st in bench["already_evaluated_states"]:
         s = st["state"]
@@ -40,6 +43,8 @@ def main():
             key = ("attn", s.get("head_dim"), s.get("kv_len"), s.get("quant_w"), s.get("act_bits"))
             if key not in measured:
                 key = ("attn", s.get("head_dim"), s.get("kv_len"), s.get("quant_w"))
+        elif s["arch"] == "attention_kv_seq":
+            key = ("attnseq", s.get("head_dim"), s.get("kv_len"), s.get("quant_w"), s.get("act_bits"))
         else:
             key = (s.get("loop_topology"), s.get("acc_bits"))
         if key not in measured:

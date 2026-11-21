@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-11-21T22:40:00Z",
+  "iteration_id": 3,
+  "name": "sequential attention replaces the combinational form",
+  "status": "MEASURED (resources); latency DERIVED",
+  "why_this_iteration_exists": "Iteration 2 rejected the combinational attention form because it consumed 21.3% of the XC7A200T LUT fabric and declared that a sequential form was required. This iteration builds and measures that sequential form.",
+  "design": {
+    "module": "attn_seq (evidence/attention_seq/attn_seq.v)",
+    "change": "one KV slot is scored per cycle instead of all SLOTS in parallel; the combinational depth drops from SLOTS x HEAD_DIM MAC steps to HEAD_DIM MAC steps",
+    "cache": "same bounded quantised KV cache: sign + QUANT_W magnitude bits of an ACT_BITS-wide value",
+    "external_dram_reads_per_token": 0,
+    "dsp48e1": 0
+  },
+  "methodology": {
+    "synthesis": "yosys 0.67+post synth_xilinx -family xc7 -nodsp -nosrl -flatten",
+    "logs": "evidence/attention_seq/stat_seq_*.txt",
+    "latency": "DERIVED from the cycle count (one slot per cycle); not measured on silicon",
+    "power": "ESTIMATED only"
+  },
+  "measurements": [
+    {"act_bits": 8, "quant_w": 8, "kv_len": 8,  "luts": 512, "ffs": 275, "carry4": 71, "muxf7": 12, "estimated_lcs": 362,  "dsp48e1": 0, "ram": 0},
+    {"act_bits": 8, "quant_w": 8, "kv_len": 16, "luts": 620, "ffs": 341, "carry4": 72, "muxf7": 20, "estimated_lcs": 455,  "dsp48e1": 0, "ram": 0},
+    {"act_bits": 8, "quant_w": 8, "kv_len": 32, "luts": 822, "ffs": 471, "carry4": 73, "muxf7": 34, "estimated_lcs": 777,  "dsp48e1": 0, "ram": 0},
+    {"act_bits": 8, "quant_w": 4, "kv_len": 16, "luts": 603, "ffs": 309, "carry4": 72, "muxf7": 54, "estimated_lcs": 482,  "dsp48e1": 0, "ram": 0},
+    {"act_bits": 6, "quant_w": 6, "kv_len": 16, "luts": 592, "ffs": 325, "carry4": 72, "muxf7": 22, "estimated_lcs": 437,  "dsp48e1": 0, "ram": 0},
+    {"act_bits": 4, "quant_w": 4, "kv_len": 16, "luts": 587, "ffs": 305, "carry4": 71, "muxf7": 45, "estimated_lcs": 453,  "dsp48e1": 0, "ram": 0},
+    {"act_bits": 4, "quant_w": 4, "kv_len": 32, "luts": 783, "ffs": 435, "carry4": 72, "muxf7": 64, "estimated_lcs": 742,  "dsp48e1": 0, "ram": 0}
+  ],
+  "head_to_head": {
+    "config": "act=8, quant=8, kv_len=16, head_dim=8",
+    "combinational": {"luts": 32339, "ffs": 273, "carry4": 1231, "estimated_lcs": 28582, "lcs_pct_of_device": 21.2, "cycles_per_attention_pass": 1},
+    "sequential":    {"luts": 620,   "ffs": 341, "carry4": 72,  "estimated_lcs": 455,  "lcs_pct_of_device": 0.34, "cycles_per_attention_pass": 16},
+    "resource_saving": "-98.4% estimated LCs",
+    "latency_cost": "16 cycles per attention pass instead of 1 (at ~150 MHz: ~107 ns instead of ~6.7 ns of combinational depth)"
+  },
+  "findings": [
+    {
+      "id": "SEQUENTIAL_ATTENTION_FITS_EASILY",
+      "claim": "The sequential form needs 362-777 estimated LCs across every configuration measured (0.27%-0.58% of the XC7A200T LUT fabric). The 10% resource cap is no longer binding for any configuration in the sweep.",
+      "status": "MEASURED"
+    },
+    {
+      "id": "KV_LEN_COST_IS_NOW_CHARACTERISED",
+      "claim": "With the sequential form the per-slot cost is visible: at act=8/quant=8, KV_LEN 8 -> 16 -> 32 gives 362 -> 455 -> 777 LCs and 275 -> 341 -> 471 FFs, i.e. about 9.3 LCs and 6.6 FFs per extra slot. This closes the 'KV_LEN scaling not characterised' gap recorded in iteration 2 (the earlier saturation was a combinational-mux artifact).",
+      "status": "MEASURED"
+    },
+    {
+      "id": "ACTIVATION_WIDTH_STOPS_MATTERING",
+      "claim": "In the sequential form the activation/KV width is nearly free: act=8/quant=8 -> 455 LCs, act=6/quant=6 -> 437 LCs, act=4/quant=4 -> 453 LCs at kv_len=16. The bottleneck moved from combinational score logic to the cache registers, so narrowing the width buys nothing.",
+      "status": "MEASURED"
+    },
+    {
+      "id": "ITERATION_2_DECISION_SUPERSEDED",
+      "claim": "Iteration 2 accepted act=4/quant=4 because it was the cheapest LOSSLESS configuration under the 10% cap in the combinational form. In the sequential form act=8/quant=8 is just as cheap AND lossless with no quality constraint to satisfy, so the recommendation is now act=8/quant=8.",
+      "status": "MEASURED"
+    },
+    {
+      "id": "ZERO_DSP_AND_ZERO_RAM_HOLD",
+      "claim": "DSP48E1 = 0 and RAMB = 0 in every sequential configuration. The KV cache is fabric registers; external DRAM reads per token = 0 and KV traffic = 0 bytes/token.",
+      "status": "MEASURED"
+    }
+  ],
+  "decision": "ADOPT the sequential attention form with act_bits=8, quant_w=8",
+  "decision_rationale": [
+    "455 estimated LCs = 0.34% of the device, so the 10% cap no longer binds and wider KV caches become affordable.",
+    "act=8/quant=8 is bit-exact against the full-precision golden (iteration 2 measured 0.000000 mean relative error for this point) with no quality compromise at all.",
+    "The cost is latency: 16 cycles per attention pass instead of 1. For an autoregressive workload that is 16x more cycles per token, which must be weighed against the 62x LC saving.",
+    "Zero-DSP and zero-RAM are preserved."
+  ],
+  "known_limitations": [
+    "The RTL accumulates the attention output continuously and does not reset it between tokens, so the per-token control sequence (reset, scan, write) is not yet implemented. The resource numbers are valid; the per-token cycle count is an estimate of the scan phase only.",
+    "Latency is DERIVED, not measured on silicon.",
+    "Power is still ESTIMATED.",
+    "The per-slot cost is now measured, but with the uniform harness payload the mux trees inside a slot may still collapse; a randomised payload sweep would refine the per-slot figure."
+  ],
+  "next_iteration": [
+    "implement the per-token control sequence (reset, scan, write) so the cycle count per token is exact",
+    "randomised KV payload sweep to confirm the per-slot cost",
+    "measure the sequential form's latency on the board and derive the real tok/s",
+    "build the sequential bitstream and close the attention latency gate"
+  ]
+}

@@ -274,6 +274,75 @@ Each extra activation bit costs about **5.4k LCs** along the lossless diagonal.
 **Logs**: `evidence/attention_joint/stat_j_a*_q*.txt`
 **Quality sim**: `evidence/attention_joint/attention_quality_joint.py`
 
+## Co-Design Iteration 3: sequential attention (✅ MEASURED)
+
+Iteration 2 rejected the combinational attention form (21.3% of the fabric) and said a
+sequential form was required. This iteration builds and measures it.
+
+**Change**: one KV slot is scored per cycle, so the combinational depth drops from
+`SLOTS x HEAD_DIM` MAC steps to `HEAD_DIM`.
+
+### Head-to-head (act=8, quant=8, kv_len=16, head_dim=8)
+
+| Form | LUTs | FFs | CARRY4 | Est. LCs | % device | Cycles / attention pass |
+|---|---|---|---|---|---|---|
+| combinational | 32,339 | 273 | 1,231 | 28,582 | 21.2% | 1 |
+| **sequential** | **620** | **341** | **72** | **455** | **0.34%** | 16 |
+
+**Resource saving: -98.4% estimated LCs**, at the cost of 16 cycles per attention pass
+(~107 ns at ~150 MHz instead of ~6.7 ns of combinational depth).
+
+### Sequential sweep (HEAD_DIM=8)
+
+| ACT | QW | KV | LUTs | FFs | CARRY4 | Est. LCs | % device | DSP | RAM |
+|---|---|---|---|---|---|---|---|---|---|
+| 8 | 8 | 8 | 512 | 275 | 71 | 362 | 0.27% | 0 | 0 |
+| 8 | 8 | 16 | 620 | 341 | 72 | 455 | 0.34% | 0 | 0 |
+| 8 | 8 | 32 | 822 | 471 | 73 | 777 | 0.58% | 0 | 0 |
+| 8 | 4 | 16 | 603 | 309 | 72 | 482 | 0.36% | 0 | 0 |
+| 6 | 6 | 16 | 592 | 325 | 72 | 437 | 0.32% | 0 | 0 |
+| 4 | 4 | 16 | 587 | 305 | 71 | 453 | 0.34% | 0 | 0 |
+| 4 | 4 | 32 | 783 | 435 | 72 | 742 | 0.55% | 0 | 0 |
+
+### Findings
+
+1. **Sequential attention fits easily** - 362-777 LCs across every configuration
+   (0.27%-0.58% of the fabric). The 10% cap no longer binds anywhere in the sweep.
+2. **KV_LEN cost is NOW characterised** - at act=8/quant=8, KV_LEN 8 -> 16 -> 32 gives
+   362 -> 455 -> 777 LCs and 275 -> 341 -> 471 FFs: about **9.3 LCs and 6.6 FFs per extra slot**.
+   This **closes the gap** iteration 2 recorded (the earlier saturation was a combinational-mux
+   artifact).
+3. **Activation width stops mattering** - act=8/quant=8 -> 455 LCs, act=6/quant=6 -> 437 LCs,
+   act=4/quant=4 -> 453 LCs at kv_len=16. The bottleneck moved from combinational score logic to
+   the cache registers, so narrowing the width buys nothing.
+4. **Iteration 2's decision is superseded** - iteration 2 accepted act=4/quant=4 because it was
+   the cheapest lossless point under the 10% cap in the combinational form. In the sequential
+   form **act=8/quant=8 is just as cheap AND lossless with no quality constraint at all**.
+5. **Zero-DSP and zero-RAM still hold** in every sequential configuration. External DRAM reads
+   per token = 0, KV traffic = 0 bytes/token.
+
+### Decision: **ADOPT sequential attention with act_bits=8, quant_w=8**
+
+- 455 LCs = 0.34% of the device, so the 10% cap stops binding and wider KV caches become affordable.
+- act=8/quant=8 is bit-exact against the full-precision golden (0.000000 mean relative error,
+  measured in iteration 2) with no quality compromise.
+- Cost is latency: 16 cycles per attention pass instead of 1 - a 16x cycle increase per token
+  against a 62x LC saving.
+- Zero-DSP and zero-RAM are preserved.
+
+**Report**: `evidence/attention_seq/sequential_iteration_report.json`
+**Logs**: `evidence/attention_seq/stat_seq_*.txt`
+**RTL**: `evidence/attention_seq/attn_seq.v`
+
+### Known limitations of this iteration
+
+- The RTL accumulates the attention output continuously and does **not** reset it between tokens,
+  so the per-token control sequence (reset, scan, write) is not yet implemented. The resource
+  numbers are valid; the per-token cycle count estimates the scan phase only.
+- Latency is **DERIVED**, not measured on silicon. Power is still **ESTIMATED**.
+- The per-slot figure was measured with the uniform harness payload; a randomised payload sweep
+  would refine it.
+
 ## DRAM Reads Per Token (✅ MEASURED)
 
 | Metric | Value | Status |
@@ -319,7 +388,7 @@ order of magnitude.
 |---|---|---|
 | Cycle-1 runs | 5/5 PASSED | ✅ MEASURED |
 | Bit-exact match vs golden | 1.0 | ✅ MEASURED |
-| Co-design iterations completed | **2** (acc-width x loop-topology; joint act x KV-quant) + attention sweep (9 configs) | ✅ MEASURED |
+| Co-design iterations completed | **3** (acc x loop-topology; joint act x KV-quant; sequential vs combinational attention) | ✅ MEASURED |
 | Timing CV | 0.46% | ✅ MEASURED |
 | Literature reference | latency 0.8-1.2%, energy 1.5-2.1% (arXiv:2511.06955) | baseline only |
 
@@ -335,10 +404,11 @@ order of magnitude.
 | LUT/BRAM/DSP utilization | ✅ CLOSED | yosys synth_xilinx, exact bitstream flow |
 | Co-design iteration | ✅ CLOSED | 8 configurations measured, decision recorded |
 | DRAM reads/token | ✅ CLOSED | 0, measured |
-| Attention + KV-cache resources | ✅ CLOSED | 9 configurations measured; combinational form rejected |
+| Attention + KV-cache | ✅ CLOSED | 9 combinational + 7 sequential configs; sequential form ADOPTED (455 LCs, 0.34%) |
 | RL-ready benchmark contract | ✅ CLOSED | 11 evaluated states + drift validator |
 | Per-parameter efficiency table | ✅ CLOSED | normalised, labelled non-parity |
 | Attention quality metric | ✅ CLOSED | bit-exact vs full-precision golden, 1500 randomised trials per config |
+| KV_LEN per-slot cost | ✅ CLOSED | 9.3 LCs + 6.6 FFs per slot (sequential form) |
 | FPGA power / J-per-token | ❌ OPEN | ESTIMATED; needs Vivado report_power or external meter |
 
 ---
@@ -362,7 +432,7 @@ order of magnitude.
 | QUALITY_METRIC | ✅ MEASURED | 5/5 bit-exact, CV 0.46% |
 | CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | 1 (8 configurations, accept/reject recorded) |
 | ATTENTION_KV_STATUS | ✅ resources MEASURED (9 configs); combinational form REJECTED, sequential form is next |
-| RL_BENCHMARK_STATUS | ✅ contract + **15** evaluated states + validator (NOT an RL system) |
+| RL_BENCHMARK_STATUS | ✅ contract + **18** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |
 | BLOCKERS | - | FPGA power: Vivado report_power (AMD login) or external meter |

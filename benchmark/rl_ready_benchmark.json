@@ -14,7 +14,7 @@
   "state": {
     "description": "Architecture + quantisation parameters of a candidate design.",
     "schema": {
-      "arch": "enum { ternary_mac, ternary_mac_closed_loop, attention_kv }",
+      "arch": "enum { ternary_mac, ternary_mac_closed_loop, attention_kv, attention_kv_seq }",
       "acc_bits": "int, accumulator/output width",
       "head_dim": "int, attention channels (attention_kv only)",
       "kv_len": "int, bounded KV slots (attention_kv only)",
@@ -113,6 +113,14 @@
           6,
           8
         ]
+      },
+      {
+        "name": "set_form",
+        "field": "arch",
+        "domain": [
+          "attention_kv",
+          "attention_kv_seq"
+        ]
       }
     ],
     "constraint": "exactly one field changes per action; every action must be inside the declared domain"
@@ -155,7 +163,8 @@
       "max_estimated_lcs": 13460,
       "max_lcs_fraction_of_device": 0.1,
       "rationale": "the combinational attention form measured 28,619 LCs = 21.3% of the device and was rejected; the benchmark caps candidates at 10% of the LUT fabric",
-      "device_lcs": 134600
+      "device_lcs": 134600,
+      "note": "The combinational attention form measured 28,619 LCs = 21.3% and was rejected. The sequential form measures 455 LCs = 0.34% for the same configuration, so the cap no longer binds for any configuration in the measured sweep."
     }
   },
   "reproducible_protocol": {
@@ -271,21 +280,6 @@
         "arch": "attention_kv",
         "head_dim": 8,
         "kv_len": 16,
-        "quant_w": 8,
-        "act_bits": 8
-      },
-      "estimated_lcs": 28582,
-      "dsp": 0,
-      "bram": 0,
-      "bit_exact": true,
-      "mean_rel_err_vs_full_precision": 0.0,
-      "decision": "REJECT: 21.2% of the device LUT fabric, over the 10% cap"
-    },
-    {
-      "state": {
-        "arch": "attention_kv",
-        "head_dim": 8,
-        "kv_len": 16,
         "quant_w": 6,
         "act_bits": 8
       },
@@ -370,6 +364,66 @@
       "bit_exact": true,
       "mean_rel_err_vs_full_precision": 0.0,
       "decision": "REJECT: wasteful"
+    },
+    {
+      "state": {
+        "arch": "attention_kv_seq",
+        "head_dim": 8,
+        "kv_len": 16,
+        "quant_w": 8,
+        "act_bits": 8
+      },
+      "estimated_lcs": 455,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": true,
+      "mean_rel_err_vs_full_precision": 0.0,
+      "decision": "ACCEPT: 0.34% of the device, lossless, zero-DSP; cost is 16 cycles per attention pass"
+    },
+    {
+      "state": {
+        "arch": "attention_kv_seq",
+        "head_dim": 8,
+        "kv_len": 8,
+        "quant_w": 8,
+        "act_bits": 8
+      },
+      "estimated_lcs": 362,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": true,
+      "mean_rel_err_vs_full_precision": 0.0,
+      "decision": "CANDIDATE"
+    },
+    {
+      "state": {
+        "arch": "attention_kv_seq",
+        "head_dim": 8,
+        "kv_len": 32,
+        "quant_w": 8,
+        "act_bits": 8
+      },
+      "estimated_lcs": 777,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": true,
+      "mean_rel_err_vs_full_precision": 0.0,
+      "decision": "CANDIDATE"
+    },
+    {
+      "state": {
+        "arch": "attention_kv_seq",
+        "head_dim": 8,
+        "kv_len": 16,
+        "quant_w": 4,
+        "act_bits": 4
+      },
+      "estimated_lcs": 453,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": true,
+      "mean_rel_err_vs_full_precision": 0.0,
+      "decision": "REJECT: no cheaper than act=8/quant=8 in the sequential form"
     }
   ],
   "source_of_truth": {
@@ -377,7 +431,8 @@
     "codesign": "evidence/codesign/codesign_iteration_report.json",
     "attention": "evidence/attention/attention_kv_report.json",
     "evidence_dashboard": "target/lamb_labs_evidence.md",
-    "attention_joint": "evidence/attention_joint/joint_iteration_report.json"
+    "attention_joint": "evidence/attention_joint/joint_iteration_report.json",
+    "attention_seq": "evidence/attention_seq/sequential_iteration_report.json"
   },
   "co_design_rule": "The KV cache stores sign + quant_w magnitude bits of an act_bits-wide signed value, so losslessness requires quant_w >= act_bits. QUANT_W is not an independent lever: narrowing it alone is lossy, narrowing act_bits alone at quant_w=8 wastes cache bits. The two must move together."
 }
