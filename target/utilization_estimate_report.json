@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-11-21T20:45:00Z",
+  "bitstream": "ternary_mac_demo_top_200t.bit",
+  "fpga": "xc7a200tfbg484-2",
+  "board": "AX7203",
+  "methodology": {
+    "utilization_extraction": "estimated_from_bitstream_size_and_known_resources",
+    "power_estimation": "not_measured_external_meter_required",
+    "source": "bitstream_analysis_and_known_design_parameters",
+    "confidence": "estimate_only"
+  },
+  "bitstream_analysis": {
+    "bitstream_size_bytes": 9730768,
+    "bitstream_sha256": "b9a79404b3e723572d347c26f4c1ea515e59e2add0caf8d5424f2e468b0a17d3",
+    "device": "xc7a200tfbg484-2",
+    "package": "FBG484",
+    "speed_grade": -2
+  },
+  "device_resources": {
+    "total_luts": 134600,
+    "total_ffs": 269200,
+    "total_bram_36k": 365,
+    "total_bram_18k": 730,
+    "total_dsp48e1": 740,
+    "total_io": 285
+  },
+  "design_estimates": {
+    "ternary_mac_core": {
+      "estimated_luts": 5000,
+      "estimated_ffs": 3000,
+      "estimated_bram_36k": 8,
+      "estimated_dsp": 0,
+      "description": "Ternary MAC core with ring oscillator"
+    },
+    "ring_oscillator": {
+      "estimated_luts": 200,
+      "estimated_ffs": 20,
+      "description": "20-stage ring oscillator at ~150MHz"
+    },
+    "jtag_interface": {
+      "estimated_luts": 500,
+      "estimated_ffs": 200
+    },
+    "io_ring": {
+      "estimated_luts": 1000,
+      "estimated_ffs": 500
+    }
+  },
+  "total_estimates": {
+    "estimated_luts": 6700,
+    "estimated_ffs": 3700,
+    "estimated_bram_36k": 8,
+    "estimated_bram_18k": 0,
+    "estimated_dsp": 0,
+    "estimated_ios": 20
+  },
+  "utilization_percentages": {
+    "luts_percent": 4.98,
+    "ffs_percent": 1.37,
+    "bram_36k_percent": 2.19,
+    "dsp_percent": 0.0,
+    "note": "Estimates based on design complexity; actual values require Vivado report_utilization"
+  },
+  "power_estimation": {
+    "method": "Vivado Report Power required",
+    "estimated_static_power_mw": 500,
+    "estimated_dynamic_power_mw": 200,
+    "total_estimated_mw": 700,
+    "confidence": "low_estimate_only",
+    "note": "Requires Vivado Report Power for accurate estimate; external meter needed for MEASURED value"
+  },
+  "j_token_estimate": {
+    "formula": "J/token = estimated_power_watts / tokens_per_second",
+    "estimated_power_watts": 0.7,
+    "estimated_tokens_per_second": 5.7,
+    "estimated_j_per_token": 0.12,
+    "confidence": "low_estimate_only",
+    "note": "Requires measured power for MEASURED J/token"
+  },
+  "dsp_utilization": 0,
+  "confidence": "ESTIMATE_ONLY",
+  "note": "All values are ESTIMATES. Requires Vivado report_utilization, report_power for MEASURED values."
+}
