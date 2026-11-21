@@ -1,0 +1,55 @@
+{
+  "timestamp": "2026-11-21T21:50:00Z",
+  "iteration_id": 1,
+  "name": "accumulator_width_and_loop_topology",
+  "status": "MEASURED",
+  "methodology": {
+    "synthesis": "yosys 0.67+post synth_xilinx -family xc7 -nodsp -nosrl -flatten",
+    "quality_metric": "exact RTL simulation of the accumulator trajectory (4M steps, same semantics as ternary_mac_synth.v)",
+    "quality_sim": "evidence/codesign/accumulator_range_sim.py",
+    "logs": "evidence/codesign/s_{open,closed}_{4,8,16,32}.txt",
+    "note": "No Vivado: AMD account login required and the host has 3.9 GiB free. Same synthesis flow that produced the shipped .bit."
+  },
+  "baseline": {
+    "config": "ternary_mac_demo_top (shipped): acc_in=0 (open loop), acc_out declared 32-bit",
+    "luts": 19, "ffs": 6, "carry4": 1, "bufg": 1, "obuf": 2, "bram_36k": 0, "dsp48e1": 0,
+    "estimated_lcs": 10,
+    "quality": "peak |acc_out| = 127 -> 8-bit signed SUFFICIENT; the 32-bit register is pruned to the bits that can change"
+  },
+  "controlled_change": {
+    "factor_1": "accumulator/output width: 4, 8, 16, 32 bits",
+    "factor_2": "loop topology: open (acc_in=0) vs closed (acc_in=acc_out, a true running accumulator)",
+    "hypothesis": "narrowing the accumulator saves LUTs/FFs/carry chains; if the quality metric allows it, adopt the narrowest safe width"
+  },
+  "measurements": [
+    {"mode": "open",   "acc_bits": 32, "luts": 32, "ffs": 17, "carry4": 5, "muxf": 3, "estimated_lcs": 18, "dsp48e1": 0, "bram_36k": 0, "peak_abs_acc": 127, "overflow_steps_4b": 1966080, "overflow_steps_8b": 0, "overflow_steps_16b": 0, "overflow_steps_32b": 0, "verdict": "correct, cost-neutral vs 16b"},
+    {"mode": "open",   "acc_bits": 16, "luts": 32, "ffs": 17, "carry4": 5, "muxf": 3, "estimated_lcs": 18, "dsp48e1": 0, "bram_36k": 0, "peak_abs_acc": 127, "overflow_steps_4b": 1966080, "overflow_steps_8b": 0, "overflow_steps_16b": 0, "overflow_steps_32b": 0, "verdict": "correct, identical cost to 32b"},
+    {"mode": "open",   "acc_bits": 8,  "luts": 31, "ffs": 16, "carry4": 4, "muxf": 3, "estimated_lcs": 18, "dsp48e1": 0, "bram_36k": 0, "peak_abs_acc": 127, "overflow_steps_4b": 1966080, "overflow_steps_8b": 0, "overflow_steps_16b": 0, "overflow_steps_32b": 0, "verdict": "correct; saves 1 LUT and 1 FF only - not worth the narrowing risk"},
+    {"mode": "open",   "acc_bits": 4,  "luts": 24, "ffs": 8,  "carry4": 2, "muxf": 0, "estimated_lcs": 12, "dsp48e1": 0, "bram_36k": 0, "peak_abs_acc": 127, "overflow_steps_4b": 1966080, "overflow_steps_8b": 0, "overflow_steps_16b": 0, "overflow_steps_32b": 0, "verdict": "REJECT: overflows on 1.97M of 4.19M steps"},
+    {"mode": "closed", "acc_bits": 32, "luts": 73, "ffs": 40, "carry4": 13, "muxf": 6, "estimated_lcs": 41, "dsp48e1": 0, "bram_36k": 0, "peak_abs_acc": 1048671, "overflow_steps_4b": 4194271, "overflow_steps_8b": 4193791, "overflow_steps_16b": 4063231, "overflow_steps_32b": 0, "verdict": "ACCEPT: the only width that is correct for a true running accumulator (needs 21 bits signed)"},
+    {"mode": "closed", "acc_bits": 16, "luts": 51, "ffs": 24, "carry4": 9,  "muxf": 0, "estimated_lcs": 26, "dsp48e1": 0, "bram_36k": 0, "peak_abs_acc": 1048671, "overflow_steps_4b": 4194271, "overflow_steps_8b": 4193791, "overflow_steps_16b": 4063231, "overflow_steps_32b": 0, "verdict": "REJECT: -37% LCs but overflows on 4.06M of 4.19M steps"},
+    {"mode": "closed", "acc_bits": 8,  "luts": 39, "ffs": 16, "carry4": 6,  "muxf": 3, "estimated_lcs": 22, "dsp48e1": 0, "bram_36k": 0, "peak_abs_acc": 1048671, "overflow_steps_4b": 4194271, "overflow_steps_8b": 4193791, "overflow_steps_16b": 4063231, "overflow_steps_32b": 0, "verdict": "REJECT: -46% LCs but overflows"},
+    {"mode": "closed", "acc_bits": 4,  "luts": 28, "ffs": 8,  "carry4": 3,  "muxf": 0, "estimated_lcs": 14, "dsp48e1": 0, "bram_36k": 0, "peak_abs_acc": 1048671, "overflow_steps_4b": 4194271, "overflow_steps_8b": 4193791, "overflow_steps_16b": 4063231, "overflow_steps_32b": 0, "verdict": "REJECT: -66% LCs but overflows"}
+  ],
+  "scaling_law_measured": {
+    "closed_loop_lcs_vs_acc_bits": {"4": 14, "8": 22, "16": 26, "32": 41},
+    "closed_loop_ffs_vs_acc_bits": {"4": 8, "8": 16, "16": 24, "32": 40},
+    "open_loop_lcs_vs_acc_bits": {"4": 12, "8": 18, "16": 18, "32": 18},
+    "interpretation": "In closed loop every extra 8 accumulator bits costs ~6 LUTs and ~8 FFs (the adder carry chain). In open loop the upper bits are provably constant and cost nothing, so 16b and 32b are identical."
+  },
+  "decision": "ACCEPT (closed-loop, 32-bit) and REJECT every narrowing",
+  "decision_rationale": [
+    "Zero-DSP ternary MAC holds across all eight configurations (DSP48E1 = 0 everywhere).",
+    "Zero-BRAM holds across all eight configurations (BRAM36 = 0 everywhere): the 2-bit weight code is a LUT mux, not a memory.",
+    "Narrowing the closed-loop accumulator from 32b to 16b saves 15 LCs (-37%) and 16 FFs, but the measured accumulator peak is 1,048,671, which needs 21 signed bits. The saving is rejected because it breaks correctness.",
+    "The 4-bit open-loop configuration saves 6 LCs but overflows on 47% of steps: rejected.",
+    "Open-loop 16b is cost-identical to 32b, so the declared 32-bit width is kept: no cost, no risk."
+  ],
+  "next_iteration": "closed-loop accumulator -> attention + bounded KV-cache; measure the KV BRAM cost and the added latency, and re-check the accumulator peak with the attention path present",
+  "power": {
+    "status": "ESTIMATED",
+    "note": "Resource delta is MEASURED; W is still an estimate pending Vivado report_power or an external meter.",
+    "closed_loop_32b_estimated_w": 0.7,
+    "closed_loop_16b_estimated_w_if_accepted": 0.55
+  }
+}
