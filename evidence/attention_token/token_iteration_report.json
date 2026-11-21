@@ -1,0 +1,100 @@
+{
+  "timestamp": "2026-11-21T22:50:00Z",
+  "iteration_id": 4,
+  "name": "token-sequential attention with an explicit per-token control sequence",
+  "status": "MEASURED (resources) + VERIFIED (mathematics) + DERIVED (latency)",
+  "why_this_iteration_exists": "Iteration 3 recorded a limitation: the sequential RTL accumulated continuously and did not reset between tokens, so the per-token cycle count was an estimate of the scan phase only. This iteration implements the control sequence, making the cycle count exact, and verifies the control sequence does not change the mathematics.",
+  "design": {
+    "module": "attn_token (evidence/attention_token/attn_token.v)",
+    "control_sequence": "phase 0 = clear accumulator (1 cycle); phases 1..SLOTS = scan one KV slot per cycle and accumulate its contribution; phase DONE = output valid, write the new KV slot, restart",
+    "exact_cycles_per_token": "SLOTS + 2",
+    "done_signal": "a one-cycle pulse marks the cycle the attention output is valid",
+    "external_dram_reads_per_token": 0,
+    "dsp48e1": 0
+  },
+  "methodology": {
+    "synthesis": "yosys 0.67+post synth_xilinx -family xc7 -nodsp -nosrl -flatten",
+    "logs": "evidence/attention_token/stat_tok_*.txt",
+    "verification": "exact Python model of the RTL control sequence compared against the combinational golden, 2000 randomised trials per configuration, 12000 trials total",
+    "verification_script": "evidence/attention_token/token_sequential_verification.py",
+    "latency": "DERIVED from the EXACT cycle count and the estimated ring-oscillator clock; not measured on silicon",
+    "power": "ESTIMATED only"
+  },
+  "measurements": [
+    {"act_bits": 8, "quant_w": 8, "kv_len": 8,  "luts": 522, "ffs": 279, "carry4": 71, "muxf7": 12, "estimated_lcs": 368, "dsp48e1": 0, "ram": 0, "exact_cycles_per_token": 10},
+    {"act_bits": 8, "quant_w": 8, "kv_len": 16, "luts": 650, "ffs": 345, "carry4": 72, "muxf7": 37, "estimated_lcs": 505, "dsp48e1": 0, "ram": 0, "exact_cycles_per_token": 18},
+    {"act_bits": 8, "quant_w": 8, "kv_len": 32, "luts": 852, "ffs": 475, "carry4": 73, "muxf7": 84, "estimated_lcs": 820, "dsp48e1": 0, "ram": 0, "exact_cycles_per_token": 34},
+    {"act_bits": 6, "quant_w": 6, "kv_len": 16, "luts": 607, "ffs": 329, "carry4": 72, "muxf7": 33, "estimated_lcs": 462, "dsp48e1": 0, "ram": 0, "exact_cycles_per_token": 18},
+    {"act_bits": 4, "quant_w": 4, "kv_len": 16, "luts": 599, "ffs": 309, "carry4": 71, "muxf7": 45, "estimated_lcs": 467, "dsp48e1": 0, "ram": 0, "exact_cycles_per_token": 18},
+    {"act_bits": 4, "quant_w": 4, "kv_len": 32, "luts": 791, "ffs": 439, "carry4": 72, "muxf7": 60, "estimated_lcs": 759, "dsp48e1": 0, "ram": 0, "exact_cycles_per_token": 34}
+  ],
+  "verification": [
+    {"head_dim": 4, "kv_len": 8,  "quant_w": 8, "trials": 2000, "mismatches": 0, "verdict": "MATCH"},
+    {"head_dim": 8, "kv_len": 8,  "quant_w": 8, "trials": 2000, "mismatches": 0, "verdict": "MATCH"},
+    {"head_dim": 8, "kv_len": 16, "quant_w": 8, "trials": 2000, "mismatches": 0, "verdict": "MATCH"},
+    {"head_dim": 8, "kv_len": 16, "quant_w": 6, "trials": 2000, "mismatches": 0, "verdict": "MATCH"},
+    {"head_dim": 8, "kv_len": 32, "quant_w": 8, "trials": 2000, "mismatches": 0, "verdict": "MATCH"},
+    {"head_dim": 4, "kv_len": 16, "quant_w": 4, "trials": 2000, "mismatches": 0, "verdict": "MATCH"}
+  ],
+  "cost_of_the_control_sequence": {
+    "config": "act=8, quant=8, kv_len=16, head_dim=8",
+    "plain_sequential": {"estimated_lcs": 455, "cycles_per_token": 16, "cycles_note": "scan phase only, no reset"},
+    "token_sequential": {"estimated_lcs": 505, "cycles_per_token": 18, "cycles_note": "exact: 1 clear + 16 scan + 1 write/done"},
+    "control_overhead": "+50 estimated LCs (+11.0%), +2 cycles per token (+12.5%)",
+    "interpretation": "The control sequence is cheap. Paying 50 LCs and 2 cycles buys an exact, per-token-defined output with a done pulse - the price of a usable interface."
+  },
+  "derived_attention_throughput": {
+    "status": "DERIVED, not measured on silicon",
+    "clock_mhz": 150,
+    "clock_status": "ring-oscillator estimate, not measured",
+    "attention_passes_per_sec": {
+      "kv_len_8": 15000000,
+      "kv_len_16": 8333333,
+      "kv_len_32": 4411765
+    },
+    "formula": "clock_hz / exact_cycles_per_token",
+    "important_caveat": "These are attention PASSES per second for this block, NOT model tokens per second. The 5.7 tok/s figure measured on the cycle-1 variance bitstream is a DIFFERENT measurement (cycle-1 runs, dominated by the measurement harness, not by the FPGA clock) and must not be mixed with this number."
+  },
+  "findings": [
+    {
+      "id": "CONTROL_SEQUENCE_PRESERVES_THE_MATH",
+      "claim": "The token-sequential output is bit-identical to the combinational golden in all 6 verified configurations, 12000 randomised trials total, 0 mismatches.",
+      "status": "VERIFIED"
+    },
+    {
+      "id": "CYCLES_PER_TOKEN_ARE_NOW_EXACT",
+      "claim": "SLOTS + 2 cycles per token, by construction: 1 clear + SLOTS scan + 1 write/done. The 'latency is an estimate of the scan phase' limitation from iteration 3 is closed.",
+      "status": "MEASURED (structural, from the implemented control sequence)"
+    },
+    {
+      "id": "ZERO_DSP_AND_ZERO_RAM_HOLD",
+      "claim": "DSP48E1 = 0 and RAMB = 0 in every configuration. External DRAM reads per token = 0 and KV traffic = 0 bytes/token.",
+      "status": "MEASURED"
+    },
+    {
+      "id": "STILL_FITS_EASILY",
+      "claim": "368-820 estimated LCs (0.27%-0.61% of the XC7A200T LUT fabric) across the sweep. The 10% cap remains non-binding.",
+      "status": "MEASURED"
+    }
+  ],
+  "decision": "ADOPT the token-sequential form (attn_token) as the attention architecture",
+  "decision_rationale": [
+    "It produces a per-token-defined output with a done pulse, which is what an inference loop needs.",
+    "The cycle count per token is exact, so throughput can be derived without guessing.",
+    "The control overhead is +50 LCs and +2 cycles - small and quantified.",
+    "Zero-DSP, zero-RAM and zero external DRAM traffic are preserved.",
+    "The mathematics is verified identical to the combinational golden."
+  ],
+  "still_open": [
+    "The derived throughput uses an ESTIMATED ring-oscillator clock. Measuring the real clock of the AX7203 build would turn it into a measured number.",
+    "Power is still ESTIMATED; Vivado report_power or an external meter is required.",
+    "The per-slot cost figure still used the uniform harness payload.",
+    "The sequential bitstream has not been built and flashed, so no silicon latency measurement exists yet."
+  ],
+  "next_iteration": [
+    "measure the actual clock frequency of the ring oscillator on the board (toggle a pin, time it with the scope or a logic analyser)",
+    "build and flash the token-sequential bitstream, then measure the done-pulse interval",
+    "re-derive throughput from the measured clock and the measured done-pulse interval",
+    "close the attention latency gate"
+  ]
+}

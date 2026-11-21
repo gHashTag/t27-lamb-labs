@@ -343,6 +343,82 @@ sequential form was required. This iteration builds and measures it.
 - The per-slot figure was measured with the uniform harness payload; a randomised payload sweep
   would refine it.
 
+## Co-Design Iteration 4: token-sequential attention with an exact cycle count (✅ MEASURED + VERIFIED)
+
+Iteration 3 left a limitation: the sequential RTL accumulated continuously and did not reset
+between tokens, so the per-token cycle count was an estimate of the scan phase only. This
+iteration implements the control sequence.
+
+**Control sequence** (exact `SLOTS + 2` cycles per token):
+`phase 0` clear the accumulator · `phases 1..SLOTS` scan one KV slot per cycle and accumulate
+its contribution · `phase DONE` output valid + write the new KV slot + restart.
+
+### Resources (HEAD_DIM=8)
+
+| ACT | QW | KV | LUTs | FFs | CARRY4 | Est. LCs | **Exact cycles/token** | DSP | RAM |
+|---|---|---|---|---|---|---|---|---|---|
+| 8 | 8 | 8 | 522 | 279 | 71 | 368 | **10** | 0 | 0 |
+| 8 | 8 | 16 | 650 | 345 | 72 | 505 | **18** | 0 | 0 |
+| 8 | 8 | 32 | 852 | 475 | 73 | 820 | **34** | 0 | 0 |
+| 6 | 6 | 16 | 607 | 329 | 72 | 462 | **18** | 0 | 0 |
+| 4 | 4 | 16 | 599 | 309 | 71 | 467 | **18** | 0 | 0 |
+| 4 | 4 | 32 | 791 | 439 | 72 | 759 | **34** | 0 | 0 |
+
+### Verification: the control sequence does NOT change the mathematics
+
+| HEAD_DIM | KV_LEN | QUANT_W | Trials | Mismatches | Verdict |
+|---|---|---|---|---|---|
+| 4 | 8 | 8 | 2,000 | 0 | MATCH |
+| 8 | 8 | 8 | 2,000 | 0 | MATCH |
+| 8 | 16 | 8 | 2,000 | 0 | MATCH |
+| 8 | 16 | 6 | 2,000 | 0 | MATCH |
+| 8 | 32 | 8 | 2,000 | 0 | MATCH |
+| 4 | 16 | 4 | 2,000 | 0 | MATCH |
+
+**12,000 randomised trials, 0 mismatches** against the combinational golden.
+
+### Cost of the control sequence (act=8, quant=8, kv_len=16)
+
+| Form | Est. LCs | Cycles/token | Note |
+|---|---|---|---|
+| plain sequential | 455 | 16 | scan phase only, no reset |
+| **token-sequential** | **505** | **18** | **exact**: 1 clear + 16 scan + 1 write/done |
+| overhead | **+50 (+11.0%)** | **+2 (+12.5%)** | buys a per-token-defined output with a `done` pulse |
+
+### Derived attention throughput (⚠️ DERIVED, not measured on silicon)
+
+| KV_LEN | Exact cycles/token | Attention passes/s at 150 MHz (est.) |
+|---|---|---|
+| 8 | 10 | 15,000,000 |
+| 16 | 18 | 8,333,333 |
+| 32 | 34 | 4,411,765 |
+
+> **Important caveat**: these are attention **passes** per second for this block, **not** model tokens
+> per second. The 5.7 tok/s measured on the cycle-1 variance bitstream is a **different measurement**
+> (cycle-1 runs, dominated by the measurement harness, not by the FPGA clock) and must not be mixed
+> with this number.
+
+### Decision: **ADOPT the token-sequential form** (`attn_token`)
+
+- It produces a per-token-defined output with a `done` pulse - what an inference loop needs.
+- The cycle count per token is **exact**, so throughput can be derived without guessing.
+- Control overhead is **+50 LCs and +2 cycles** - small and quantified.
+- Zero-DSP, zero-RAM and zero external DRAM traffic are preserved.
+- The mathematics is **verified identical** to the combinational golden.
+
+**Report**: `evidence/attention_token/token_iteration_report.json`
+**Logs**: `evidence/attention_token/stat_tok_*.txt`
+**RTL**: `evidence/attention_token/attn_token.v`
+**Verification**: `evidence/attention_token/token_sequential_verification.py`
+
+### Still open after this iteration
+
+- The derived throughput uses an **estimated** ring-oscillator clock; measuring the real clock would
+  make it measured.
+- **Power is still ESTIMATED** (Vivado `report_power` or an external meter).
+- The per-slot cost figure still used the uniform harness payload.
+- The sequential bitstream has **not** been built and flashed, so no silicon latency measurement exists.
+
 ## DRAM Reads Per Token (✅ MEASURED)
 
 | Metric | Value | Status |
@@ -388,7 +464,7 @@ order of magnitude.
 |---|---|---|
 | Cycle-1 runs | 5/5 PASSED | ✅ MEASURED |
 | Bit-exact match vs golden | 1.0 | ✅ MEASURED |
-| Co-design iterations completed | **3** (acc x loop-topology; joint act x KV-quant; sequential vs combinational attention) | ✅ MEASURED |
+| Co-design iterations completed | **4** (acc x loop-topology; joint act x KV-quant; sequential vs combinational; token-sequential control) | ✅ MEASURED |
 | Timing CV | 0.46% | ✅ MEASURED |
 | Literature reference | latency 0.8-1.2%, energy 1.5-2.1% (arXiv:2511.06955) | baseline only |
 
@@ -404,11 +480,12 @@ order of magnitude.
 | LUT/BRAM/DSP utilization | ✅ CLOSED | yosys synth_xilinx, exact bitstream flow |
 | Co-design iteration | ✅ CLOSED | 8 configurations measured, decision recorded |
 | DRAM reads/token | ✅ CLOSED | 0, measured |
-| Attention + KV-cache | ✅ CLOSED | 9 combinational + 7 sequential configs; sequential form ADOPTED (455 LCs, 0.34%) |
+| Attention + KV-cache | ✅ CLOSED | 9 combinational + 7 sequential + 6 token-sequential configs; token-sequential ADOPTED (505 LCs, 0.38%) |
 | RL-ready benchmark contract | ✅ CLOSED | 11 evaluated states + drift validator |
 | Per-parameter efficiency table | ✅ CLOSED | normalised, labelled non-parity |
 | Attention quality metric | ✅ CLOSED | bit-exact vs full-precision golden, 1500 randomised trials per config |
 | KV_LEN per-slot cost | ✅ CLOSED | 9.3 LCs + 6.6 FFs per slot (sequential form) |
+| Attention cycles/token | ✅ CLOSED | exact SLOTS+2; verified 0 mismatches vs golden |
 | FPGA power / J-per-token | ❌ OPEN | ESTIMATED; needs Vivado report_power or external meter |
 
 ---
@@ -432,7 +509,7 @@ order of magnitude.
 | QUALITY_METRIC | ✅ MEASURED | 5/5 bit-exact, CV 0.46% |
 | CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | 1 (8 configurations, accept/reject recorded) |
 | ATTENTION_KV_STATUS | ✅ resources MEASURED (9 configs); combinational form REJECTED, sequential form is next |
-| RL_BENCHMARK_STATUS | ✅ contract + **18** evaluated states + validator (NOT an RL system) |
+| RL_BENCHMARK_STATUS | ✅ contract + **19** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |
 | BLOCKERS | - | FPGA power: Vivado report_power (AMD login) or external meter |
