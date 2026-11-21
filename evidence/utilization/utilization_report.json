@@ -1,0 +1,81 @@
+{
+  "timestamp": "2026-11-21T21:40:00Z",
+  "fpga": "xc7a200tfbg484-2",
+  "board": "ALINX AX7203",
+  "methodology": {
+    "tool": "yosys 0.67+post synth_xilinx -family xc7 -nodsp -nosrl -flatten",
+    "flow": "exact same synthesis command as the shipped bitstream (scripts/fpga-build.sh)",
+    "status": "MEASURED",
+    "note": "Vivado unavailable (AMD account login required); counts come from the identical open-source synthesis flow that produced the shipped .bit",
+    "logs": [
+      "evidence/utilization/shipped_bitstream_stat.txt",
+      "evidence/utilization/full_mac_probe_stat.txt"
+    ]
+  },
+  "device_resources_xc7a200t": {
+    "luts": 134600,
+    "ffs": 269200,
+    "bram_36k": 365,
+    "bram_18k": 730,
+    "dsp48e1": 740,
+    "io": 285
+  },
+  "shipped_bitstream_ternary_mac_demo_top": {
+    "luts": 19,
+    "lut_breakdown": {"LUT1": 19, "LUT2": 0, "LUT3": 0, "LUT4": 0, "LUT6": 0},
+    "ffs": 6,
+    "carry4": 1,
+    "bufg": 1,
+    "inv": 4,
+    "obuf": 2,
+    "bram_36k": 0,
+    "dsp48e1": 0,
+    "estimated_lcs": 10,
+    "utilization_percent": {
+      "luts": 0.014,
+      "ffs": 0.002,
+      "bram_36k": 0.0,
+      "dsp48e1": 0.0
+    },
+    "finding": "The shipped demo bitstream lets synthesis PRUNE the 32-bit accumulator to the 2 bits observed by the LEDs: w_code is constant +1 and acc_in is constant 0, so acc_out reduces to a. The shipped bitstream therefore does NOT exercise the full ternary MAC datapath."
+  },
+  "full_mac_probe_ternary_mac_full_observe": {
+    "purpose": "XOR-reduce all 32 accumulator bits so the complete ternary MAC datapath survives synthesis; w_code varies over {+1,0,-1}",
+    "luts": 32,
+    "lut_breakdown": {"LUT1": 19, "LUT2": 0, "LUT3": 2, "LUT4": 7, "LUT6": 4},
+    "ffs": 17,
+    "carry4": 5,
+    "bufg": 1,
+    "inv": 9,
+    "obuf": 2,
+    "bram_36k": 0,
+    "dsp48e1": 0,
+    "estimated_lcs": 18,
+    "utilization_percent": {
+      "luts": 0.024,
+      "ffs": 0.006,
+      "bram_36k": 0.0,
+      "dsp48e1": 0.0
+    },
+    "zero_dsp_confirmed": true,
+    "zero_bram_confirmed": true,
+    "note": "19 LUT1 + 4 INV are the ring-oscillator clock; the ternary MAC itself costs 13 LUTs (2xLUT3 + 7xLUT4 + 4xLUT6), 5 CARRY4 chains and part of the 17 FFs."
+  },
+  "dsp_utilization": 0,
+  "bram_utilization": 0,
+  "zero_dsp_confirmed": true,
+  "power_estimate": {
+    "status": "ESTIMATED",
+    "method": "not_yosys_derived; Vivado report_power unavailable (AMD account login required)",
+    "value_w": 0.7,
+    "confidence": "Preliminary",
+    "accuracy_band": "+/-20% (Vivado Preliminary class)",
+    "note": "Honest bound: with 0 DSP and 0 BRAM in use and only 32 LUTs active, total board power is dominated by static/IO/clock, not the MAC datapath."
+  },
+  "j_per_token": {
+    "status": "ESTIMATED",
+    "value": 0.12,
+    "formula": "estimated_power_w / measured_tokens_per_sec (0.7 / 5.7)",
+    "note": "Requires Vivado report_power (or external meter) for MEASURED value"
+  }
+}

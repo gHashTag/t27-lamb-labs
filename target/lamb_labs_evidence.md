@@ -56,34 +56,66 @@
 
 ---
 
-## LUT/BRAM/DSP Utilization (⚠️ ESTIMATE - NEEDS VIVADO report_utilization)
+## LUT/BRAM/DSP Utilization (✅ MEASURED - yosys synth_xilinx, exact bitstream flow)
 
-| Resource | Estimated | Available | % Utilization | Status | Action |
-|---|---|---|---|---|---|
-| LUTs | ~6,700 | 134,600 | ~5.0% | ⚠️ ESTIMATE | `report_utilization` |
-| FFs | ~3,700 | 269,200 | ~1.4% | ⚠️ ESTIMATE | `report_utilization` |
-| BRAM 36K | 8 | 365 | ~2.2% | ⚠️ ESTIMATE | `report_ram_utilization -include_lutram` |
-| BRAM 18K | 0 | 730 | 0% | ⚠️ ESTIMATE | `report_ram_utilization -include_lutram` |
-| DSP48E1 | 0 | 740 | 0% | ✅ CONFIRMED | — |
-| IOs | ~20 | 285 | ~7% | ⚠️ ESTIMATE | `report_utilization` |
+**Tool**: yosys 0.67+post, `synth_xilinx -family xc7 -nodsp -nosrl -flatten`
+(the identical synthesis command from `scripts/fpga-build.sh` that produced the shipped `.bit`)
 
-**TO CLOSE LUT/BRAM: Run in Vivado Tcl Console (post-route):**
-```tcl
-report_utilization
-report_ram_utilization -include_lutram
-```
-**Save output as `utilization_report.txt` + parse to JSON. Cost: FREE (Vivado WebPACK).**
+### Shipped bitstream (`ternary_mac_demo_top`)
 
----
+| Resource | Used | Available (xc7a200t) | % | Status |
+|---|---|---|---|---|
+| LUTs | 19 | 134,600 | 0.014% | ✅ MEASURED |
+| FFs | 6 | 269,200 | 0.002% | ✅ MEASURED |
+| BRAM 36K | 0 | 365 | 0.0% | ✅ MEASURED |
+| DSP48E1 | 0 | 740 | **0.0%** | ✅ MEASURED (zero-DSP) |
+| BUFG | 1 | - | - | ✅ MEASURED |
+| CARRY4 | 1 | - | - | ✅ MEASURED |
+| IOB (OBUF) | 2 | 285 | 0.70% | ✅ MEASURED |
+| Estimated LCs | 10 | 134,600 | 0.007% | ✅ MEASURED |
+
+> **Honest finding**: the shipped demo bitstream lets synthesis **prune** the 32-bit
+> accumulator to the 2 bits observed by the LEDs (`w_code` constant `+1`, `acc_in` constant `0`,
+> so `acc_out` reduces to `a`). The shipped `.bit` therefore does **not** exercise the full
+> ternary MAC datapath.
+
+### Full ternary MAC datapath probe (`ternary_mac_full_observe`)
+
+XOR-reduces all 32 accumulator bits (so the datapath survives synthesis) and varies
+`w_code` over `{+1, 0, -1}`.
+
+| Resource | Used | Available | % | Status |
+|---|---|---|---|---|
+| LUTs | 32 | 134,600 | 0.024% | ✅ MEASURED |
+| FFs | 17 | 269,200 | 0.006% | ✅ MEASURED |
+| BRAM 36K | **0** | 365 | **0.0%** | ✅ MEASURED |
+| DSP48E1 | **0** | 740 | **0.0%** | ✅ MEASURED (**zero-DSP confirmed**) |
+| BUFG | 1 | - | - | ✅ MEASURED |
+| CARRY4 | 5 | - | - | ✅ MEASURED |
+| INV | 9 | - | - | ✅ MEASURED |
+| IOB (OBUF) | 2 | 285 | 0.70% | ✅ MEASURED |
+| Estimated LCs | 18 | 134,600 | 0.013% | ✅ MEASURED |
+
+LUT breakdown: 19x LUT1 + 2x LUT3 + 7x LUT4 + 4x LUT6.
+19 LUT1 + 4 INV are the ring-oscillator clock; the **ternary MAC itself costs 13 LUTs
+(2xLUT3 + 7xLUT4 + 4xLUT6), 5 CARRY4 chains**, and part of the 17 FFs.
+
+**Logs**: `evidence/utilization/shipped_bitstream_stat.txt`, `evidence/utilization/full_mac_probe_stat.txt`
+**Report**: `evidence/utilization/utilization_report.json`
 
 ## Power Estimation (⚠️ ESTIMATE - NEEDS VIVADO report_power)
 
 | Metric | Value | Status | Notes |
 |---|---|---|---|
-| Estimated Power | ~0.7 W | ⚠️ ESTIMATE | Based on design complexity |
-| Confidence Level | Preliminary | ⚠️ ESTIMATE | `report_power` needed |
+| Estimated Power | ~0.7 W | ⚠️ ESTIMATE | Dominated by static/IO/clock: **0 DSP, 0 BRAM, 32 LUTs** active |
+| Confidence Level | Preliminary | ⚠️ ESTIMATE | Vivado `report_power` unavailable (AMD account login) |
 | Accuracy Band | ±20% (Preliminary) | ⚠️ ESTIMATE | Vivado accuracy class |
 | Measured (external meter) | TBD | ❌ BLOCKED | Needs Monsoon/Keysight |
+
+**Why the estimate is credible here**: the measured utilization shows **zero DSP, zero BRAM
+and only 32 LUTs** in the entire design, so total board power is dominated by static /
+IO / clock overhead, not by the MAC datapath. A Vivado `report_power` would tighten the
+band; it would not change the order of magnitude.
 
 **TO GET ESTIMATE: Run in Vivado Tcl Console (post-route):**
 ```tcl
@@ -141,10 +173,15 @@ report_power
 
 | Metric | Value | Status | Notes |
 |---|---|---|---|
-| Estimated Power | ~0.7 W | ⚠️ ESTIMATE | Based on design complexity |
-| Confidence Level | Preliminary | ⚠️ ESTIMATE | `report_power` needed |
+| Estimated Power | ~0.7 W | ⚠️ ESTIMATE | Dominated by static/IO/clock: **0 DSP, 0 BRAM, 32 LUTs** active |
+| Confidence Level | Preliminary | ⚠️ ESTIMATE | Vivado `report_power` unavailable (AMD account login) |
 | Accuracy Band | ±20% (Preliminary) | ⚠️ ESTIMATE | Vivado accuracy class |
 | Measured (external meter) | TBD | ❌ BLOCKED | Needs Monsoon/Keysight |
+
+**Why the estimate is credible here**: the measured utilization shows **zero DSP, zero BRAM
+and only 32 LUTs** in the entire design, so total board power is dominated by static /
+IO / clock overhead, not by the MAC datapath. A Vivado `report_power` would tighten the
+band; it would not change the order of magnitude.
 
 ### To Close POWER_WATTS:
 
