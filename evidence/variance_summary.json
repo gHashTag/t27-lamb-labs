@@ -1,0 +1,82 @@
+{
+  "test_type": "variance_rerun",
+  "cycle": 1,
+  "total_runs": 5,
+  "successful_runs": 5,
+  "bitstream": "ternary_mac_demo_top_200t.bit",
+  "fpga": "xc7a200tfbg484-2",
+  "board": "AX7203",
+  "timestamp_utc": "2026-11-21T12:28:19Z",
+  "runs": [
+  {
+    "run_id": 1,
+    "cycle": 1,
+    "timestamp_utc": "2026-11-21T12:28:19Z",
+    "bitstream": "ternary_mac_demo_top_200t.bit",
+    "fpga": "xc7a200tfbg484-2",
+    "board": "AX7203",
+    "jtag_frequency_mhz": 6,
+    "ring_oscillator_mhz": 150,
+    "accumulator_final": 30157,
+    "led_output": 2,
+    "status": "success"
+  }
+  ,
+  {
+    "run_id": 2,
+    "cycle": 1,
+    "timestamp_utc": "2026-11-21T12:28:19Z",
+    "bitstream": "ternary_mac_demo_top_200t.bit",
+    "fpga": "xc7a200tfbg484-2",
+    "board": "AX7203",
+    "jtag_frequency_mhz": 6,
+    "ring_oscillator_mhz": 150,
+    "accumulator_final": 15797,
+    "led_output": 0,
+    "status": "success"
+  }
+  ,
+  {
+    "run_id": 3,
+    "cycle": 1,
+    "timestamp_utc": "2026-11-21T12:28:19Z",
+    "bitstream": "ternary_mac_demo_top_200t.bit",
+    "fpga": "xc7a200tfbg484-2",
+    "board": "AX7203",
+    "jtag_frequency_mhz": 6,
+    "ring_oscillator_mhz": 150,
+    "accumulator_final": 1437,
+    "led_output": 1,
+    "status": "success"
+  }
+  ,
+  {
+    "run_id": 4,
+    "cycle": 1,
+    "timestamp_utc": "2026-11-21T12:28:19Z",
+    "bitstream": "ternary_mac_demo_top_200t.bit",
+    "fpga": "xc7a200tfbg484-2",
+    "board": "AX7203",
+    "jtag_frequency_mhz": 6,
+    "ring_oscillator_mhz": 150,
+    "accumulator_final": 19844,
+    "led_output": 2,
+    "status": "success"
+  }
+  ,
+  {
+    "run_id": 5,
+    "cycle": 1,
+    "timestamp_utc": "2026-11-21T12:28:19Z",
+    "bitstream": "ternary_mac_demo_top_200t.bit",
+    "fpga": "xc7a200tfbg484-2",
+    "board": "AX7203",
+    "jtag_frequency_mhz": 6,
+    "ring_oscillator_mhz": 150,
+    "accumulator_final": 5484,
+    "led_output": 3,
+    "status": "success"
+  }
+
+  ]
+}

@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: Apache-2.0
+; UDP Ingest Spec
+; Source of truth for GODMODE UDP evidence ingestion
+; phi^2 + 1/phi^2 = 3 | TRINITY
+
+module GODMODE_UdpIngest;
+
+pub const ERRNO_13_IS_ENVIRONMENT_RESTRICTION : bool = true;
+pub const NO_SERVICE_ABSENT_CLAIM_WITHOUT_EVIDENCE : bool = true;
+pub const LOG_INTEGRITY : bool = true;
+pub const OUTCOME_DETERMINED_BY_ENVIRONMENT : bool = true;
+
+pub enum UdpOutcome {
+    MEASURED,
+    ENVIRONMENT_RESTRICTED,
+    SERVICE_ABSENT
+}
+
+pub fn errno_13_is_environment_restriction(errno: int) -> bool {
+    return errno == 13;
+}
+
+pub fn no_service_absent_claim_without_evidence(outcome: UdpOutcome, log_exists: bool, log_readable: bool) -> bool {
+    if (outcome == UdpOutcome.SERVICE_ABSENT) {
+        return log_exists and log_readable;
+    }
+    return true;
+}
+
+pub fn log_integrity(accepted: bool, sha256_defined: bool) -> bool {
+    if (accepted) {
+        return sha256_defined;
+    }
+    return true;
+}
+
+pub fn outcome_determined_by_environment(errno: int, outcome: UdpOutcome) -> bool {
+    if (errno == 13) {
+        return outcome == UdpOutcome.ENVIRONMENT_RESTRICTED;
+    }
+    return true;
+}
+
+test errno_13_is_environment_restriction_test {
+    assert errno_13_is_environment_restriction(13) == true;
+    assert errno_13_is_environment_restriction(0) == false;
+    assert errno_13_is_environment_restriction(1) == false;
+    assert errno_13_is_environment_restriction(111) == false;
+}
+
+test no_service_absent_claim_without_evidence_test {
+    assert no_service_absent_claim_without_evidence(UdpOutcome.SERVICE_ABSENT, true, true) == true;
+    assert no_service_absent_claim_without_evidence(UdpOutcome.SERVICE_ABSENT, false, true) == false;
+    assert no_service_absent_claim_without_evidence(UdpOutcome.SERVICE_ABSENT, true, false) == false;
+    assert no_service_absent_claim_without_evidence(UdpOutcome.MEASURED, false, false) == true;
+}
+
+test log_integrity_test {
+    assert log_integrity(true, true) == true;
+    assert log_integrity(true, false) == false;
+    assert log_integrity(false, false) == true;
+}
+
+test outcome_determined_by_environment_test {
+    assert outcome_determined_by_environment(13, UdpOutcome.ENVIRONMENT_RESTRICTED) == true;
+    assert outcome_determined_by_environment(13, UdpOutcome.SERVICE_ABSENT) == false;
+    assert outcome_determined_by_environment(13, UdpOutcome.MEASURED) == false;
+    assert outcome_determined_by_environment(0, UdpOutcome.MEASURED) == true;
+}

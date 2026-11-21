@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: Apache-2.0
+; Power Ingest Spec
+; Source of truth for GODMODE power evidence ingestion
+; phi^2 + 1/phi^2 = 3 | TRINITY
+
+module GODMODE_PowerIngest;
+
+pub const NO_ESTIMATE_AS_MEASUREMENT : bool = true;
+pub const REAL_MEASUREMENT_REQUIRED : bool = true;
+pub const CLAIM_TRANSITION_MEASURED : bool = true;
+pub const NO_EXTRAPOLATION_FROM_CURRENT : bool = true;
+
+pub fn no_estimate_as_measurement(voltage_measured: bool, current_measured: bool, power_derived: bool) -> bool {
+    if (power_derived and (!voltage_measured or !current_measured)) {
+        return false;
+    }
+    return true;
+}
+
+pub fn real_measurement_required(accepted: bool, power_is_measured: bool) -> bool {
+    if (accepted) {
+        return power_is_measured;
+    }
+    return true;
+}
+
+pub fn claim_transition_measured(accepted: bool, claim_status: str) -> bool {
+    if (accepted) {
+        return claim_status == "MEASURED";
+    }
+    return claim_status == "NOT_MEASURED";
+}
+
+pub fn no_extrapolation_from_current(voltage_measured: bool, power_derived: bool) -> bool {
+    if (power_derived and !voltage_measured) {
+        return false;
+    }
+    return true;
+}
+
+test no_estimate_as_measurement_test {
+    assert no_estimate_as_measurement(true, true, true) == true;
+    assert no_estimate_as_measurement(false, true, true) == false;
+    assert no_estimate_as_measurement(true, false, true) == false;
+    assert no_estimate_as_measurement(false, false, true) == false;
+    assert no_estimate_as_measurement(false, true, false) == true;
+}
+
+test real_measurement_required_test {
+    assert real_measurement_required(true, true) == true;
+    assert real_measurement_required(true, false) == false;
+    assert real_measurement_required(false, false) == true;
+}
+
+test claim_transition_measured_test {
+    assert claim_transition_measured(true, "MEASURED") == true;
+    assert claim_transition_measured(true, "PARTIAL") == false;
+    assert claim_transition_measured(true, "NOT_MEASURED") == false;
+    assert claim_transition_measured(false, "NOT_MEASURED") == true;
+    assert claim_transition_measured(false, "PARTIAL") == false;
+}
+
+test no_extrapolation_from_current_test {
+    assert no_extrapolation_from_current(true, true) == true;
+    assert no_extrapolation_from_current(false, true) == false;
+    assert no_extrapolation_from_current(false, false) == true;
+}

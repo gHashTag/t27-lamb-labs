@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: Apache-2.0
+; Research Ingest Spec
+; Source of truth for GODMODE research evidence ingestion
+; phi^2 + 1/phi^2 = 3 | TRINITY
+
+module GODMODE_ResearchIngest;
+
+pub const DRY_RUN_NEVER_MUTATES : bool = true;
+pub const INGEST_IS_IDEMPOTENT : bool = true;
+pub const EVIDENCE_IMMUTABLE : bool = true;
+
+pub enum EvidenceKind {
+    VARIANCE,
+    UDP,
+    POWER
+}
+
+pub fn dry_run_never_mutates(dry_run: bool, claims_updated: bool, artifact_mutated: bool, state_transition: bool) -> bool {
+    if (dry_run) {
+        return !(claims_updated or artifact_mutated or state_transition);
+    }
+    return true;
+}
+
+pub fn ingest_is_idempotent(identical_inputs: bool, identical_result: bool, marker_present: bool) -> bool {
+    if (identical_inputs) {
+        return identical_result and marker_present;
+    }
+    return true;
+}
+
+pub fn evidence_immutable(modifies_raw: bool, modifies_instrument: bool, modifies_bitstream: bool, modifies_golden: bool) -> bool {
+    return !(modifies_raw or modifies_instrument or modifies_bitstream or modifies_golden);
+}
+
+pub fn evidence_ingest_gate(count_matches: bool, all_hashed: bool, no_mutation: bool, audit_written: bool) -> bool {
+    return count_matches and all_hashed and no_mutation and audit_written;
+}
+
+pub fn variance_ingest_gate(five_runs: bool, all_hashed: bool, claim_transition: bool) -> bool {
+    return five_runs and all_hashed and claim_transition;
+}
+
+pub fn udp_ingest_gate(errno13_restricted: bool, no_service_absent: bool, log_integrity: bool) -> bool {
+    return errno13_restricted and no_service_absent and log_integrity;
+}
+
+pub fn power_ingest_gate(real_measurement: bool, no_estimate: bool, claim_transition: bool) -> bool {
+    return real_measurement and no_estimate and claim_transition;
+}
+
+test dry_run_never_mutates_test {
+    assert dry_run_never_mutates(true, false, false, false) == true;
+    assert dry_run_never_mutates(true, true, false, false) == false;
+    assert dry_run_never_mutates(true, false, true, false) == false;
+    assert dry_run_never_mutates(true, false, false, true) == false;
+    assert dry_run_never_mutates(false, true, true, true) == true;
+}
+
+test ingest_is_idempotent_test {
+    assert ingest_is_idempotent(true, true, true) == true;
+    assert ingest_is_idempotent(true, false, true) == false;
+    assert ingest_is_idempotent(true, true, false) == false;
+    assert ingest_is_idempotent(false, false, false) == true;
+}
+
+test evidence_immutable_test {
+    assert evidence_immutable(false, false, false, false) == true;
+    assert evidence_immutable(true, false, false, false) == false;
+    assert evidence_immutable(false, true, false, false) == false;
+}
+
+test evidence_ingest_gate_test {
+    assert evidence_ingest_gate(true, true, true, true) == true;
+    assert evidence_ingest_gate(false, true, true, true) == false;
+    assert evidence_ingest_gate(true, false, true, true) == false;
+    assert evidence_ingest_gate(true, true, false, true) == false;
+    assert evidence_ingest_gate(true, true, true, false) == false;
+}
+
+test variance_ingest_gate_test {
+    assert variance_ingest_gate(true, true, true) == true;
+    assert variance_ingest_gate(false, true, true) == false;
+    assert variance_ingest_gate(true, false, true) == false;
+    assert variance_ingest_gate(true, true, false) == false;
+}
+
+test udp_ingest_gate_test {
+    assert udp_ingest_gate(true, true, true) == true;
+    assert udp_ingest_gate(false, true, true) == false;
+    assert udp_ingest_gate(true, false, true) == false;
+    assert udp_ingest_gate(true, true, false) == false;
+}
+
+test power_ingest_gate_test {
+    assert power_ingest_gate(true, true, true) == true;
+    assert power_ingest_gate(false, true, true) == false;
+    assert power_ingest_gate(true, false, true) == false;
+    assert power_ingest_gate(true, true, false) == false;
+}
