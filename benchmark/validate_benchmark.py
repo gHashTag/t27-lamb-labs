@@ -19,18 +19,27 @@ def main():
     util   = load("evidence/utilization/utilization_report.json")
     cd     = load("evidence/codesign/codesign_iteration_report.json")
     attn   = load("evidence/attention/attention_kv_report.json")
+    joint  = load("evidence/attention_joint/joint_iteration_report.json")
 
     # 1. every evaluated state must be traceable to a measured config
     measured = {}
     for m in cd["measurements"]:
         measured[(m["mode"], m["acc_bits"])] = m
+    # The joint sweep uses the ACT_BITS-parameterised RTL and supersedes the earlier
+    # fixed-8-bit attention sweep for any state that declares act_bits.
+    for m in joint["quality_gated_frontier"]:
+        if "estimated_lcs" in m:
+            # the joint sweep fixes HEAD_DIM=8 and KV_LEN=16
+            measured[("attn", 8, 16, m["quant_w"], m["act_bits"])] = m
     for m in attn["measurements"]:
-        measured[("attn", m["head_dim"], m["kv_len"], m["quant_w"])] = m
+        measured.setdefault(("attn", m["head_dim"], m["kv_len"], m["quant_w"]), m)
 
     for st in bench["already_evaluated_states"]:
         s = st["state"]
         if s["arch"] == "attention_kv":
-            key = ("attn", s.get("head_dim"), s.get("kv_len"), s.get("quant_w"))
+            key = ("attn", s.get("head_dim"), s.get("kv_len"), s.get("quant_w"), s.get("act_bits"))
+            if key not in measured:
+                key = ("attn", s.get("head_dim"), s.get("kv_len"), s.get("quant_w"))
         else:
             key = (s.get("loop_topology"), s.get("acc_bits"))
         if key not in measured:
@@ -41,6 +50,8 @@ def main():
             errors.append(f"state {s}: lcs {st['estimated_lcs']} != measured {src['estimated_lcs']}")
         if "dsp48e1" in src and src["dsp48e1"] != st["dsp"]:
             errors.append(f"state {s}: dsp {st['dsp']} != measured {src['dsp48e1']}")
+        if "exact_match_rate" in src and src["exact_match_rate"] != st.get("bit_exact"):
+            errors.append(f"state {s}: bit_exact {st.get('bit_exact')} != measured {src['exact_match_rate']}")
 
     # 2. resource constraint must reject the measured combinational attention form
     cap = bench["reward"]["resource_constraint"]["max_estimated_lcs"]

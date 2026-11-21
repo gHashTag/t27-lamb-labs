@@ -21,7 +21,8 @@
       "quant_w": "int, KV magnitude bits (attention_kv only)",
       "loop_topology": "enum { open, closed }",
       "seq_len": "int, generated sequence length",
-      "batch": "int, batch size"
+      "batch": "int, batch size",
+      "act_bits": "int, activation width (bits); the KV cache stores sign + quant_w magnitude bits of this width"
     },
     "example": {
       "arch": "attention_kv",
@@ -37,13 +38,82 @@
   "action": {
     "description": "One allowed, single-parameter change to the state.",
     "allowed_actions": [
-      {"name": "set_acc_bits",   "field": "acc_bits",   "domain": [4, 8, 16, 32]},
-      {"name": "set_head_dim",   "field": "head_dim",   "domain": [4, 8]},
-      {"name": "set_kv_len",     "field": "kv_len",     "domain": [4, 8, 16, 32, 64]},
-      {"name": "set_quant_w",    "field": "quant_w",    "domain": [4, 6, 8]},
-      {"name": "set_loop_topo",  "field": "loop_topology", "domain": ["open", "closed"]},
-      {"name": "set_seq_len",    "field": "seq_len",    "domain": [8, 16, 32, 64, 128]},
-      {"name": "set_batch",      "field": "batch",      "domain": [1, 2, 4, 8]}
+      {
+        "name": "set_acc_bits",
+        "field": "acc_bits",
+        "domain": [
+          4,
+          8,
+          16,
+          32
+        ]
+      },
+      {
+        "name": "set_head_dim",
+        "field": "head_dim",
+        "domain": [
+          4,
+          8
+        ]
+      },
+      {
+        "name": "set_kv_len",
+        "field": "kv_len",
+        "domain": [
+          4,
+          8,
+          16,
+          32,
+          64
+        ]
+      },
+      {
+        "name": "set_quant_w",
+        "field": "quant_w",
+        "domain": [
+          4,
+          6,
+          8
+        ]
+      },
+      {
+        "name": "set_loop_topo",
+        "field": "loop_topology",
+        "domain": [
+          "open",
+          "closed"
+        ]
+      },
+      {
+        "name": "set_seq_len",
+        "field": "seq_len",
+        "domain": [
+          8,
+          16,
+          32,
+          64,
+          128
+        ]
+      },
+      {
+        "name": "set_batch",
+        "field": "batch",
+        "domain": [
+          1,
+          2,
+          4,
+          8
+        ]
+      },
+      {
+        "name": "set_act_bits",
+        "field": "act_bits",
+        "domain": [
+          4,
+          6,
+          8
+        ]
+      }
     ],
     "constraint": "exactly one field changes per action; every action must be inside the declared domain"
   },
@@ -69,12 +139,21 @@
         "open_loop_16b": 1.0,
         "open_loop_8b": 1.0,
         "open_loop_4b": 0.0,
-        "source": "evidence/codesign/accumulator_range_sim.py"
+        "source": "evidence/codesign/accumulator_range_sim.py; evidence/attention_joint/attention_quality_joint.py",
+        "attention_kv_mean_rel_err": {
+          "8|16|8": 0.0,
+          "8|16|6": 0.800591,
+          "8|16|4": 0.949815,
+          "6|16|6": 0.0,
+          "6|16|8": 0.0,
+          "4|16|4": 0.0,
+          "4|16|8": 0.0
+        }
       }
     },
     "resource_constraint": {
       "max_estimated_lcs": 13460,
-      "max_lcs_fraction_of_device": 0.10,
+      "max_lcs_fraction_of_device": 0.1,
       "rationale": "the combinational attention form measured 28,619 LCs = 21.3% of the device and was rejected; the benchmark caps candidates at 10% of the LUT fabric",
       "device_lcs": 134600
     }
@@ -91,22 +170,214 @@
     "repeat_policy": "5 cycle-1 runs per candidate; report mean, stddev and CV"
   },
   "already_evaluated_states": [
-    {"state": {"arch": "ternary_mac_closed_loop", "acc_bits": 32, "loop_topology": "closed"}, "estimated_lcs": 41, "dsp": 0, "bram": 0, "bit_exact": 1.0, "decision": "ACCEPT"},
-    {"state": {"arch": "ternary_mac_closed_loop", "acc_bits": 16, "loop_topology": "closed"}, "estimated_lcs": 26, "dsp": 0, "bram": 0, "bit_exact": 0.0, "decision": "REJECT: overflows, peak |acc| = 1,048,671"},
-    {"state": {"arch": "ternary_mac_closed_loop", "acc_bits": 8, "loop_topology": "closed"}, "estimated_lcs": 22, "dsp": 0, "bram": 0, "bit_exact": 0.0, "decision": "REJECT: overflows"},
-    {"state": {"arch": "ternary_mac_closed_loop", "acc_bits": 4, "loop_topology": "closed"}, "estimated_lcs": 14, "dsp": 0, "bram": 0, "bit_exact": 0.0, "decision": "REJECT: overflows"},
-    {"state": {"arch": "ternary_mac", "acc_bits": 32, "loop_topology": "open"}, "estimated_lcs": 18, "dsp": 0, "bram": 0, "bit_exact": 1.0, "decision": "ACCEPT"},
-    {"state": {"arch": "ternary_mac", "acc_bits": 16, "loop_topology": "open"}, "estimated_lcs": 18, "dsp": 0, "bram": 0, "bit_exact": 1.0, "decision": "ACCEPT (cost-identical to 32b)"},
-    {"state": {"arch": "ternary_mac", "acc_bits": 8, "loop_topology": "open"}, "estimated_lcs": 18, "dsp": 0, "bram": 0, "bit_exact": 1.0, "decision": "ACCEPT but saves only 1 LUT / 1 FF"},
-    {"state": {"arch": "ternary_mac", "acc_bits": 4, "loop_topology": "open"}, "estimated_lcs": 12, "dsp": 0, "bram": 0, "bit_exact": 0.0, "decision": "REJECT: overflows"},
-    {"state": {"arch": "attention_kv", "head_dim": 8, "kv_len": 16, "quant_w": 8}, "estimated_lcs": 28619, "dsp": 0, "bram": 0, "bit_exact": null, "decision": "REJECT: 21.3% of device LUT fabric"},
-    {"state": {"arch": "attention_kv", "head_dim": 8, "kv_len": 16, "quant_w": 4}, "estimated_lcs": 13869, "dsp": 0, "bram": 0, "bit_exact": null, "decision": "CANDIDATE: fits the 10% cap, quality pending"},
-    {"state": {"arch": "attention_kv", "head_dim": 4, "kv_len": 16, "quant_w": 8}, "estimated_lcs": 13881, "dsp": 0, "bram": 0, "bit_exact": null, "decision": "CANDIDATE: fits the 10% cap, quality pending"}
+    {
+      "state": {
+        "arch": "ternary_mac_closed_loop",
+        "acc_bits": 32,
+        "loop_topology": "closed"
+      },
+      "estimated_lcs": 41,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": 1.0,
+      "decision": "ACCEPT"
+    },
+    {
+      "state": {
+        "arch": "ternary_mac_closed_loop",
+        "acc_bits": 16,
+        "loop_topology": "closed"
+      },
+      "estimated_lcs": 26,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": 0.0,
+      "decision": "REJECT: overflows, peak |acc| = 1,048,671"
+    },
+    {
+      "state": {
+        "arch": "ternary_mac_closed_loop",
+        "acc_bits": 8,
+        "loop_topology": "closed"
+      },
+      "estimated_lcs": 22,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": 0.0,
+      "decision": "REJECT: overflows"
+    },
+    {
+      "state": {
+        "arch": "ternary_mac_closed_loop",
+        "acc_bits": 4,
+        "loop_topology": "closed"
+      },
+      "estimated_lcs": 14,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": 0.0,
+      "decision": "REJECT: overflows"
+    },
+    {
+      "state": {
+        "arch": "ternary_mac",
+        "acc_bits": 32,
+        "loop_topology": "open"
+      },
+      "estimated_lcs": 18,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": 1.0,
+      "decision": "ACCEPT"
+    },
+    {
+      "state": {
+        "arch": "ternary_mac",
+        "acc_bits": 16,
+        "loop_topology": "open"
+      },
+      "estimated_lcs": 18,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": 1.0,
+      "decision": "ACCEPT (cost-identical to 32b)"
+    },
+    {
+      "state": {
+        "arch": "ternary_mac",
+        "acc_bits": 8,
+        "loop_topology": "open"
+      },
+      "estimated_lcs": 18,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": 1.0,
+      "decision": "ACCEPT but saves only 1 LUT / 1 FF"
+    },
+    {
+      "state": {
+        "arch": "ternary_mac",
+        "acc_bits": 4,
+        "loop_topology": "open"
+      },
+      "estimated_lcs": 12,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": 0.0,
+      "decision": "REJECT: overflows"
+    },
+    {
+      "state": {
+        "arch": "attention_kv",
+        "head_dim": 8,
+        "kv_len": 16,
+        "quant_w": 8,
+        "act_bits": 8
+      },
+      "estimated_lcs": 28582,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": true,
+      "mean_rel_err_vs_full_precision": 0.0,
+      "decision": "REJECT: 21.2% of the device LUT fabric, over the 10% cap"
+    },
+    {
+      "state": {
+        "arch": "attention_kv",
+        "head_dim": 8,
+        "kv_len": 16,
+        "quant_w": 6,
+        "act_bits": 8
+      },
+      "estimated_lcs": 21286,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": false,
+      "mean_rel_err_vs_full_precision": 0.800591,
+      "decision": "REJECT: quality floor violated (80% mean relative error)"
+    },
+    {
+      "state": {
+        "arch": "attention_kv",
+        "head_dim": 8,
+        "kv_len": 16,
+        "quant_w": 4,
+        "act_bits": 8
+      },
+      "estimated_lcs": 13901,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": false,
+      "mean_rel_err_vs_full_precision": 0.949815,
+      "decision": "REJECT: quality floor violated (95% mean relative error). Supersedes the resource-only preference in iteration 1."
+    },
+    {
+      "state": {
+        "arch": "attention_kv",
+        "head_dim": 8,
+        "kv_len": 16,
+        "quant_w": 6,
+        "act_bits": 6
+      },
+      "estimated_lcs": 19159,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": true,
+      "mean_rel_err_vs_full_precision": 0.0,
+      "decision": "REJECT by the 10% cap; valid lossless point"
+    },
+    {
+      "state": {
+        "arch": "attention_kv",
+        "head_dim": 8,
+        "kv_len": 16,
+        "quant_w": 8,
+        "act_bits": 6
+      },
+      "estimated_lcs": 25756,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": true,
+      "mean_rel_err_vs_full_precision": 0.0,
+      "decision": "REJECT: lossless but wasteful (cache stores 2 bits more than the data needs)"
+    },
+    {
+      "state": {
+        "arch": "attention_kv",
+        "head_dim": 8,
+        "kv_len": 16,
+        "quant_w": 4,
+        "act_bits": 4
+      },
+      "estimated_lcs": 10662,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": true,
+      "mean_rel_err_vs_full_precision": 0.0,
+      "decision": "ACCEPT: cheapest lossless configuration, 7.9% of the device LUT fabric, inside the 10% cap"
+    },
+    {
+      "state": {
+        "arch": "attention_kv",
+        "head_dim": 8,
+        "kv_len": 16,
+        "quant_w": 8,
+        "act_bits": 4
+      },
+      "estimated_lcs": 21844,
+      "dsp": 0,
+      "bram": 0,
+      "bit_exact": true,
+      "mean_rel_err_vs_full_precision": 0.0,
+      "decision": "REJECT: wasteful"
+    }
   ],
   "source_of_truth": {
     "utilization": "evidence/utilization/utilization_report.json",
     "codesign": "evidence/codesign/codesign_iteration_report.json",
     "attention": "evidence/attention/attention_kv_report.json",
-    "evidence_dashboard": "target/lamb_labs_evidence.md"
-  }
+    "evidence_dashboard": "target/lamb_labs_evidence.md",
+    "attention_joint": "evidence/attention_joint/joint_iteration_report.json"
+  },
+  "co_design_rule": "The KV cache stores sign + quant_w magnitude bits of an act_bits-wide signed value, so losslessness requires quant_w >= act_bits. QUANT_W is not an independent lever: narrowing it alone is lossy, narrowing act_bits alone at quant_w=8 wastes cache bits. The two must move together."
 }

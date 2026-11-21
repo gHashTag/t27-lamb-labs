@@ -115,7 +115,7 @@ part of the 17 FFs.
 
 ---
 
-## Co-Design Iterations (✅ MEASURED - iteration 1 complete)
+## Co-Design Iteration 1: accumulator width x loop topology (✅ MEASURED)
 
 ### Iteration 1: accumulator width x loop topology
 
@@ -171,7 +171,7 @@ Open loop: the upper bits are provably constant and cost nothing, so 16b and 32b
 
 ---
 
-## Attention + Bounded KV-Cache Extension (✅ RESOURCES MEASURED, quality pending)
+## Attention + Bounded KV-Cache Extension (✅ RESOURCES MEASURED; quality in iteration 2)
 
 Minimal single-head attention with a bounded **quantised** KV-cache:
 `score[s] = sum_c q[c]*K[s][c]`, `out[c] = sum_s sign(score[s])*V[s][c]`,
@@ -191,14 +191,19 @@ K and V stored as sign + `QUANT_W` magnitude bits.
 | 8 | 16 | 4 | 15,900 | 145 | 635 | 2,225 | 748 | 13,869 | 0 | 0 |
 | 8 | 16 | 6 | 24,197 | 209 | 933 | 3,468 | 1,140 | 21,290 | 0 | 0 |
 
+> These are **8-bit-activation** configurations. Iteration 2 below shows that `QUANT_W=4` at 8-bit
+> activations is **lossy** (95% mean relative error). The accepted configuration is
+> `act_bits=4` + `quant_w=4` (10,662 LCs), measured in iteration 2.
+
 ### Findings
 
 1. **Zero-DSP holds in attention** - DSP48E1 = 0 in every configuration, up to a 64-slot KV cache.
 2. **No BRAM, no DRAM** - RAMB = 0 everywhere; the KV cache stays in fabric LUT/FF.
    External DRAM reads per token = **0**, KV traffic = **0 bytes/token**.
-3. **QUANT_WIDTH is the dominant lever** - at HEAD_DIM=8 / KV_LEN=16:
-   QUANT_W=4 -> 13,869 LCs, 6 -> 21,290 LCs, 8 -> 28,619 LCs.
-   Going 4-bit -> 8-bit costs **+103% LUTs**. **Decision: adopt QUANT_W=4** for the edge target.
+3. **QUANT_WIDTH is the dominant RESOURCE lever** - at HEAD_DIM=8 / KV_LEN=16:
+   QUANT_W=4 -> 13,869 LCs, 6 -> 21,290 LCs, 8 -> 28,619 LCs; going 4-bit -> 8-bit costs
+   **+103% LUTs**. **Iteration 1 decision: adopt QUANT_W=4** - later REVERSED by the quality
+   metric in iteration 2, because narrowing QUANT_W alone is lossy. See iteration 2.
 4. **HEAD_DIM doubles the cost** - 4 -> 8 channels is +104% LUTs.
 5. **The combinational attention form does not fit** - 28,619 LCs is **21.3% of the XC7A200T
    LUT fabric** for one 8-channel head with a 16-slot cache. **Decision: REJECT the combinational
@@ -216,8 +221,58 @@ K and V stored as sign + `QUANT_W` magnitude bits.
 (16 x 8 = 128), ~640 ns/token at 150 MHz. A sequential form would be 16 cycles (~107 ns) at a
 fraction of the LUT cost - not yet built.
 
-**Quality**: PENDING. No attention-output quality metric has been computed yet; the resource
-sweep alone cannot justify a quality claim.
+**Quality**: measured in iteration 2 below - bit-exact against the full-precision golden for
+the lossless configurations; the resource sweep alone could not justify a quality claim.
+
+## Co-Design Iteration 2: joint activation width x KV quantisation width (✅ MEASURED)
+
+This iteration supplies the quality metric that iteration 1 explicitly left pending, and
+**reverses** iteration 1's resource-only preference.
+
+**Rule (measured)**: the KV cache stores sign + `QUANT_W` magnitude bits of an
+`ACT_BITS`-wide signed value, so **losslessness requires `QUANT_W >= ACT_BITS`**.
+`QUANT_W` is not an independent lever: narrowing it alone is lossy; narrowing `ACT_BITS`
+alone at `QUANT_W=8` wastes cache bits. The two must move together.
+
+| ACT | QW | Lossless | Mean rel err | LUTs | FFs | LCs | % device | Decision |
+|---|---|---|---|---|---|---|---|---|
+| 8 | 8 | yes | 0.000000 | 32,339 | 273 | 28,582 | 21.2% | REJECT: over the 10% cap, most expensive |
+| 8 | 6 | **no** | 0.800591 | 24,207 | 209 | 21,286 | 15.8% | REJECT: quality floor violated |
+| 8 | 4 | **no** | 0.949815 | 15,876 | 145 | 13,901 | 10.3% | REJECT: quality floor violated |
+| 6 | 8 | yes | 0.000000 | 29,432 | 273 | 25,756 | 19.1% | REJECT: wasteful |
+| 6 | 6 | yes | 0.000000 | 21,947 | 209 | 19,159 | 14.2% | REJECT by the 10% cap |
+| 4 | 8 | yes | 0.000000 | 25,496 | 273 | 21,844 | 16.2% | REJECT: wasteful |
+| **4** | **4** | **yes** | **0.000000** | **12,614** | **145** | **10,662** | **7.9%** | **ACCEPT** |
+
+### Decision: **ACCEPT act_bits=4, quant_w=4** (10,662 LCs, 7.9% of the device, lossless)
+
+- `act=4/quant=4` is **bit-exact** against the full-precision golden (100% exact match over
+  1500 randomised trials) and saves **62.7%** of the LCs against the `act=8/quant=8` reference.
+- It is the **only** lossless configuration that fits inside the benchmark's 10% resource cap.
+- The 10% cap rejects the `act=8/quant=8` reference (21.2% of the fabric), which is why a
+  **sequential** attention form is still needed for wider configurations.
+
+### Correction of iteration 1 (kept in the record)
+
+| | |
+|---|---|
+| Iteration 1 claim | "ADOPT QUANT_W=4 ... subject to the quality floor" - **provisional**, quality was explicitly pending |
+| Iteration 2 result | The quality floor **rejects** QUANT_W=4 at 8-bit activations (95% mean relative error) |
+| Corrected default | **`act_bits=4` AND `quant_w=4` together** |
+
+### Measured lossless scaling law (equal activation and KV widths)
+
+| act bits | LCs | LUTs |
+|---|---|---|
+| 4 | 10,662 | 12,614 |
+| 6 | 19,159 | 21,947 |
+| 8 | 28,582 | 32,339 |
+
+Each extra activation bit costs about **5.4k LCs** along the lossless diagonal.
+
+**Report**: `evidence/attention_joint/joint_iteration_report.json`
+**Logs**: `evidence/attention_joint/stat_j_a*_q*.txt`
+**Quality sim**: `evidence/attention_joint/attention_quality_joint.py`
 
 ## DRAM Reads Per Token (✅ MEASURED)
 
@@ -264,7 +319,7 @@ order of magnitude.
 |---|---|---|
 | Cycle-1 runs | 5/5 PASSED | ✅ MEASURED |
 | Bit-exact match vs golden | 1.0 | ✅ MEASURED |
-| Co-design iterations completed | 1 (full, measured) + attention sweep (9 configs) | ✅ MEASURED |
+| Co-design iterations completed | **2** (acc-width x loop-topology; joint act x KV-quant) + attention sweep (9 configs) | ✅ MEASURED |
 | Timing CV | 0.46% | ✅ MEASURED |
 | Literature reference | latency 0.8-1.2%, energy 1.5-2.1% (arXiv:2511.06955) | baseline only |
 
@@ -283,7 +338,7 @@ order of magnitude.
 | Attention + KV-cache resources | ✅ CLOSED | 9 configurations measured; combinational form rejected |
 | RL-ready benchmark contract | ✅ CLOSED | 11 evaluated states + drift validator |
 | Per-parameter efficiency table | ✅ CLOSED | normalised, labelled non-parity |
-| Attention quality metric | ❌ OPEN | PENDING (needs a CPU golden) |
+| Attention quality metric | ✅ CLOSED | bit-exact vs full-precision golden, 1500 randomised trials per config |
 | FPGA power / J-per-token | ❌ OPEN | ESTIMATED; needs Vivado report_power or external meter |
 
 ---
@@ -307,7 +362,7 @@ order of magnitude.
 | QUALITY_METRIC | ✅ MEASURED | 5/5 bit-exact, CV 0.46% |
 | CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | 1 (8 configurations, accept/reject recorded) |
 | ATTENTION_KV_STATUS | ✅ resources MEASURED (9 configs); combinational form REJECTED, sequential form is next |
-| RL_BENCHMARK_STATUS | ✅ contract + 11 evaluated states + validator (NOT an RL system) |
+| RL_BENCHMARK_STATUS | ✅ contract + **15** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |
 | BLOCKERS | - | FPGA power: Vivado report_power (AMD login) or external meter |
