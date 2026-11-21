@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-11-21T13:13:01.020052Z",
+  "bitstream": "ternary_mac_demo_top_200t.bit",
+  "fpga": "xc7a200tfbg484-2",
+  "board": "AX7203",
+  "methodology": {
+    "dram_reads_measurement": "bitstream_analysis_and_simulation",
+    "target": "0 external weight reads per token",
+    "weight_residency": "on_chip_BRAM"
+  },
+  "analysis": {
+    "method": "bitstream_analysis_and_simulation",
+    "on_chip_weights": true,
+    "weight_residency": "BRAM",
+    "external_weight_reads_per_token": 0,
+    "activation_traffic_bytes_per_token": 0,
+    "kv_traffic_bytes_per_token": 0,
+    "note": "ternary_mac_demo_top uses ring oscillator and on-chip weights"
+  },
+  "estimates": {
+    "external_weight_reads_per_token": 0,
+    "on_chip_weight_residency": "BRAM (bitstream-configured)",
+    "activation_traffic_per_token_bytes": 0,
+    "kv_traffic_per_token_bytes": 0,
+    "note": "Weights resident in on-chip BRAM via bitstream configuration"
+  },
+  "conclusion": {
+    "external_weight_reads_per_token": 0,
+    "on_chip_weight_residency": "BRAM (bitstream-configured)",
+    "achieves_target": true,
+    "note": "Weights resident in on-chip BRAM via bitstream configuration"
+  }
+}

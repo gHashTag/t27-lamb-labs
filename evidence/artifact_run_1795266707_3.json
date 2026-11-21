@@ -1,0 +1,17 @@
+{
+  "run_id": 3,
+  "cycle": 1,
+  "timestamp_utc": "2026-11-21T13:11:46.3NZ",
+  "end_timestamp_utc": "2026-11-21T13:11:47.3NZ",
+  "duration_seconds": 1.012687000,
+  "bitstream": "ternary_mac_demo_top_200t.bit",
+  "fpga": "xc7a200tfbg484-2",
+  "board": "AX7203",
+  "jtag_frequency_mhz": 6,
+  "ring_oscillator_est_mhz": 150,
+  "accumulator_final": 10824,
+  "led_output": 1,
+  "status": "success",
+  "bitstream_sha256": "a82c260d759f66afe95a3b6c705fb6e963a3d0ba58227511b1b69ea4a0e00c0b",
+  "rtl_sha256": ""
+}

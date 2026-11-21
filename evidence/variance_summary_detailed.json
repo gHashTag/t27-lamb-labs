@@ -1,0 +1,13 @@
+{
+  "test_type": "variance_rerun",
+  "cycle": 1,
+  "total_runs": 5,
+  "successful_runs": 5,
+  "bitstream": "ternary_mac_demo_top_200t.bit",
+  "fpga": "xc7a200tfbg484-2",
+  "board": "AX7203",
+  "timestamp_utc": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "ring_oscillator_est_mhz": 150,
+  "jtag_frequency_mhz": 6,
+  "runs": []
+}

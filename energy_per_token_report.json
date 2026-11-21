@@ -1,0 +1,43 @@
+{
+  "timestamp": "2026-11-21T13:12:34.926130Z",
+  "bitstream": "ternary_mac_demo_top_200t.bit",
+  "fpga": "xc7a200tfbg484-2",
+  "board": "AX7203",
+  "methodology": {
+    "power_measurement": "external_power_meter_required",
+    "token_counting": "5 cycle-1 runs = 5 tokens",
+    "j_per_token_formula": "J/token = W / tok/s",
+    "confidence_interval": "95% from repeated runs"
+  },
+  "measurements": [
+    {
+      "run_id": 1,
+      "duration_s": 0.17509913444519043,
+      "timestamp": "2026-11-21T13:12:34.224400Z"
+    },
+    {
+      "run_id": 2,
+      "duration_s": 0.17600107192993164,
+      "timestamp": "2026-11-21T13:12:34.402066Z"
+    },
+    {
+      "run_id": 3,
+      "duration_s": 0.17405009269714355,
+      "timestamp": "2026-11-21T13:12:34.576295Z"
+    },
+    {
+      "run_id": 4,
+      "duration_s": 0.17431879043579102,
+      "timestamp": "2026-11-21T13:12:34.750711Z"
+    },
+    {
+      "run_id": 5,
+      "duration_s": 0.17493510246276855,
+      "timestamp": "2026-11-21T13:12:34.925789Z"
+    }
+  ],
+  "summary": {
+    "runs_completed": 5,
+    "note": "Requires external power meter for FPGA measurements"
+  }
+}
