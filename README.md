@@ -3,7 +3,7 @@
 **Lamb Labs — ternary transformer research on Kria-class FPGA (AX7203).**
 
 This repository isolates the FPGA / ternary-MAC / variance-measurement work
-from the main `t27` repository (GODMODE track). It is a self-contained
+from the main `t27` repository. It is a self-contained
 research repo: bitstream, evidence, toolchain configs, and specs live here.
 
 ---
@@ -28,7 +28,6 @@ variance measured across repeated cycle-1 runs.
 | Variance rerun (FPGA) | MEASURED | 5/5 cycle-1 runs, SHA256 in `evidence/variance_rerun/` |
 | Bitstream flashed | MEASURED | `ternary_mac_demo_top_200t.bit` (ternary MAC) |
 | Toolchain | VERIFIED | yosys, fasm2frames, xc7frames2bit, openFPGALoader v0.13.1 |
-| Godmode specs | PASS | 53/53 tests (in `t27`, not here) |
 
 All performance numbers are **MEASURED**, not TARGET. Nothing is claimed
 beyond what the artifacts show.
@@ -124,19 +123,7 @@ t27-lamb-labs/
 - Do **not** claim "10–15 tokens/sec measured".
 - Do **not** claim "80–120 J/token measured".
 - Do **not** accept a transfer on size alone — SHA256 only.
-- Do **not** mix Lamb Labs artifacts with GODMODE artifacts.
-
----
-
-## Relationship to `t27` (GODMODE)
-
-| Repo | Scope |
-|---|---|
-| `t27` | GODMODE: backend, CI, arXiv, GPU, handoff, keys, #14155, GPU port |
-| `t27-lamb-labs` | Lamb Labs: FPGA, ternary MAC, variance, power, UDP |
-
-No cross-contamination. Each repo is self-contained with its own CI, tests,
-and artifacts.
+- Do **not** mix Lamb Labs artifacts with other project artifacts.
 
 ---
 
