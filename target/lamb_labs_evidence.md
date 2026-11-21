@@ -556,9 +556,10 @@ Datapath changes made while building:
 ### Findings
 
 1. **CLOCK SHORTFALL 3×** — the design reaches only **65-73 MHz** on the XC7A200T against the
-   board's 200 MHz. The critical path is the **32-bit accumulator feedback loop** (one add per cycle,
-   no pipeline). The design is a 65-73 MHz design, **not** a 200 MHz design, so the throughput
-   derived at 200 MHz in iteration 5 is **not achievable**. → the accumulator must be pipelined.
+   board's 200 MHz. The design is a 65-73 MHz design, **not** a 200 MHz design, so the throughput
+   derived at 200 MHz in iteration 5 is **not achievable**.
+   → **Iteration 7 corrected the cause**: the critical path is the **KV-cache read mux**, not the
+   accumulator feedback (removing the accumulator feedback made Fmax *worse*, 71.86 → 59.77 MHz).
 2. **openXC7 packer defects on this design** — three distinct failures (LUT6 O6 with no wire; two
    arcs on one sink wire; a constant GND net sharing a wire with a real net), all independent of the
    nextpnr branch, the yosys version, the ABC flow, the placer, the router and the seed.
@@ -581,6 +582,58 @@ bitstream that does not route would be a false artifact.
 ### Next: co-design iteration 7 - pipeline the accumulator
 
 Measure the clock-vs-area trade (Fmax, LUTs, FFs) for a pipelined accumulator, then retry the build.
+
+## Co-Design Iteration 7: critical path isolated by controlled removal (✅ MEASURED)
+
+Iteration 6 attributed the clock shortfall to the 32-bit accumulator feedback loop. That was an
+**assumption, not a measurement**. This iteration measures it.
+
+**Technique**: controlled removal. Each candidate path is deleted from an otherwise identical
+design and the resulting Fmax is compared against the baseline. All three runs use identical
+settings (yosys 0.46, `-nolutram -nowidelut`, chipdb `xc7a200tfbg484-2`, 65 MHz constraint, placer
+`sa`, router `router1`, seed 3), so the difference is attributable to the removed path alone.
+
+| Variant | Path removed | Fmax | PASS at 65 MHz |
+|---|---|---|---|
+| baseline | none | **71.86 MHz** | ✅ |
+| `noacc` | the 32-bit accumulator feedback loop | **59.77 MHz** | ❌ |
+| `noscore` | the (ACT_BITS x QUANT_W) score multiply | **74.13 MHz** | ✅ |
+
+### Findings
+
+1. **The accumulator is NOT the critical path.** Removing its feedback did not raise Fmax - it
+   **fell** to 59.77 MHz. Iteration 6's attribution was **wrong**; the correction is kept in the
+   record rather than erased.
+2. **The score multiply is barely on the path.** Removing it moved Fmax by 3.2% (71.86 → 74.13 MHz).
+3. **The KV-cache read mux is the limiter.** Both candidate removals leave Fmax in the 60-74 MHz
+   band, so the limiter is a path neither variant touched: each channel reads one `QUANT_W`-bit
+   field out of a SLOTS-entry array with a **dynamic index** (`slot_ptr`), so every channel carries
+   a **32-to-1 mux**, and the eight channel muxes, the sign select, the add and the accumulator
+   mux all sit in series behind it.
+
+### Decision: **REJECT the accumulator-pipelining plan; ADOPT KV-read pipelining**
+
+Pipelining the accumulator would not have bought frequency. The measured limiter is the KV-cache
+read mux, so that is where a pipeline stage has to go.
+
+| | |
+|---|---|
+| Cycles/token now | 18 |
+| Cycles/token after the KV pipeline | **19 (+5.6%)** |
+| Expected benefit | the 32-to-1 mux leaves the critical path |
+| Achievable Fmax | **TARGET, not yet measured** |
+
+The KV-read pipeline would fetch slot N+1 while accumulating slot N, needing a one-slot lookahead
+and special handling of the last slot.
+
+**Report**: `evidence/critical_path/critical_path_report.json`
+**Variants**: `evidence/critical_path/attn_token{,_noacc,_noscore,_pipe}.v`
+
+### Note on method
+
+This iteration changed no claim without a measurement, and it changed a **previous** claim -
+iteration 6's critical-path attribution - on the strength of the exclusion experiment. Both are in
+the record.
 
 ## DRAM Reads Per Token (✅ MEASURED)
 
@@ -668,14 +721,14 @@ order of magnitude.
 | BRAM_UTILIZATION | ✅ MEASURED | 0 / 365 (0.0%) |
 | LUT_UTILIZATION | ✅ MEASURED | 32 / 134,600 (0.024%) |
 | DSP_UTILIZATION | ✅ MEASURED | 0 / 740 (0.0%) |
-| CLOCK_MHZ | ⚠️ | 6 (JTAG); **attention design achieves 65-73 MHz on XC7A200T** (accumulator-limited, 3x below the board's 200 MHz); CFGMCLK 66 family nominal; ring osc ~150 ESTIMATED |
+| CLOCK_MHZ | ⚠️ | 6 (JTAG); **attention design achieves 65-73 MHz on XC7A200T** (KV-read-mux limited, 3x below the board's 200 MHz); CFGMCLK 66 family nominal; ring osc ~150 ESTIMATED |
 | QUALITY_METRIC | ✅ MEASURED | 5/5 bit-exact, CV 0.46% |
 | CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | 1 (8 configurations, accept/reject recorded) |
 | ATTENTION_KV_STATUS | ✅ resources MEASURED (9 configs); combinational form REJECTED, sequential form is next |
 | RL_BENCHMARK_STATUS | ✅ contract + **19** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |
-| BLOCKERS | - | FPGA power: Vivado report_power (AMD login) or external meter; **accumulator must be pipelined for 200 MHz**; **openXC7 packer defect blocks the bitstream**; Digilent HS2 disconnected (XADC + UART beacon + silicon latency outstanding) |
+| BLOCKERS | - | FPGA power: Vivado report_power (AMD login) or external meter; **KV-read mux must be pipelined for 200 MHz** (iteration 8); **openXC7 packer defect blocks the bitstream**; Digilent HS2 disconnected (XADC + UART beacon + silicon latency outstanding) |
 
 ---
 

@@ -1,0 +1,57 @@
+{
+  "timestamp": "2026-11-22T02:40:00Z",
+  "iteration_id": 7,
+  "name": "critical-path isolation by controlled removal",
+  "status": "MEASURED",
+  "question": "Which path limits the design to 65-73 MHz? Iteration 6 attributed it to the 32-bit accumulator feedback loop. That attribution was an assumption, not a measurement. This iteration measures it.",
+  "method": {
+    "technique": "controlled removal: each candidate path is deleted from an otherwise identical design, and the resulting Fmax is compared against the baseline",
+    "synthesis": "yosys 0.46 (OSS CAD Suite), synth_xilinx -family xc7 -nodsp -nosrl -nolutram -nowidelut",
+    "pnr": "nextpnr-xilinx (openXC7), chipdb xc7a200tfbg484-2, xdc clock constrained to 15.385 ns (65 MHz), placer sa, router router1, seed 3",
+    "note": "all three runs use identical settings, so the Fmax difference is attributable to the removed path alone"
+  },
+  "runs": [
+    {"variant": "baseline (neither removed)", "removed": null, "fmax_mhz": 71.86, "passes_65mhz": true},
+    {"variant": "noacc", "removed": "the accumulator feedback: out_next no longer adds to attn_out, so the 32-bit register-to-register loop is broken", "fmax_mhz": 59.77, "passes_65mhz": false},
+    {"variant": "noscore", "removed": "the score multiply: score_acc accumulates q_ext instead of q_ext * kq_ext", "fmax_mhz": 74.13, "passes_65mhz": true}
+  ],
+  "findings": [
+    {
+      "id": "THE_ACCUMULATOR_IS_NOT_THE_CRITICAL_PATH",
+      "claim": "Removing the 32-bit accumulator feedback did NOT raise Fmax: it fell from 71.86 MHz to 59.77 MHz. The accumulator loop is therefore not the limiter, and iteration 6's attribution was wrong.",
+      "status": "MEASURED",
+      "correction": "Iteration 6 stated 'the critical path is the 32-bit accumulator feedback loop'. That was an assumption. The measurement says otherwise. The correction is kept in the record rather than erased."
+    },
+    {
+      "id": "THE_SCORE_MULTIPLY_IS_BARELY_ON_THE_PATH",
+      "claim": "Removing the (ACT_BITS x QUANT_W) score multiply changed Fmax from 71.86 MHz to 74.13 MHz, a 3.2% change. The score arithmetic is not the limiter either.",
+      "status": "MEASURED"
+    },
+    {
+      "id": "THE_KV_READ_MUX_IS_THE_LIMITER",
+      "claim": "Both candidate removals leave Fmax in the 60-74 MHz band, so the limiter is a path neither variant touched: the KV-cache read mux. Each channel reads one QUANT_W-bit field out of a SLOTS-entry array with a dynamic index (slot_ptr), so every channel carries a 32-to-1 mux, and the eight channel muxes, the sign select, the add and the accumulator mux all sit in series behind it.",
+      "status": "MEASURED (by exclusion: two independent candidate removals leave the limit in place)",
+      "action": "Pipeline the KV read: fetch slot N+1 while accumulating slot N, so the mux and the add are in different cycles. This costs one extra cycle per token (18 -> 19) and needs a lookahead of one slot, with the last slot handled specially."
+    }
+  ],
+  "decision": "REJECT the accumulator-pipelining plan proposed in iteration 6; ADOPT KV-read pipelining as the next design change",
+  "decision_rationale": [
+    "The measurement contradicts the plan. Pipelining the accumulator would not have bought frequency.",
+    "The measured limiter is the KV-cache read mux, so that is where a pipeline stage has to go.",
+    "The KV-read pipeline also removes the mux from the accumulator's input path, which may improve the accumulator's own timing as a side effect; that is a hypothesis for the next iteration, not a claim."
+  ],
+  "cost_preview": {
+    "cycles_per_token_now": 18,
+    "cycles_per_token_after_kv_pipeline": 19,
+    "cycle_cost": "+5.6%",
+    "expected_benefit": "the 32-to-1 mux leaves the critical path; the achievable Fmax is NOT yet known and must be measured",
+    "status": "TARGET, not measured"
+  },
+  "still_open": [
+    "The KV-read pipeline has not been built or measured yet: iteration 8.",
+    "The openXC7 packer defect still blocks the bitstream; the packer failure appeared in all three runs above regardless of the removed path, so the toolchain issue is independent of the critical path.",
+    "Power and J/token remain ESTIMATED.",
+    "No silicon measurement: the Digilent HS2 was disconnected throughout."
+  ],
+  "method_note": "This iteration changed no claim without a measurement. It also changed a previous claim - iteration 6's critical-path attribution - on the strength of the exclusion experiment. Both are in the record."
+}

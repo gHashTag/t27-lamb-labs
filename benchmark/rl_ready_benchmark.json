@@ -130,6 +130,14 @@
           "cfgmclk",
           "ring_osc"
         ]
+      },
+      {
+        "name": "set_kv_pipeline",
+        "field": "kv_read_pipeline",
+        "domain": [
+          false,
+          true
+        ]
       }
     ],
     "constraint": "exactly one field changes per action; every action must be inside the declared domain"
@@ -515,7 +523,8 @@
     "attention_seq": "evidence/attention_seq/sequential_iteration_report.json",
     "attention_token": "evidence/attention_token/token_iteration_report.json",
     "clock": "evidence/clock/clock_iteration_report.json",
-    "ax7203_build": "evidence/ax7203_build/ax7203_build_report.json"
+    "ax7203_build": "evidence/ax7203_build/ax7203_build_report.json",
+    "critical_path": "evidence/critical_path/critical_path_report.json"
   },
   "co_design_rule": "The KV cache stores sign + quant_w magnitude bits of an act_bits-wide signed value, so losslessness requires quant_w >= act_bits. QUANT_W is not an independent lever: narrowing it alone is lossy, narrowing act_bits alone at quant_w=8 wastes cache bits. The two must move together.",
   "open_source_engagement": {
@@ -582,7 +591,13 @@
     "clock_shortfall": {
       "achieved_mhz": "65-73",
       "board_oscillator_mhz": 200,
-      "critical_path": "the 32-bit accumulator feedback loop (one add per cycle, no pipeline)",
+      "critical_path": {
+        "measured": "the KV-cache read mux (a 32-to-1 dynamic-index mux per channel, in series with the sign select, the add and the accumulator mux)",
+        "evidence": "controlled removal: removing the accumulator feedback made Fmax WORSE (71.86 -> 59.77 MHz); removing the score multiply moved it 3.2% (71.86 -> 74.13 MHz)",
+        "not": "the 32-bit accumulator feedback loop - iteration 6 attributed it there and iteration 7 measured that it was wrong",
+        "fix": "pipeline the KV read (fetch slot N+1 while accumulating slot N): 18 -> 19 cycles/token, +5.6%",
+        "status": "FIX NOT YET BUILT OR MEASURED"
+      },
       "status": "MEASURED over 6 placement runs",
       "action": "pipeline the accumulator - co-design iteration 7"
     },
