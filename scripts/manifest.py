@@ -11,9 +11,10 @@ import hashlib, os, sys, json, subprocess
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Directories whose contents are the portfolio's deliverable artifacts.
-INCLUDE_DIRS = ["target", "benchmark", "engagement", "evidence", "bitstream", "docs", "scripts"]
+INCLUDE_DIRS = ["target", "benchmark", "engagement", "evidence", "bitstream", "docs", "scripts",
+                "conformance", "rtl", "releases"]
 # Files at the repository root that are part of the deliverable.
-INCLUDE_ROOT_FILES = ["README.md"]
+INCLUDE_ROOT_FILES = ["README.md", "t27c_lite.py"]
 # Directories that are toolchain copies or scratch, not artifacts.
 EXCLUDE_DIRS = {".git", "toolchain", "specs", "fpga", "__pycache__", ".pytest_cache"}
 
