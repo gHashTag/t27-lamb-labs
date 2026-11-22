@@ -33,7 +33,7 @@ This is the M0–M5 mapping required by `T27_LAMB_LABS_MILESTONES_V1` step 3. Ga
 |---|---|---|
 | Spec ↔ RTL ↔ testbench convention | **SATISFIED** | `specs/fpga/**` carries paired `.t27` + `.v` + `testbench/*_tb.v` for ~40 modules (adapter, axi4, fifo, gf16_accel, ternary_isa, …) |
 | RTL matches software reference | **SATISFIED (attention)** | Corrected attention module: 5 defects found+fixed, 1,200 randomized Verilog trials vs CPU golden, 0 mismatches; KV-cache is a first-class co-design choice (`evidence/attention_fix/`, commit `edb5b95`) |
-| Compiler emits Verilog from spec (`t27c`) | **GAP → R3** | `t27c` is absent from this lab. All `.v` files are hand/synth-written against the `.t27` spec; spec-first *enforcement* is by review, not by toolchain. The lab thesis "spec-first → bit-exact RTL" is not yet compiler-backed |
+| Compiler emits Verilog from spec (`t27c`) | ~~GAP → R3~~ **SATISFIED-LITE (2026-11-23, owner verification pending)** | `t27c_lite.py`: dot27 subset of `stream_ternary_mac.t27` compiled spec-first — emitted `rtl/t27c_lite/dot27_top.v` byte-identical across runs, 117/117 bit-exact (108 randomized, seed-fixed), yosys synth_xilinx clean (0 FF, 2 CARRY4, stat captured); pack Tier B2 50/50 makes dot27 RTL-VERIFIED. Full t27c language coverage remains the M2 gap |
 | No silent numeric divergence / fuzz | **PARTIAL** | Randomized-trial packs exist for attention; no repo-wide fuzz/conformance harness across all 40+ spec modules |
 
 ## M3 — FPGA implementation
