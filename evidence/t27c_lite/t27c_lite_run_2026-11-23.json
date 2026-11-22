@@ -1,0 +1,20 @@
+{
+ "date": "2026-11-23",
+ "status": "PASS",
+ "spec": "specs/ternary/stream_ternary_mac.t27",
+ "spec_sha256": "f46c60b0ba669110f8cf4a169987c7c2e794b317bd6889f0e90e40cfcb158632",
+ "log": [
+  "parsed: codes={'N': 0, 'Z': 1, 'P': 2} positions=27 bits/trit=2 spec_tests=4",
+  "gate1 PASS: golden satisfies all 4 spec-embedded tests",
+  "gate2 PASS: emitted rtl/t27c_lite/dot27_top.v (6767 bytes)",
+  "gate3 PASS: 117/117 bit-exact (incl. 108 randomized, seed 20261123)",
+  "gate4 PASS: yosys synth_xilinx clean; stat captured"
+ ],
+ "extra": {
+  "vectors_total": 117,
+  "randomized": 108,
+  "mismatches": 0,
+  "yosys_stat": "=== dot27_top ===\n\n        +----------Local Count, excluding submodules.\n        | \n      191 wires\n      662 wire bits\n      108 public wires\n      420 public wire bits\n        3 ports\n      114 port bits\n      271 cells\n        2   CARRY4\n      108   IBUF\n        9   LUT2\n       36   LUT3\n        3   LUT4\n       12   LUT5\n       73   LUT6\n       18   MUXF7\n        4   MUXF8\n        6   OBUF\n       27 submodules\n       27   tmul_lut\n\n=== tmul_lut ===\n\n        +----------Local Count, excluding submodules.\n        | \n        3 wires\n        6 wire bits\n        3 public wires\n        6 public wire bits\n        3 ports\n        6 port bits\n        2 cells\n        1   LUT2\n        1   LUT4\n\n=== design hierarchy ===\n\n        +----------Count including submodules.\n        | \n      325 dot27_top\n        2 tmul_lut\n\n        +----------Count including submodules.\n        | \n      272 wires\n      824 wire bits\n      189 public wires\n      582 public wire bits\n       84 ports\n      276 port bits\n        - memories\n        - memory bits\n        - processes\n      325 cells\n        2   CARRY4\n      108   IBUF\n       36   LUT2\n       36   LUT3\n       30   LUT4\n       12   LUT5\n       73   LUT6\n       18   MUXF7\n        4   MUXF8\n        6   OBUF\n       27 submodules\n       27   tmul_lut\n\nEnd of script. Logfile hash: 75f8622fa6, time: 2.38s, user: 2.02s, system: 0.07s, MEM: 129.67 MB peak\nYosys 0.67+post (git sha1 b8e7da6f40ae8f552c116bf6c359b07c6533e159, Release, AppleClang clang++ 21.0.0.21000099)\nTime spent: 78% 19x read_verilog (1 sec), 11% 1x abc (0 sec), ...\n"
+ }
+}
+SHA256_SELF: 264867c268af82c32044027f0f393c8ff827fa4965c6e061c72f1ab16883808d

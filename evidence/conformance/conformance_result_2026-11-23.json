@@ -445,11 +445,420 @@
    ],
    "npass": 10,
    "ntotal": 10
+  },
+  {
+   "tier": "B2",
+   "label": "RTL-VERIFIED (dot27_top.v, t27c_lite-emitted, iverilog)",
+   "vectors": [
+    {
+     "name": "dot_all_n_x_all_n",
+     "a": 0,
+     "b": 0,
+     "expected": 27,
+     "measured_rtl": 27,
+     "pass": true
+    },
+    {
+     "name": "dot_all_n_x_all_p",
+     "a": 0,
+     "b": 12009599006321322,
+     "expected": -27,
+     "measured_rtl": -27,
+     "pass": true
+    },
+    {
+     "name": "dot_all_p_x_all_p",
+     "a": 12009599006321322,
+     "b": 12009599006321322,
+     "expected": 27,
+     "measured_rtl": 27,
+     "pass": true
+    },
+    {
+     "name": "dot_all_z",
+     "a": 6004799503160661,
+     "b": 6004799503160661,
+     "expected": 0,
+     "measured_rtl": 0,
+     "pass": true
+    },
+    {
+     "name": "single_pos_plus",
+     "a": 6004799503160662,
+     "b": 6004799503160662,
+     "expected": 1,
+     "measured_rtl": 1,
+     "pass": true
+    },
+    {
+     "name": "single_pos_minus",
+     "a": 6004799503160662,
+     "b": 6004799503160660,
+     "expected": -1,
+     "measured_rtl": -1,
+     "pass": true
+    },
+    {
+     "name": "boundary_26",
+     "a": 7505999378950826,
+     "b": 7505999378950826,
+     "expected": 26,
+     "measured_rtl": 26,
+     "pass": true
+    },
+    {
+     "name": "boundary_minus_27",
+     "a": 0,
+     "b": 12009599006321322,
+     "expected": -27,
+     "measured_rtl": -27,
+     "pass": true
+    },
+    {
+     "name": "self_dot_mixed_18",
+     "a": 1715657000903046,
+     "b": 1715657000903046,
+     "expected": 18,
+     "measured_rtl": 18,
+     "pass": true
+    },
+    {
+     "name": "cross_mixed_minus9",
+     "a": 2859428334838410,
+     "b": 11437713339353640,
+     "expected": -9,
+     "measured_rtl": -9,
+     "pass": true
+    },
+    {
+     "name": "random_00",
+     "a": 11404213529696294,
+     "b": 9735529212188760,
+     "expected": -1,
+     "measured_rtl": -1,
+     "pass": true
+    },
+    {
+     "name": "random_01",
+     "a": 2256507232675914,
+     "b": 10425988102230296,
+     "expected": -2,
+     "measured_rtl": -2,
+     "pass": true
+    },
+    {
+     "name": "random_02",
+     "a": 90195800724561,
+     "b": 10740208532742165,
+     "expected": 0,
+     "measured_rtl": 0,
+     "pass": true
+    },
+    {
+     "name": "random_03",
+     "a": 7063418810303780,
+     "b": 7426415423657632,
+     "expected": -3,
+     "measured_rtl": -3,
+     "pass": true
+    },
+    {
+     "name": "random_04",
+     "a": 6291562864187034,
+     "b": 2984462588151377,
+     "expected": 1,
+     "measured_rtl": 1,
+     "pass": true
+    },
+    {
+     "name": "random_05",
+     "a": 9190030216620118,
+     "b": 11651610725205092,
+     "expected": 0,
+     "measured_rtl": 0,
+     "pass": true
+    },
+    {
+     "name": "random_06",
+     "a": 2983014883694698,
+     "b": 1436658417904209,
+     "expected": -2,
+     "measured_rtl": -2,
+     "pass": true
+    },
+    {
+     "name": "random_07",
+     "a": 10451993639261336,
+     "b": 6355488079521413,
+     "expected": -2,
+     "measured_rtl": -2,
+     "pass": true
+    },
+    {
+     "name": "random_08",
+     "a": 1572724034594946,
+     "b": 5736805304714641,
+     "expected": -2,
+     "measured_rtl": -2,
+     "pass": true
+    },
+    {
+     "name": "random_09",
+     "a": 1570412455594084,
+     "b": 11637652260526161,
+     "expected": 1,
+     "measured_rtl": 1,
+     "pass": true
+    },
+    {
+     "name": "random_10",
+     "a": 1271469680387092,
+     "b": 5101845622120997,
+     "expected": -4,
+     "measured_rtl": -4,
+     "pass": true
+    },
+    {
+     "name": "random_11",
+     "a": 10438360919615506,
+     "b": 6914008592787814,
+     "expected": 3,
+     "measured_rtl": 3,
+     "pass": true
+    },
+    {
+     "name": "random_12",
+     "a": 11897068160586314,
+     "b": 5772472084502810,
+     "expected": -4,
+     "measured_rtl": -4,
+     "pass": true
+    },
+    {
+     "name": "random_13",
+     "a": 11365656160781974,
+     "b": 4897405485458520,
+     "expected": -3,
+     "measured_rtl": -3,
+     "pass": true
+    },
+    {
+     "name": "random_14",
+     "a": 1796971442880932,
+     "b": 10813327871657350,
+     "expected": 2,
+     "measured_rtl": 2,
+     "pass": true
+    },
+    {
+     "name": "random_15",
+     "a": 7117230135985812,
+     "b": 9605962256449701,
+     "expected": -3,
+     "measured_rtl": -3,
+     "pass": true
+    },
+    {
+     "name": "random_16",
+     "a": 7041446720897030,
+     "b": 4944506361833810,
+     "expected": -3,
+     "measured_rtl": -3,
+     "pass": true
+    },
+    {
+     "name": "random_17",
+     "a": 563607160505496,
+     "b": 651486586570056,
+     "expected": 10,
+     "measured_rtl": 10,
+     "pass": true
+    },
+    {
+     "name": "random_18",
+     "a": 2411936203556116,
+     "b": 5161118610112801,
+     "expected": -1,
+     "measured_rtl": -1,
+     "pass": true
+    },
+    {
+     "name": "random_19",
+     "a": 2834077163627012,
+     "b": 11973218871040130,
+     "expected": -1,
+     "measured_rtl": -1,
+     "pass": true
+    },
+    {
+     "name": "random_20",
+     "a": 2292765517959210,
+     "b": 2832902786255433,
+     "expected": 2,
+     "measured_rtl": 2,
+     "pass": true
+    },
+    {
+     "name": "random_21",
+     "a": 7107950331140710,
+     "b": 1856548636857510,
+     "expected": 2,
+     "measured_rtl": 2,
+     "pass": true
+    },
+    {
+     "name": "random_22",
+     "a": 7461994862319785,
+     "b": 9396860608938008,
+     "expected": 1,
+     "measured_rtl": 1,
+     "pass": true
+    },
+    {
+     "name": "random_23",
+     "a": 11708326239148706,
+     "b": 450015287056801,
+     "expected": 3,
+     "measured_rtl": 3,
+     "pass": true
+    },
+    {
+     "name": "random_24",
+     "a": 4970447696833154,
+     "b": 10592740825401670,
+     "expected": 3,
+     "measured_rtl": 3,
+     "pass": true
+    },
+    {
+     "name": "random_25",
+     "a": 10153184851530340,
+     "b": 447031361504593,
+     "expected": -5,
+     "measured_rtl": -5,
+     "pass": true
+    },
+    {
+     "name": "random_26",
+     "a": 6353137177085458,
+     "b": 10523020003410337,
+     "expected": 1,
+     "measured_rtl": 1,
+     "pass": true
+    },
+    {
+     "name": "random_27",
+     "a": 9013936196314448,
+     "b": 10249275886096730,
+     "expected": -1,
+     "measured_rtl": -1,
+     "pass": true
+    },
+    {
+     "name": "random_28",
+     "a": 6870308344109161,
+     "b": 4662515187656026,
+     "expected": 1,
+     "measured_rtl": 1,
+     "pass": true
+    },
+    {
+     "name": "random_29",
+     "a": 11616729413229065,
+     "b": 5952299092842502,
+     "expected": 2,
+     "measured_rtl": 2,
+     "pass": true
+    },
+    {
+     "name": "random_30",
+     "a": 10808839544937062,
+     "b": 9730215279608985,
+     "expected": 0,
+     "measured_rtl": 0,
+     "pass": true
+    },
+    {
+     "name": "random_31",
+     "a": 7459662767663124,
+     "b": 9579380437767697,
+     "expected": 1,
+     "measured_rtl": 1,
+     "pass": true
+    },
+    {
+     "name": "random_32",
+     "a": 2902790794005156,
+     "b": 327970439125033,
+     "expected": -4,
+     "measured_rtl": -4,
+     "pass": true
+    },
+    {
+     "name": "random_33",
+     "a": 2380527651153,
+     "b": 11259446351632394,
+     "expected": -3,
+     "measured_rtl": -3,
+     "pass": true
+    },
+    {
+     "name": "random_34",
+     "a": 6070513387783849,
+     "b": 10579115050108001,
+     "expected": -1,
+     "measured_rtl": -1,
+     "pass": true
+    },
+    {
+     "name": "random_35",
+     "a": 1434335484322849,
+     "b": 10240062194276432,
+     "expected": 0,
+     "measured_rtl": 0,
+     "pass": true
+    },
+    {
+     "name": "random_36",
+     "a": 9593398445315472,
+     "b": 4808793672734018,
+     "expected": 0,
+     "measured_rtl": 0,
+     "pass": true
+    },
+    {
+     "name": "random_37",
+     "a": 4937374570141346,
+     "b": 740681715176730,
+     "expected": -3,
+     "measured_rtl": -3,
+     "pass": true
+    },
+    {
+     "name": "random_38",
+     "a": 6000723646552594,
+     "b": 7045756478694977,
+     "expected": 2,
+     "measured_rtl": 2,
+     "pass": true
+    },
+    {
+     "name": "random_39",
+     "a": 6238097113749652,
+     "b": 1311805041967366,
+     "expected": 2,
+     "measured_rtl": 2,
+     "pass": true
+    }
+   ],
+   "npass": 50,
+   "ntotal": 50
   }
  ],
  "log": [
   "TIER A (RTL, iverilog): 29/29 pass",
-  "TIER B (spec golden): 10/10 pass"
+  "TIER B (spec golden): 10/10 pass",
+  "TIER B2 (dot27 RTL leg, t27c_lite emission): 50/50 pass"
  ],
  "sources": {
   "mac_rtl": "evidence/codesign/ternary_mac_synth.v",
@@ -459,4 +868,4 @@
  "toolchain": {
   "iverilog": "Icarus Verilog version 12.0 (stable) ()"
  }
-}SHA256_SELF: 9c41e08a7d340ff26a9d98ac6f6faf49234f49a8c7319e149da89994dd16d67e
+}SHA256_SELF: b78c6c46bbec663beb697ada9f0211705992132b6c9b8d68c3ecd775986fd7ef

@@ -19,6 +19,7 @@ evidence/conformance/ per ARTIFACT_HASHES convention.
 import hashlib
 import json
 import os
+import random
 import subprocess
 import sys
 import tempfile
@@ -157,22 +158,88 @@ def run_dot27_tier(log):
     return {"tier": "B", "label": "SPEC-VERIFIED (stream_ternary_mac.t27; RTL leg pending R3)",
             "vectors": rows, "npass": npass, "ntotal": len(rows)}
 
+def run_dot27_rtl_tier(log, spec_vectors):
+    """Tier B2: dot27 RTL leg — t27c_lite-emitted dot27_top.v (spec-derived,
+    byte-identical regeneration proven) simulated with iverilog vs golden."""
+    rtl = os.path.join(REPO, "rtl", "t27c_lite", "dot27_top.v")
+    if not os.path.exists(rtl):
+        log("B2 skipped: %s missing (run t27c_lite.py first)" % os.path.relpath(rtl, REPO))
+        return None
+    rng = random.Random(424242)  # fixed seed: evidence reproducibility
+    Nv, Zv, Pv = 0, 1, 2
+    def pk(trits):
+        v = 0
+        for i, t in enumerate(trits):
+            v |= t << (i << 1)
+        return v
+    vecs = [(r["name"], r["a"], r["b"]) for r in spec_vectors]
+    for k in range(40):
+        a = b = 0
+        for i in range(27):
+            a |= rng.choice((Nv, Zv, Pv)) << (i << 1)
+            b |= rng.choice((Nv, Zv, Pv)) << (i << 1)
+        vecs.append(("random_%02d" % k, a, b))
+    rows, npass = [], 0
+    with tempfile.TemporaryDirectory() as tmp:
+        vf = os.path.join(tmp, "v.txt")
+        with open(vf, "w") as f:
+            for n, a, b in vecs:
+                f.write("%s %d %d\n" % (n, a, b))
+        tb = os.path.join(tmp, "tb.v")
+        with open(tb, "w") as f:
+            f.write("`timescale 1ns/1ps\nmodule tb;\n"
+                    "  reg [53:0] a, b; wire signed [5:0] y;\n"
+                    "  integer fd, n; reg [255:0] name;\n"
+                    "  dot27_top dut(.a(a), .b(b), .y(y));\n"
+                    "  initial begin\n"
+                    "    fd = $fopen(\"v.txt\", \"r\");\n"
+                    "    while (!$feof(fd)) begin\n"
+                    "      n = $fscanf(fd, \"%s %d %d\", name, a, b);\n"
+                    "      if (n == 3) begin #1; $display(\"D27RESULT %0s %0d\", name, y); end\n"
+                    "    end\n $display(\"D27DONE\"); $finish;\n end\nendmodule\n")
+        c = subprocess.run(["iverilog", "-g2012", "-o", os.path.join(tmp, "sim"),
+                            tb, rtl], capture_output=True, text=True, cwd=tmp)
+        if c.returncode != 0:
+            log("B2 iverilog compile FAILED:\n" + c.stderr)
+            return None
+        r = subprocess.run(["vvp", os.path.join(tmp, "sim"), "-n"],
+                           capture_output=True, text=True, cwd=tmp)
+        got = {}
+        for line in r.stdout.splitlines():
+            if line.startswith("D27RESULT"):
+                _, nm, val = line.split()
+                got[nm] = int(val)
+    if "D27DONE" not in r.stdout or len(got) != len(vecs):
+        log("B2 sim incomplete %d/%d" % (len(got), len(vecs)))
+        return None
+    for n, a, b in vecs:
+        exp = dot27(a, b)
+        ok = got[n] == exp
+        npass += ok
+        rows.append({"name": n, "a": a, "b": b, "expected": exp,
+                     "measured_rtl": got[n], "pass": ok})
+    log("TIER B2 (dot27 RTL leg, t27c_lite emission): %d/%d pass" % (npass, len(rows)))
+    return {"tier": "B2", "label": "RTL-VERIFIED (dot27_top.v, t27c_lite-emitted, iverilog)",
+            "vectors": rows, "npass": npass, "ntotal": len(rows)}
+
 def main():
     lines = []
     log = lines.append
     with tempfile.TemporaryDirectory() as tmpdir:
         tier_a, _ = run_mac_tier(tmpdir, log)
     tier_b = run_dot27_tier(log)
+    tier_b2 = run_dot27_rtl_tier(log, tier_b["vectors"])
 
     overall = bool(tier_a and tier_b["npass"] == tier_b["ntotal"]
-                   and tier_a["npass"] == tier_a["ntotal"])
+                   and tier_a["npass"] == tier_a["ntotal"]
+                   and tier_b2 and tier_b2["npass"] == tier_b2["ntotal"])
     for l in lines: print(l)
     print("OVERALL: %s" % ("PASS" if overall else "FAIL"))
 
     vinfo = subprocess.run(["iverilog", "-V"], capture_output=True, text=True)
     vbanner = next((l for l in (vinfo.stderr + vinfo.stdout).splitlines() if "Icarus" in l), "unknown")
     result = {"date": "2026-11-23", "overall": "PASS" if overall else "FAIL",
-              "tiers": [tier_a, tier_b],
+              "tiers": [tier_a, tier_b, tier_b2],
               "log": lines,
               "sources": {
                   "mac_rtl": os.path.relpath(MAC_RTL, REPO),
