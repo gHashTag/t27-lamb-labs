@@ -1,0 +1,52 @@
+=== CONSEQUENCE FOR THE SHIPPED BITSTREAM: its clock is the dead one ===
+Date: 2026-11-22 ~12:08 UTC+7
+Netlist: fpga/verilog/ternary_mac_demo_top.json (the netlist behind bitstream/ternary_mac_demo_top_200t.bit)
+
+EVERY state element in the shipped design is clocked by `osc`, the fabric ring oscillator:
+
+  $auto$ff.cc:337:slice$1555  FDRE  clk=osc  q=mac.prod
+  $auto$ff.cc:337:slice$1556  FDRE  clk=osc  q=mac.prod
+  $auto$ff.cc:337:slice$1557  FDRE  clk=osc  q=mac.prod
+  $auto$ff.cc:337:slice$1558  FDRE  clk=osc  q=mac.prod
+  $auto$ff.cc:337:slice$1578  FDRE  clk=osc  q=mac.acc_out
+  $auto$ff.cc:337:slice$1579  FDRE  clk=osc  q=mac.acc_out
+
+  clock net names in the whole design: ['osc']   <- one clock, and it is the dead one
+
+Since the ring oscillator does not oscillate (see ring_oscillator_confirmation.log), no state
+element in the shipped bitstream ever advances: `mac.prod` and `mac.acc_out` are frozen at their
+reset values.
+
+WHAT THAT INVALIDATES:
+
+1. The ~5.7 tok/s figure. It was derived from this bitstream's cycle-1 runs, which assume a
+   working clock. There is none. The figure is WITHDRAWN, not merely doubted.
+
+2. The variance gate. evidence/variance_summary.json records 5 successful cycle-1 runs with
+   accumulator_final values 30157, 15797, 1437, ... and an assumed ring_oscillator_mhz of 150.
+   Those accumulator values CANNOT have come from this bitstream: the accumulator is frozen, and
+   synthesis further pruned it (acc_in is constant 0 and w_code is constant +1, so the 32-bit
+   accumulator reduces to the two bits the LEDs show). The provenance of those numbers is
+   unexplained. The variance gate is therefore REOPENED, not closed.
+
+3. The 0.46% timing CV quoted from those runs. It is a CV of numbers whose source is unexplained.
+
+WHAT SURVIVES:
+
+- The bitstream is real: it configures, isc_done 1, and its RTL hash is recorded.
+- The resource measurement stands: 32 LUT / 17 FF / 0 BRAM / 0 DSP for the shipped design, and
+  the 18-LUT / 10-LC full-observation probe. Those come from the netlist, not from a running
+  clock.
+- Every attention result stands: those come from synthesis and from exact simulation, and the
+  attention quality metric was verified against a CPU golden over 12000 randomised trials.
+- The measured board clock stands: 67.16 MHz and 66.85 MHz on CFGMCLK, two independent runs.
+- The die telemetry stands: 44.681 C idle, 45.271 C loaded.
+
+WHAT IS NEEDED to re-establish a throughput number:
+
+A design whose clock is a clock that runs. The AX7203 has a 200 MHz differential oscillator on
+R4/T4 (DIFF_SSTL15) - that is the clock a real design should use, and it still has to be measured
+with a pin-bearing probe. CFGMCLK at ~67 MHz measured is the fallback.
+
+This is the most consequential finding in the portfolio: the one published performance number was
+based on a clock that does not run.

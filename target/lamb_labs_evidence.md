@@ -749,18 +749,19 @@ WORK) ... -abc9 inserts SCC breaker that destroys the combinational loop - Behav
 `assign osc = ~osc` is optimized away by Yosys - LUT1 primitive instantiation also broken by
 ABC9 SCC detection"*.
 
-> **Caveat, recorded honestly**: the frozen reading was taken with the FIRST counter implementation
-> (a hand-rolled Gray counter whose update was later found to be wrong). The controlled re-test with
-> the **identical ripple binary counter** used for the CFGMCLK measurement is built
-> (`clock_probe_ring.bit`, md5 `35c167a1a58015286a58b98e33fb9b9c`) and was ready to flash when the
-> HS2 dropped off the USB bus. Until that runs, this is **strongly supported, not confirmed**.
+> **CONFIRMED** (not inferred). The controlled re-test ran with the **identical ripple binary
+> counter** used for the CFGMCLK measurement: **30 reads over 15 s, the counter never moved**
+> (one distinct value: 0), while the CFGMCLK control of the same design, back-to-back in the same
+> session, counted correctly at **66.85 MHz**. Two independent CFGMCLK runs agree to within 0.5%
+> (67.16 and 66.85 MHz).
+> Log: `evidence/clock_probe/ring_oscillator_confirmation.log`
 
 ### 9d. Consequences for this portfolio
 
 | Affected claim | Status |
 |---|---|
 | the ~150 MHz ring-oscillator clock in every derived throughput figure | **WITHDRAWN** - the oscillator appears not to run; the real clocks are CFGMCLK **67.16 MHz measured** and the board's 200 MHz on R4/T4 (not yet measured) |
-| the shipped `ternary_mac_demo_top_200t.bit` and its 5.7 tok/s variance measurement | **SUSPECT** - that bitstream clocks from the SAME ring oscillator, so its counter may never have advanced |
+| the shipped `ternary_mac_demo_top_200t.bit` and its 5.7 tok/s variance measurement | **WITHDRAWN** - **two** independent defects, both verified from the netlist: (1) all 6 flip-flops are clocked by the dead `osc`, so no state element ever advances; (2) `acc_in` is constant 0 and `w_code` constant −1, so synthesis **pruned the 32-bit accumulator to 2 bits** - the bitstream does not exercise the ternary MAC datapath at all. The `accumulator_final` values in `evidence/variance_summary.json` cannot have come from it, so the **variance gate is REOPENED**. Log: `evidence/clock_probe/shipped_bitstream_analysis.log` |
 | the power and J/token estimates | still **ESTIMATED**, but the inputs are now real: 45.27 °C loaded, VCCINT 0.99926 V measured, +0.590 °C thermal signature |
 | the achievable attention clock | still **UNKNOWN**, but the question is sharper: time it against 67.16 MHz measured or 200 MHz, not against an estimated 150 MHz fabric oscillator |
 
@@ -869,7 +870,7 @@ order of magnitude.
 | RTL_SOURCE_HASH | ✅ | `c6d50bb1f710ecadc5805431f6b23b711416fe50aef2498eb37b2dc600ad0b52` |
 | MODEL_CHECKPOINT_HASH | N/A | no ML checkpoint; weights are 2-bit ternary codes in the datapath |
 | POWER_WATTS | ⚠️ ESTIMATE | ~0.7 W |
-| TOKENS_PER_SECOND | ⚠️ **SUSPECT** | ~5.7 tok/s was measured on the shipped bitstream, which clocks from the fabric ring oscillator - now known to appear DEAD, so the counter may never have advanced. **Re-measure or withdraw.** |
+| TOKENS_PER_SECOND | ❌ **WITHDRAWN** | ~5.7 tok/s came from the shipped bitstream, whose only clock is the **dead** fabric ring oscillator and whose 32-bit accumulator was **pruned to 2 bits**. Two defects, both verified from the netlist. No throughput number is currently published. |
 | J_TOKEN_MEASURED | ⚠️ ESTIMATE | ~0.12 J/token (derived from estimated power) |
 | J_TOKEN_CONFIDENCE_INTERVAL | ⚠️ | \u00b120% power band, 0.46% timing CV |
 | DRAM_READS_PER_TOKEN | ✅ MEASURED | 0 |
@@ -877,13 +878,13 @@ order of magnitude.
 | LUT_UTILIZATION | ✅ MEASURED | 32 / 134,600 (0.024%) |
 | DSP_UTILIZATION | ✅ MEASURED | 0 / 740 (0.0%) |
 | CLOCK_MHZ | ✅ **67.16 MEASURED** (CFGMCLK, mean of 9, σ 1.33) · attention design's achievable clock still UNKNOWN · ring osc ~150 **WITHDRAWN** (appears not to oscillate) |
-| QUALITY_METRIC | ✅ MEASURED | attention quality: bit-exact vs a full-precision golden, 12000 randomised trials, 0 mismatches. The 5/5 cycle-1 CV 0.46% belongs to the SUSPECT tok/s measurement |
+| QUALITY_METRIC | ✅ MEASURED | attention quality: bit-exact vs a full-precision golden, 12000 randomised trials, 0 mismatches. The old 0.46% cycle-1 CV is **withdrawn** with the tok/s figure. |
 | CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | **9** (acc x loop-topology; joint act x KV-quant; sequential vs combinational; clock source; AX7203-native build; critical-path isolation; Fmax noise audit; silicon clock + die telemetry) |
 | ATTENTION_KV_STATUS | ✅ resources + quality MEASURED (9 combinational, 7 sequential, 6 token-sequential configs); combinational form REJECTED (21.3% fabric); **token-sequential form ADOPTED** (505 LCs, 0.38%) |
 | RL_BENCHMARK_STATUS | ✅ contract + **19** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |
-| BLOCKERS | - | **FPGA power still ESTIMATED** (needs a current meter; XADC gives voltage+temperature only); **R4/T4 200 MHz oscillator unmeasured** (needs a pin-bearing probe); **ring-oscillator confirmation run outstanding** (bitstream built, cable needed); **the shipped bitstream's 5.7 tok/s is SUSPECT** (same dead clock); openXC7 packer defect now bypassed via `abc -lut 2` |
+| BLOCKERS | - | **No throughput number can be published until a design with a running clock is measured** (the AX7203's 200 MHz on R4/T4 is unmeasured; CFGMCLK ~67 MHz measured is the fallback); **FPGA power still ESTIMATED** (needs a current meter); **the variance gate is REOPENED** (the old run data has unexplained provenance); openXC7 cannot route the attention design (LUT6 packing + carry-chain splitting) |
 
 ---
 

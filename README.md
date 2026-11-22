@@ -34,7 +34,7 @@ workload; external weight reads per generated token: measured value.**
 
 | Result | Value | Evidence |
 |---|---|---|
-| **Board clock (CFGMCLK)** | **67.16 MHz** mean, 67.39 median, σ 1.33, n=9 | `evidence/clock_probe/cfgmclk_measurement.log` |
+| **Board clock (CFGMCLK)** | **67.16 MHz** mean, 67.39 median, σ 1.33, n=9 - and a second independent run at **66.85 MHz**, agreeing to 0.5% | `evidence/clock_probe/cfgmclk_measurement.log` |
 | **Die temperature** | 44.681 °C idle → **45.271 °C** with the design loaded (+0.590 °C) | `evidence/clock_probe/xadc_measurement.log` |
 | Rail voltages | VCCINT 0.99926 V, VCCAUX 1.80532 V | `evidence/clock_probe/xadc_measurement.log` |
 | **External DRAM reads / token** | **0** | `evidence/` (DRAM reads report) |
@@ -55,11 +55,18 @@ workload; external weight reads per generated token: measured value.**
 | `J/token` | ~0.12 | Derived from the estimated power. |
 | `J_token` confidence | ±20% | The power band, not a measurement. |
 
-### SUSPECT (previously published, now questioned by our own measurement)
+### WITHDRAWN (previously published, withdrawn by our own measurement)
+
+| Quantity | Why it was withdrawn |
+|---|---|
+| **~5.7 tok/s** | The shipped bitstream's only clock is the **dead** fabric ring oscillator, and its 32-bit accumulator was **pruned to 2 bits**. Two defects, both verified from the netlist. |
+| **The closed variance gate** | The `accumulator_final` values in the old cycle-1 runs cannot have come from that bitstream. Their provenance is unexplained, so the gate is **REOPENED**, not closed. |
+
+### SUSPECT (published, and now questioned by our own measurement)
 
 | Quantity | Status |
 |---|---|
-| **~5.7 tok/s** | Measured on `ternary_mac_demo_top_200t.bit`, which clocks its counter from the **fabric ring oscillator**. That oscillator's counter read **frozen** over 20 JTAG reads, so the counter may never have advanced. **Re-measure or withdraw.** |
+| **~5.7 tok/s** | **WITHDRAWN.** The shipped `ternary_mac_demo_top_200t.bit` has **two** independent defects, both verified from its netlist: (1) all six flip-flops are clocked by the fabric ring oscillator, which **does not oscillate** - confirmed by a controlled experiment, 30 reads over 15 s with the counter never moving while a CFGMCLK control of the same design counted correctly; (2) `acc_in` is constant 0 and `w_code` constant −1, so synthesis **pruned the 32-bit accumulator to 2 bits**. The bitstream does not exercise the ternary MAC datapath at all, and the `accumulator_final` values in the old variance runs cannot have come from it. **The variance gate is REOPENED.** |
 
 ### TARGET (not attempted, not claimed)
 
@@ -69,7 +76,7 @@ workload; external weight reads per generated token: measured value.**
 
 | Claim | Why withdrawn |
 |---|---|
-| A ~150 MHz fabric ring-oscillator clock | The probe counter was **frozen** over 20 reads / 6.7 s while a CFGMCLK control of the *same* design counted correctly. The parent repo's `docs/fpga/clocking.md` says the same: *"Ring Oscillator (DOES NOT WORK)"*. |
+| A ~150 MHz fabric ring-oscillator clock | **CONFIRMED withdrawn.** The controlled pair was run back-to-back in one session: the ring-oscillator probe's counter **never moved** over 30 reads / 15 s, while the CFGMCLK probe - the same design with one differing line - counted correctly at **66.85 MHz**. Two independent CFGMCLK runs agree to within 0.5% (67.16 and 66.85 MHz). The parent repo's `docs/fpga/clocking.md` says the same: *"Ring Oscillator (DOES NOT WORK)"*. |
 | A "3× clock shortfall" against the board's 200 MHz | The same byte-identical netlist measured **45.13 – 73.15 MHz** across five seed/router combinations (a 62% spread). nextpnr's reported Fmax is **placement noise** on this design, not a measure of logic depth. |
 | "The KV read mux is the critical path" | Inferred by exclusion, then contradicted: deleting the mux made the reported number **worse** (55.03 MHz), and the BRAM version was **identical** (71.86 MHz). |
 | A 32-bit accumulator as the critical path | Removing the accumulator feedback made Fmax **worse** (71.86 → 59.77 MHz). |
@@ -90,7 +97,7 @@ accept/reject decision. Full record: `target/lamb_labs_evidence.md`.
 | 2 | activation width × KV quant width | **QUANT_W ≥ ACT_BITS** for losslessness; 8-bit activation with 4-bit KV is **80–95% error** → REJECT |
 | 3 | combinational vs sequential attention | sequential is **−98.4% LCs** (455 vs 28,582) and every configuration fits the 10% cap |
 | 4 | per-token control sequence | exact **SLOTS + 2** cycles/token; **verified identical** to the combinational golden, 0 mismatches in 12,000 trials |
-| 5 | clock source | the fabric ring oscillator **appears not to oscillate**; CFGMCLK **measured 67.16 MHz** |
+| 5 | clock source | the fabric ring oscillator **does not oscillate** (confirmed); CFGMCLK **measured 67.16 MHz** |
 | 6 | AX7203-native build | chipdb **built and verified**; openXC7 **cannot route** the design (LUT6 packing + carry-chain splitting) |
 | 7 | critical-path isolation | the accumulator and the score multiply are **not** the limiter; the Fmax metric itself was shown unreliable |
 | 8 | Fmax noise audit | two frequency claims **withdrawn**; resource results survive |

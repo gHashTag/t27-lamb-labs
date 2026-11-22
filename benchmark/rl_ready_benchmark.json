@@ -644,8 +644,7 @@
     },
     "fabric_ring_oscillator": {
       "estimated_mhz": 150,
-      "status": "WITHDRAWN - the probe counter was frozen over 20 reads / 6.7 s; the controlled re-test with the identical ripple counter is built and pending the cable",
-      "corroboration": "the parent repository's docs/fpga/clocking.md: 'Ring Oscillator (DOES NOT WORK)'"
+      "status": "CONFIRMED NOT OSCILLATING - controlled pair run back-to-back in one session: 30 reads over 15 s with the counter never moving, while the CFGMCLK control of the identical design counted correctly at 66.85 MHz. Two independent CFGMCLK runs agree to 0.5% (67.16, 66.85 MHz)."
     }
   },
   "die_telemetry": {
@@ -663,5 +662,19 @@
     "carry_chain_routing_failure": "AVOIDED - a plain flip-flop ripple counter has no CARRY4; openXC7's placer splits CARRY4 chains across non-adjacent slices",
     "bscane2_user1_readback": "WORKS over the Digilent HS2: 6-bit IR (USER1 = 0x02), framing TLR(5) -> RTI -> Select-DR -> Select-IR -> Capture-IR -> Shift-IR -> 6 IR bits -> Update-IR -> RTI, then RTI -> Select-DR -> Capture-DR -> Shift-DR",
     "openfpgaloader_xadc_json": "emits JSON with a trailing comma, which is not valid JSON - parse the fields with a regex"
-  }
+  },
+  "published_throughput": {
+    "tokens_per_second": null,
+    "status": "WITHDRAWN",
+    "reason": "the only published figure (~5.7 tok/s) came from bitstream/ternary_mac_demo_top_200t.bit, which has two defects verified from its netlist: every flip-flop is clocked by the fabric ring oscillator (which does not oscillate), and synthesis pruned the 32-bit accumulator to 2 bits because acc_in is constant 0 and w_code is constant -1",
+    "variance_gate": "REOPENED - the accumulator_final values in evidence/variance_summary.json cannot have come from that bitstream",
+    "what_is_needed": "a design whose clock runs: the AX7203's 200 MHz differential oscillator on R4/T4 (needs a pin-bearing probe) or CFGMCLK at ~67 MHz measured"
+  },
+  "still_open": [
+    "publish no tok/s until a design with a running clock is measured",
+    "measure the AX7203's 200 MHz differential oscillator on R4/T4 with a pin-bearing probe",
+    "redo the variance gate on a design whose clock runs",
+    "FPGA power and J/token: still ESTIMATED, a current meter in series with the rail is required",
+    "the sequential attention design still does not route in openXC7"
+  ]
 }

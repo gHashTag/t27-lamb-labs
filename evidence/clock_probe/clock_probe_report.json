@@ -16,8 +16,18 @@
   "measurement_1": {
     "id": "DIE_TELEMETRY",
     "method": "openFPGALoader --read-xadc over JTAG; 5 readings 2 s apart, idle and with the design loaded",
-    "idle": {"temp_c_mean": 44.681, "temp_c_stdev": 0.046, "vccint_v_mean": 0.99926, "vccaux_v_mean": 1.80557},
-    "loaded": {"temp_c_mean": 45.271, "temp_c_stdev": 0.176, "vccint_v_mean": 0.99926, "vccaux_v_mean": 1.80532},
+    "idle": {
+      "temp_c_mean": 44.681,
+      "temp_c_stdev": 0.046,
+      "vccint_v_mean": 0.99926,
+      "vccaux_v_mean": 1.80557
+    },
+    "loaded": {
+      "temp_c_mean": 45.271,
+      "temp_c_stdev": 0.176,
+      "vccint_v_mean": 0.99926,
+      "vccaux_v_mean": 1.80532
+    },
     "design_loaded": "ternary_mac_demo_top_200t.bit (the shipped bitstream)",
     "findings": [
       "Die temperature is MEASURED: 44.681 C idle, 45.271 C with the design loaded, +0.590 C. The rise is a thermal signature of the fabric doing work.",
@@ -52,19 +62,49 @@
     "observation": "the counter was FROZEN: 20 consecutive reads over a 6.7 s window all returned the identical register value 0xA5A5A5A4, with the magic intact (so the readback path works and the design is loaded). bit0 was 1 in 0/20 reads.",
     "controlled_comparison": "the CFGMCLK version of the SAME probe - identical counter logic, identical readback, identical register layout, only the clock source differs - returned CHANGING values on every read.",
     "corroboration": "the parent repository's docs/fpga/clocking.md states: 'Ring Oscillator (DOES NOT WORK) ... -abc9 inserts SCC breaker that destroys the combinational loop - Behavioral assign osc = ~osc is optimized away by Yosys - LUT1 primitive instantiation also broken by ABC9 SCC detection'.",
-    "status": "STRONGLY SUPPORTED, one controlled re-test outstanding",
-    "outstanding": "the frozen reading was taken with the FIRST counter implementation (a hand-rolled Gray counter whose reflected-Gray update was later found to be wrong). The controlled re-test with the IDENTICAL ripple binary counter used for the CFGMCLK measurement is built (clock_probe_ring.bit, md5 35c167a1a58015286a58b98e33fb9b9c) and was ready to flash when the Digilent HS2 dropped off the USB bus. Until that runs, the finding is reported as strongly supported rather than confirmed."
+    "status": "CONFIRMED (not inferred)",
+    "confirmation_run": {
+      "date": "2026-11-22 ~12:05 UTC+7",
+      "method": "the controlled pair, back to back in one session: the ring-oscillator probe and the CFGMCLK probe are the same design with one differing line, the clock source",
+      "ring_oscillator": {
+        "reads": 30,
+        "window_seconds": 15,
+        "distinct_counter_values": [
+          0
+        ],
+        "magic_ok": "30/30",
+        "verdict": "the counter NEVER advanced"
+      },
+      "cfgmclk_control": {
+        "reads": 10,
+        "mean_mhz": 66.8457,
+        "median_mhz": 67.0111,
+        "stdev_mhz": 1.0078,
+        "n_intervals": 9,
+        "verdict": "counting correctly"
+      },
+      "two_independent_cfgmclk_runs": {
+        "run1_mean_mhz": 67.1583,
+        "run2_mean_mhz": 66.8457,
+        "agreement": "within 0.5%"
+      },
+      "log": "evidence/clock_probe/ring_oscillator_confirmation.log"
+    },
+    "caveat_resolved": "the earlier caveat - that the frozen reading used a different counter implementation - is resolved: the controlled re-test used the IDENTICAL ripple binary counter as the CFGMCLK measurement, and the oscillator still never advanced."
   },
   "consequences_for_the_portfolio": [
     {
       "claim_affected": "the ~150 MHz ring-oscillator clock in every derived throughput figure",
-      "status": "WITHDRAWN as an estimate and now MEASURED as absent: the ring oscillator appears not to oscillate, and the board's real available clocks are CFGMCLK at 67.16 MHz measured and the 200 MHz differential oscillator on R4/T4 (not yet measured - it needs a pin-bearing design).",
+      "status": "WITHDRAWN AND CONFIRMED: the fabric ring oscillator does not oscillate on this AX7203 (30 reads, 15 s, identical counter, CFGMCLK control counting correctly in the same session).",
       "action": "every tok/s or J/token figure in this portfolio is re-derived against a MEASURED clock or withdrawn"
     },
     {
       "claim_affected": "the shipped ternary_mac_demo_top_200t.bit and the 5.7 tok/s variance measurement",
-      "status": "SUSPECT: that bitstream clocks its counter from the SAME fabric ring oscillator, so its counter may never have advanced. The measurement's own numbers (different accumulator_final per run) need re-checking against the bitstream's actual logic.",
-      "action": "re-measure with a clocked design, or withdraw the tok/s figure"
+      "status": "WITHDRAWN - two independent defects, both verified from the netlist",
+      "defect_1_clock": "all 6 flip-flops in the shipped design are clocked by `osc`, the fabric ring oscillator, which does not oscillate. No state element ever advances.",
+      "defect_2_pruning": "acc_in is a constant 0 and w_code is a constant -1, so synthesis PRUNED the 32-bit accumulator to 2 bits (acc_out width = 2). The shipped bitstream does not exercise the ternary MAC datapath at all.",
+      "consequence": "the ~5.7 tok/s figure is withdrawn; the variance gate is REOPENED because the accumulator_final values in evidence/variance_summary.json cannot have come from this bitstream; the 0.46% timing CV is withdrawn with them.",
+      "log": "evidence/clock_probe/shipped_bitstream_analysis.log"
     },
     {
       "claim_affected": "the power and J/token estimates",
@@ -90,10 +130,9 @@
     "The honest state is written down rather than smoothed over: the confirmation run is outstanding because the cable dropped, not because the evidence is inconvenient."
   ],
   "still_open": [
-    "The controlled re-test of the ring oscillator with the identical ripple counter (bitstream built, cable needed).",
     "Measure the R4/T4 200 MHz differential oscillator with a pin-bearing probe - it is the clock an AX7203 design should actually use.",
-    "Re-measure or withdraw the 5.7 tok/s figure from the shipped bitstream.",
-    "POWER_WATTS and J/token: still ESTIMATED; a current measurement in series with the rail is required.",
+    "Re-establish a throughput number on a design whose clock runs: the AX7203's 200 MHz differential oscillator on R4/T4 (needs a pin-bearing probe) or CFGMCLK at ~67 MHz measured.",
+    "Reopen and redo the variance gate: the previous cycle-1 run data has unexplained provenance, and the bitstream it came from has a dead clock and a pruned accumulator.",
     "The sequential attention design still does not route in openXC7; the LUT2 mapping found here may also serve it."
   ],
   "method_note": "Two bugs of my own were found and fixed by measurement during this iteration: the hand-rolled Gray counter (wrong update, produced a non-monotonic readback) and the host-side Gray decoder (tracked the gray bit instead of the binary bit). Both are recorded because both produced plausible-looking numbers that were wrong."

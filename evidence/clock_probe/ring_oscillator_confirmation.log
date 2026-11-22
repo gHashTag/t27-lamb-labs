@@ -1,0 +1,62 @@
+=== CONTROLLED CONFIRMATION: THE FABRIC RING OSCILLATOR DOES NOT OSCILLATE ON THE AX7203 ===
+Date: 2026-11-22 ~12:05 UTC+7
+Host: macOS, Digilent HS2 (FT232H 0x0403:0x6014), busdev 1:3
+
+THE CONTROLLED PAIR. The two probes are byte-for-byte the same design except for ONE line:
+the clock source. Prescaler, ripple counter, BSCANE2 USER1 readback and register layout are
+identical, so any difference in behaviour is attributable to the clock source.
+
+  clock_probe_ring.bit  md5 35c167a1a58015286a58b98e33fb9b9c   (20-stage fabric ring oscillator)
+  clock_probe_cfg.bit   md5 22834ed68c001f05c50c7c00479bc437   (STARTUPE2.CFGMCLK)
+
+--- RING OSCILLATOR, 30 READS OVER ~15 s ---
+  read  1: raw=0xA5A00000 magic=OK count=0
+  read  2: raw=0xA5A00000 magic=OK count=0
+  read  3: raw=0xA5A00000 magic=OK count=0
+  read  4: raw=0xA5A00000 magic=OK count=0
+  read  5: raw=0xA5A00000 magic=OK count=0
+  read  6: raw=0xA5A00000 magic=OK count=0
+  read  7: raw=0xA5A00000 magic=OK count=0
+  read  8: raw=0xA5A00000 magic=OK count=0
+  read  9: raw=0xA5A00000 magic=OK count=0
+  read 10: raw=0xA5A00000 magic=OK count=0
+  ... (reads 11-30 identical)
+  --- 30/30 reads carried the magic ---
+  NO USABLE DELTAS
+  distinct counter values observed across 30 reads: count=0
+
+  The magic comes back correctly on every read, so the JTAG readback path works and the design
+  is loaded and running its readback logic. The counter itself never moved.
+
+--- CONTROL, CFGMCLK, RE-RUN IN THE SAME SESSION, BACK TO BACK ---
+  read  8: raw=0xA5A28EDE magic=OK count=167646
+  read  9: raw=0xA5A4F2F6 magic=OK count=324342
+  read 10: raw=0xA5A7548B magic=OK count=480395
+  --- 10/10 reads carried the magic ---
+    delta: 149710 counts in 580.4 ms -> 66.0312 MHz
+    delta: 154519 counts in 594.8 ms -> 66.5015 MHz
+    delta: 156006 counts in 588.9 ms -> 67.8190 MHz
+    delta: 155796 counts in 596.0 ms -> 66.9188 MHz
+    delta: 156601 counts in 591.2 ms -> 67.8122 MHz
+    delta: 157903 counts in 599.7 ms -> 67.4016 MHz
+    delta: 154827 counts in 591.5 ms -> 67.0111 MHz
+    delta: 156696 counts in 594.7 ms -> 67.4512 MHz
+    delta: 156053 counts in 617.8 ms -> 64.6653 MHz
+  --- SUMMARY ---
+    CFGMCLK frequency: mean 66.8457 MHz, median 67.0111 MHz, stdev 1.0078 MHz, n=9
+    min 64.6653 MHz, max 67.8190 MHz
+
+  Two independent CFGMCLK measurements on the same board and the same session:
+    run 1: mean 67.1583 MHz, median 67.3927, stdev 1.3325, n=9
+    run 2: mean 66.8457 MHz, median 67.0111, stdev 1.0078, n=9
+  They agree to within 0.5%.
+
+CONCLUSION. The fabric ring oscillator does not oscillate on this AX7203. This is CONFIRMED,
+not inferred: the identical probe, differing only in the clock source, counts correctly at
+~67 MHz on CFGMCLK and never advances on the ring oscillator, over 30 reads and 15 seconds.
+
+CORROBORATION. The parent repository's fpga/HARDWARE_SSOT.md and docs/fpga/clocking.md state:
+  "Ring Oscillator (DOES NOT WORK) ... -abc9 inserts SCC breaker that destroys the
+   combinational loop - Behavioral assign osc = ~osc is optimized away by Yosys - LUT1
+   primitive instantiation also broken by ABC9 SCC detection"
+  and that the board has NO working external oscillator, so CFGMCLK is the only working clock.
