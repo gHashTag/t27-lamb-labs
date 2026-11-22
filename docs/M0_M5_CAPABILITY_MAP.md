@@ -41,7 +41,7 @@ This is the M0–M5 mapping required by `T27_LAMB_LABS_MILESTONES_V1` step 3. Ga
 | DoD item | Status | Evidence / note |
 |---|---|---|
 | Synthesis + P&R + timing/resource evidence | **SATISFIED** | Full open flow: yosys (`abc -lut 2`), nextpnr-xilinx/fasm2frames/xc7frames2bit, chipdb provenance hash-matched (`evidence/ax7203_build/chipdb_provenance.txt`); utilization (`evidence/utilization/`), critical-path isolation (`evidence/critical_path/`), Fmax noise audit (`evidence/fmax_noise/`) |
-| Builds reproducibly | **SATISFIED** | Exact command sequence published in README §Reproducing this, incl. two recorded toolchain traps (LUT packing, CARRY4 routing) |
+| Builds reproducibly | **PARTIAL → R8** | The exact flow is published (README §Reproducing this, incl. two recorded toolchain traps) and chipdb provenance hash-matches — but the shipped bitstream's **top-level source `ternary_mac_demo_top.v` and its XDC were never committed** (verified: absent from all 28 commits; only `ternary_mac_synth.v` + the `.bit` exist). The bitstream cannot be rebuilt from the repo alone. Nearest committed spec is `specs/ternary/stream_ternary_mac.t27` (dot27 streamer — a different top). Honesty note: the .bit header carries package string `xc7a200tfbg676-1` while the part is fbg484 — the device loaded by IDCODE `0x3636093` with `done 1`, so this is a frames2bit header quirk, recorded as SUSPECT-cosmetic |
 | Board-measured performance | **SATISFIED** | CFGMCLK 67.16 MHz (σ 1.33, n=9, second run agrees to 0.5%); R4/T4 oscillator 398.3 MHz with divide ratio experimentally confirmed first (`evidence/clock_probe/`) |
 | Hardware smoke tests | **PARTIAL → R5** | Configuration-level smoke re-confirmed live 2026-11-23: JTAG detect `idcode 0x3636093`, shipped bitstream sha256-identical, SRAM load `isc_done 1 done 1`, XADC 41.9 °C / rails nominal (`evidence/board_reconnect/board_reconnect_2026-11-23.log`). **Functional** datapath smoke over UART/IP for the shipped demo bitstream: not yet done (the historical 512/512 UART run was a different bitstream) |
 | Measured power | **GAP (tool-bound) → R6** | Vivado unavailable (AMD login wall, 3.9 GiB free disk); power = ESTIMATED only. XADC telemetry is the measured proxy |
@@ -66,18 +66,19 @@ This is the M0–M5 mapping required by `T27_LAMB_LABS_MILESTONES_V1` step 3. Ga
 
 ---
 
-## Gap register (candidate issues, none filed yet)
+## Gap register → GitHub issues (filed 2026-11-23, repo milestones #1–#6)
 
-| ID | Gap | Milestone | Why it is real (DoD ref) |
+| ID | Issue | Gap | Milestone |
 |---|---|---|---|
-| **R1** | Rollback & recovery procedure doc (per release: artifact, sha256, restore command) | M0/M5 | M0 DoD bullet 5; DONE_WHEN 5 |
-| **R3** | `t27c` spec-first compiler path: emit Verilog from a `.t27` spec and prove bit-exactness on conformance vectors | M2 | DONE_WHEN 1–3; the lab's core thesis |
-| **R4** | Standalone TNF/GF16 conformance pack (spec + golden vectors + RTL-match artifact, one command) | M1 | M1 DoD bullet 4 |
-| **R5** | Functional hardware smoke for the shipped demo bitstream (UART/IP), board is connected now | M3 | M3 DoD bullet 4; DONE_WHEN 4 |
-| **R6** | Risk register + measured-power upgrade path (Vivado access or XADC-based methodology) | M4 | M4 DoD bullets 2–3 |
-| **R7** | GitHub Release objects for the v0.1.x line with sha256 + rollback notes | M5 | DONE_WHEN 5 |
+| **R1** | [#1](https://github.com/gHashTag/t27-lamb-labs/issues/1) | Rollback & recovery procedure doc | M0 (#1) |
+| **R4** | [#2](https://github.com/gHashTag/t27-lamb-labs/issues/2) | Standalone TNF/GF16 conformance pack | M1 (#2) |
+| **R3** | [#3](https://github.com/gHashTag/t27-lamb-labs/issues/3) | `t27c` spec-first compiler emit path | M2 (#3) |
+| **R8** | [#4](https://github.com/gHashTag/t27-lamb-labs/issues/4) | Recover/commit `ternary_mac_demo_top.v` + XDC; make shipped bitstream rebuildable (blocks R5) | M3 (#4) |
+| **R5** | [#5](https://github.com/gHashTag/t27-lamb-labs/issues/5) | Functional hardware smoke (no UART on shipped top; plan needed first) | M3 (#4) |
+| **R6** | [#6](https://github.com/gHashTag/t27-lamb-labs/issues/6) | Risk register + measured-power upgrade path | M4 (#5) |
+| **R7** | [#7](https://github.com/gHashTag/t27-lamb-labs/issues/7) | GitHub Release objects with sha256 + rollback notes | M5 (#6) |
 
-Deliberately **not** gaps: silicon/tapeout claims (none exist, none claimed — DONE_WHEN 9), DSH defaults (verified; cosmetic registry field documented above), secret hygiene (clean, artifact now committed as evidence).
+Every issue carries explicit acceptance criteria and the owner-verification-before-close law. Deliberately **not** gaps: silicon/tapeout claims (none exist, none claimed — DONE_WHEN 9), DSH defaults (verified; cosmetic registry field documented above), secret hygiene (clean, artifact committed as evidence).
 
 ## Live hardware status (2026-11-23)
 
