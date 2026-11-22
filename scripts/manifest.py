@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+"""Write the portfolio artifact manifest: every deliverable with its SHA256.
+
+The manifest is the reproducibility index. A reviewer can hash any artifact and compare it
+against the manifest, and a reviewer can see at a glance which files the portfolio consists of.
+
+Usage: python3 scripts/manifest.py [output_path]
+"""
+import hashlib, os, sys, json, subprocess
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Directories whose contents are the portfolio's deliverable artifacts.
+INCLUDE_DIRS = ["target", "benchmark", "engagement", "evidence", "bitstream", "docs", "scripts"]
+# Files at the repository root that are part of the deliverable.
+INCLUDE_ROOT_FILES = ["README.md"]
+# Directories that are toolchain copies or scratch, not artifacts.
+EXCLUDE_DIRS = {".git", "toolchain", "specs", "fpga", "__pycache__", ".pytest_cache"}
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def collect():
+    out = []
+    for name in INCLUDE_ROOT_FILES:
+        p = os.path.join(ROOT, name)
+        if os.path.isfile(p):
+            out.append(name)
+    for d in INCLUDE_DIRS:
+        base = os.path.join(ROOT, d)
+        if not os.path.isdir(base):
+            continue
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [x for x in dirnames if x not in EXCLUDE_DIRS]
+            for fn in sorted(filenames):
+                if fn == ".DS_Store":
+                    continue
+                rel = os.path.relpath(os.path.join(dirpath, fn), ROOT)
+                out.append(rel)
+    return sorted(set(out))
+
+
+def main():
+    dest = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "ARTIFACT_MANIFEST.txt")
+    files = collect()
+    lines = []
+    lines.append("# t27-lamb-labs artifact manifest")
+    lines.append("# Every deliverable file with its SHA256. Regenerate: python3 scripts/manifest.py")
+    lines.append(f"# {len(files)} files")
+    lines.append("")
+    for rel in files:
+        p = os.path.join(ROOT, rel)
+        if os.path.isfile(p):
+            lines.append(f"{sha256(p)}  {rel}")
+    with open(dest, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"wrote {dest}: {len(files)} files")
+
+    # also emit the git commit for traceability
+    try:
+        commit = subprocess.check_output(["git", "-C", ROOT, "rev-parse", "HEAD"], text=True).strip()
+        print(f"git HEAD: {commit}")
+    except Exception:
+        pass
+
+
+if __name__ == "__main__":
+    main()

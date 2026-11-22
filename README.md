@@ -1,139 +1,222 @@
 # t27-lamb-labs
 
-**Lamb Labs — ternary transformer research on Kria-class FPGA (AX7203).**
+**Ternary transformer research on a Kria-class FPGA (ALINX AX7203, `xc7a200tfbg484-2`).**
 
-This repository isolates the FPGA / ternary-MAC / variance-measurement work
-from the main `t27` repository. It is a self-contained
-research repo: bitstream, evidence, toolchain configs, and specs live here.
-
----
-
-## Positioning
-
-**First reproducible ternary MAC variance study on Kria-class FPGA (AX7203),
-zero-DSP, edge-scale.**
-
-We do **not** claim to run TinyLlama-1.1B on Kria. The honest scope is a
-**tiny ternary transformer block (1–2M parameters)** on XC7A200T, with
-variance measured across repeated cycle-1 runs.
+An evidence-first model-hardware co-design portfolio. Every number below is labelled
+**MEASURED**, **ESTIMATED**, **TARGET** or **SUSPECT**, and every measured number has a hashed
+artifact behind it. Claims that this project withdrew are kept in the record, not erased.
 
 ---
 
-## What is measured (not claimed)
+## Scope, stated honestly
 
-| Metric | Status | Evidence |
+**What this is:** a tiny ternary transformer inference prototype on XC7A200T, with the
+attention + bounded quantised KV-cache measured across 22 configurations, a machine-readable
+co-design benchmark, and a measured board clock.
+
+**What this is not:**
+
+- **Not** TinyLlama-1.1B on Kria. We do not claim it and do not measure it.
+- **Not** a full transformer. The demonstrated workload is a ternary MAC plus a minimal
+  attention path with a bounded KV-cache.
+- **Not** a parity benchmark against the Lamb Labs MPU or Larry.
+- **Not** an RL system. The benchmark is a *contract*; no state-action-reward loop exists yet.
+- **Not** a power measurement. See the table below - power is **ESTIMATED**.
+
+Wording used throughout: **ternary weights resident in on-chip memory for the demonstrated
+workload; external weight reads per generated token: measured value.**
+
+---
+
+## Evidence status
+
+### MEASURED (on the AX7203, or by exact synthesis of the same flow)
+
+| Result | Value | Evidence |
 |---|---|---|
-| Power measurement | MEASURED | 60 samples, `power_log.csv`, SHA256 `323c735d...` |
-| UDP benchmark | MEASURED | 10/10 successes, `udp_log.json`, SHA256 `80bdaf2e...` |
-| Variance rerun (FPGA) | MEASURED | 5/5 cycle-1 runs, SHA256 in `evidence/variance_rerun/` |
-| Bitstream flashed | MEASURED | `ternary_mac_demo_top_200t.bit` (ternary MAC) |
-| Toolchain | VERIFIED | yosys, fasm2frames, xc7frames2bit, openFPGALoader v0.13.1 |
+| **Board clock (CFGMCLK)** | **67.16 MHz** mean, 67.39 median, σ 1.33, n=9 | `evidence/clock_probe/cfgmclk_measurement.log` |
+| **Die temperature** | 44.681 °C idle → **45.271 °C** with the design loaded (+0.590 °C) | `evidence/clock_probe/xadc_measurement.log` |
+| Rail voltages | VCCINT 0.99926 V, VCCAUX 1.80532 V | `evidence/clock_probe/xadc_measurement.log` |
+| **External DRAM reads / token** | **0** | `evidence/` (DRAM reads report) |
+| **Attention quality** | **bit-exact** vs a full-precision golden - 12,000 randomised trials, **0 mismatches** | `evidence/attention_token/token_sequential_verification.py` |
+| Attention resources | token-sequential: **505 LCs**, 345 FF, 0 BRAM, 0 DSP (0.38% of the fabric) | `evidence/attention_token/` |
+| Combinational attention (rejected) | 28,582 LCs = **21.3% of the fabric** | `evidence/attention/` |
+| KV-cache per-slot cost | **9.3 LCs + 6.6 FFs** per slot | `evidence/attention_seq/` |
+| Zero-DSP | **DSP48E1 = 0** in all 22 attention configurations | `benchmark/validate_benchmark.py` |
+| Lossless rule | **QUANT_W ≥ ACT_BITS** | `evidence/attention_joint/joint_iteration_report.json` |
+| Chipdb | rebuilt from source; **size and md5 both match the SSOT** | `evidence/ax7203_build/chipdb_provenance.txt` |
+| Bitstream flashed | `isc_done 1` confirmed | `evidence/clock_probe/*.log` |
 
-All performance numbers are **MEASURED**, not TARGET. Nothing is claimed
-beyond what the artifacts show.
+### ESTIMATED (derived, not measured)
 
----
+| Quantity | Estimate | Why it is an estimate |
+|---|---|---|
+| `POWER_WATTS` | ~0.7 W | The XC7A200T has no on-die current sensor. The XADC senses voltage and temperature only. A current measurement in series with the rail is required. |
+| `J/token` | ~0.12 | Derived from the estimated power. |
+| `J_token` confidence | ±20% | The power band, not a measurement. |
 
-## Variance protocol (first-class artifact)
+### SUSPECT (previously published, now questioned by our own measurement)
 
-No prior ternary-FPGA work in our survey publishes variance as a separate,
-auditable artifact. We do.
+| Quantity | Status |
+|---|---|
+| **~5.7 tok/s** | Measured on `ternary_mac_demo_top_200t.bit`, which clocks its counter from the **fabric ring oscillator**. That oscillator's counter read **frozen** over 20 JTAG reads, so the counter may never have advanced. **Re-measure or withdraw.** |
 
-Per run we record:
-- seed
-- timestamp
-- environment (OS, tool versions)
-- bitstream version (SHA256)
-- raw log
-- SHA256 of every artifact
+### TARGET (not attempted, not claimed)
 
-Acceptance rule: a transfer/run is accepted **only on a matching SHA256**,
-never on file size.
+1–2M-parameter transformer blocks; any tok/s or J/token figure at that scale.
 
-Reference CV% from literature: latency 0.8–1.2%, energy 1.5–2.1%
-(FPGA RISC-V extensions study, arXiv:2511.06955). We report our own CV%
-alongside this baseline.
+### Withdrawn by our own measurement (kept in the record)
 
----
+| Claim | Why withdrawn |
+|---|---|
+| A ~150 MHz fabric ring-oscillator clock | The probe counter was **frozen** over 20 reads / 6.7 s while a CFGMCLK control of the *same* design counted correctly. The parent repo's `docs/fpga/clocking.md` says the same: *"Ring Oscillator (DOES NOT WORK)"*. |
+| A "3× clock shortfall" against the board's 200 MHz | The same byte-identical netlist measured **45.13 – 73.15 MHz** across five seed/router combinations (a 62% spread). nextpnr's reported Fmax is **placement noise** on this design, not a measure of logic depth. |
+| "The KV read mux is the critical path" | Inferred by exclusion, then contradicted: deleting the mux made the reported number **worse** (55.03 MHz), and the BRAM version was **identical** (71.86 MHz). |
+| A 32-bit accumulator as the critical path | Removing the accumulator feedback made Fmax **worse** (71.86 → 59.77 MHz). |
 
-## Zero-DSP ternary MAC
-
-The ternary MAC is implemented without DSP blocks (LUT-based sign-select +
-adder tree), consistent with the approach in ELiTeFormer (bitmasking) and
-RTN (Boolean ops).
-
-To be measured and documented:
-- LUT vs DSP utilization in `ternary_mac_demo_top_200t.bit`
-- MACs/sec
-- power
-- latency per MAC
-- comparison vs TeLLMe (52,094 LUTs, 9.51 tok/s, 7 W on Kria KV260)
-
-Claim: **"zero-DSP ternary MAC with measured variance on AX7203."**
+The design's achievable clock is therefore recorded as **UNKNOWN** pending Vivado's timing report
+or a silicon measurement against the board's 200 MHz oscillator on R4/T4.
 
 ---
 
-## Edge-scale honest baseline
+## The co-design results
 
-We keep the scope at **1–2M parameters**, not TinyLlama-1.1B.
+Nine documented iterations, each with a controlled change, measured resources, and an
+accept/reject decision. Full record: `target/lamb_labs_evidence.md`.
 
-Reference points (not our claims, literature baselines):
-- TeLLMe (Kria KV260): 0.7B @ 9.51 tok/s, 7 W
-- PENSA (Alveo U50, HBM): BitNet b1.58 2B4T end-to-end
-- TerEffic: 6× power efficiency vs BitNet on 7B
+| # | Question | Result |
+|---|---|---|
+| 1 | accumulator width × loop topology | 32-bit accumulator **ACCEPT** (peak 1,048,671 needs 21 bits); 16-bit **REJECT** (overflow) |
+| 2 | activation width × KV quant width | **QUANT_W ≥ ACT_BITS** for losslessness; 8-bit activation with 4-bit KV is **80–95% error** → REJECT |
+| 3 | combinational vs sequential attention | sequential is **−98.4% LCs** (455 vs 28,582) and every configuration fits the 10% cap |
+| 4 | per-token control sequence | exact **SLOTS + 2** cycles/token; **verified identical** to the combinational golden, 0 mismatches in 12,000 trials |
+| 5 | clock source | the fabric ring oscillator **appears not to oscillate**; CFGMCLK **measured 67.16 MHz** |
+| 6 | AX7203-native build | chipdb **built and verified**; openXC7 **cannot route** the design (LUT6 packing + carry-chain splitting) |
+| 7 | critical-path isolation | the accumulator and the score multiply are **not** the limiter; the Fmax metric itself was shown unreliable |
+| 8 | Fmax noise audit | two frequency claims **withdrawn**; resource results survive |
+| 9 | silicon measurements | clock **67.16 MHz**, die telemetry, ring oscillator suspect |
 
-We publish a scaling relation: **params vs tok/s vs power on AX7203**,
-within our honest 1–2M scope.
+---
+
+## The benchmark (Block 6)
+
+`benchmark/rl_ready_benchmark.json` - a machine-readable co-design contract:
+
+- **state**: arch, acc_bits, act_bits, head_dim, kv_len, quant_w, loop_topology, seq_len, batch, clock
+- **action**: one single-field change from a declared domain
+- **reward**: `-(J_per_token / reference)`, gated by
+  - quality floor: `bit_exact_match_rate >= 1.0`
+  - resource cap: `estimated_lcs <= 13,460` (10% of the XC7A200T LUT fabric)
+- **reproducible protocol**: synthesis + 5 cycle-1 runs + SHA256 of netlist, stats and quality logs
+- **19 already-evaluated states**, each carrying its measured numbers
+
+> **This is a benchmark contract, not an RL system.** No state-action-reward loop exists yet.
+> Calling the current work "RL" would be false.
+
+`benchmark/validate_benchmark.py` fails if a state has no measured backing, if a count disagrees
+with the evidence, if a state over the cap is marked ACCEPTed, if a `NOT MEASURED` row carries a
+number, if the non-parity label is missing, or if the zero-DSP invariant breaks.
+
+```
+BENCHMARK VALIDATION PASSED
+  states checked      : 19
+  per-param rows      : 3
+  zero-DSP invariant  : holds in every measured configuration
+  non-parity label    : present
+```
+
+---
+
+## Per-parameter efficiency (Block 7)
+
+> **edge-scale prototype comparison, not performance parity with 27B-class MPU**
+
+The only measured throughput belongs to the demonstrated MAC + attention primitive. The 1M and
+2M rows are **NOT MEASURED** and carry the open feasibility question: 1M ternary weights at 2 bits
+is 250 kB, and one MAC stage per weight would need roughly 281k LCs - more than twice the
+XC7A200T fabric - so the weights must be BRAM-packed and streamed.
+
+---
+
+## Open-source engagement (Block 8)
+
+`engagement/OPEN_SOURCE_PROTOCOL.md` - **PREPARED, NOT EXECUTED**. It activates when Lamb Labs
+releases an open model: read the licence and model card first (and stop if redistribution is
+forbidden), reproduce the baseline on CPU/GPU, apply this repo's own ternary recipe, and publish
+under the same evidence protocol. The forbidden claims are written down explicitly.
 
 ---
 
 ## Repository layout
 
+```
 t27-lamb-labs/
-├── bitstream/
-│ └── ternary_mac_demo_top_200t.bit
-├── docs/
-│ ├── LL1_RESOURCE_BUDGET.md
-│ └── LL1_TARGET_MODEL.md
+├── target/lamb_labs_evidence.md     # the evidence dashboard: every claim, every artefact
+├── benchmark/                        # Block 6 + 7: the co-design contract and the validator
+├── engagement/                       # Block 8: the open-source protocol (prepared)
 ├── evidence/
-│ ├── artifact_run_1-5.json
-│ ├── variance_summary.json
-│ ├── ARTIFACT_HASHES.txt
-│ └── run_1-5.log
-├── specs/
-│ ├── variance_ingest.t27
-│ ├── power_ingest.t27
-│ ├── udp_ingest.t27
-│ ├── research_ingest.t27
-│ ├── fpga/
-│ └── ternary/
-├── toolchain/
-│ ├── oss-cad-suite/
-│ ├── prjxray/
-│ └── openfpgaloader/
-├── scripts/
-│ └── handoff.sh
-└── README.md
+│   ├── utilization/                  # LUT/BRAM/DSP from the same flow as the bitstream
+│   ├── codesign/                     # iteration 1 + the accumulator-range simulation
+│   ├── attention/                    # 9 combinational configurations
+│   ├── attention_joint/              # the joint act x KV-quant frontier + the quality metric
+│   ├── attention_seq/                # the sequential form and the per-slot cost
+│   ├── attention_token/              # the token-sequential form and the exact cycle count
+│   ├── critical_path/                # the controlled-removal isolation
+│   ├── fmax_noise/                   # the Fmax placement-noise audit
+│   ├── clock/                        # CFGMCLK variant + the ring-oscillator netlist check
+│   ├── clock_probe/                  # Block 9: the silicon clock and die telemetry
+│   ├── xadc/                         # the die-telemetry script and logs
+│   └── ax7203_build/                 # the AX7203-native RTL/XDC and the chipdb provenance
+├── bitstream/                        # the shipped bitstream + its SHA256
+├── docs/                             # the resource budget and the target model
+├── specs/                            # the .t27 specs
+└── scripts/                          # the build and validation scripts
+```
+
+Every evidence directory carries its own `ARTIFACT_HASHES.txt`.
 
 ---
 
-## DO NOT (hard rules)
+## Reproducing this
+
+```bash
+# validate the benchmark against the evidence
+python3 benchmark/validate_benchmark.py
+
+# measure the board clock and the die telemetry
+python3 evidence/clock_probe/measure_clock.py 10 0.5
+python3 evidence/xadc/measure_xadc.py idle 5
+```
+
+The synthesis path is the open one, and it is recorded exactly:
+
+```sh
+yosys -p "read_verilog -sv attn_token.v attention_probe.v; \
+          synth_xilinx -family xc7 -nodsp -nosrl -nolutram -top attention_probe -flatten; \
+          write_json attn_probe.json"
+nextpnr-xilinx --chipdb xc7a200tfbg484-2.bin --json attn_probe.json --fasm attn_probe.fasm
+python fasm2frames.py --db-root prjxray-db/artix7 --part xc7a200tfbg484-2 attn_probe.fasm
+xc7frames2bit --part_file prjxray-db/artix7/xc7a200tfbg484-2/part.yaml \
+               --part_name xc7a200tfbg484-2 --frm_file attn_probe.frames --output_file attn_probe.bit
+openFPGALoader -c digilent_hs2 --busdev-num 1:3 attn_probe.bit
+```
+
+Two toolchain notes that are the difference between a build and a failure:
+
+- **`abc -lut 2`** instead of the stock `abc -luts 2:2,3,6:5`. With no LUT6 in the netlist,
+  openXC7's *"No wire found for port O6"* packing failure disappears.
+- A **carry-chain counter is what breaks routing** - openXC7's placer splits the CARRY4 chain
+  across non-adjacent slices. A plain flip-flop ripple counter has no CARRY4 and routes.
+
+---
+
+## Hard rules
 
 - Do **not** claim "TinyLlama fully on Kria".
-- Do **not** claim "10–15 tokens/sec measured".
-- Do **not** claim "80–120 J/token measured".
-- Do **not** accept a transfer on size alone — SHA256 only.
-- Do **not** mix Lamb Labs artifacts with other project artifacts.
-
----
-
-## Current status
-
-- Variance gate: **CLOSED** (5/5 cycle-1 runs, SHA256 verified)
-- Power gate: **CLOSED**
-- UDP gate: **CLOSED**
-- Next: formalize variance protocol as first-class artifact, profile
-  zero-DSP, publish edge-scale baseline.
-
-**CLAIMED_READY = INVALID** until the variance protocol is formalized and
-the zero-DSP profile is measured.
+- Do **not** claim "10–15 tok/s measured" or "80–120 J/token measured".
+- Do **not** claim parity with the Lamb Labs MPU or Larry.
+- Do **not** claim 20,000+ tok/s, or any intelligence-per-watt figure.
+- Do **not** call the benchmark "RL" until a state-action-reward loop exists.
+- Do **not** accept a transfer on file size alone - SHA256 only.
+- Do **not** publish a number that has no hashed artefact behind it.
+- Do **not** mix Lamb Labs artefacts with other projects' artefacts.

@@ -869,7 +869,7 @@ order of magnitude.
 | RTL_SOURCE_HASH | ✅ | `c6d50bb1f710ecadc5805431f6b23b711416fe50aef2498eb37b2dc600ad0b52` |
 | MODEL_CHECKPOINT_HASH | N/A | no ML checkpoint; weights are 2-bit ternary codes in the datapath |
 | POWER_WATTS | ⚠️ ESTIMATE | ~0.7 W |
-| TOKENS_PER_SECOND | ✅ MEASURED | ~5.7 tok/s |
+| TOKENS_PER_SECOND | ⚠️ **SUSPECT** | ~5.7 tok/s was measured on the shipped bitstream, which clocks from the fabric ring oscillator - now known to appear DEAD, so the counter may never have advanced. **Re-measure or withdraw.** |
 | J_TOKEN_MEASURED | ⚠️ ESTIMATE | ~0.12 J/token (derived from estimated power) |
 | J_TOKEN_CONFIDENCE_INTERVAL | ⚠️ | \u00b120% power band, 0.46% timing CV |
 | DRAM_READS_PER_TOKEN | ✅ MEASURED | 0 |
@@ -877,9 +877,9 @@ order of magnitude.
 | LUT_UTILIZATION | ✅ MEASURED | 32 / 134,600 (0.024%) |
 | DSP_UTILIZATION | ✅ MEASURED | 0 / 740 (0.0%) |
 | CLOCK_MHZ | ✅ **67.16 MEASURED** (CFGMCLK, mean of 9, σ 1.33) · attention design's achievable clock still UNKNOWN · ring osc ~150 **WITHDRAWN** (appears not to oscillate) |
-| QUALITY_METRIC | ✅ MEASURED | 5/5 bit-exact, CV 0.46% |
-| CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | 1 (8 configurations, accept/reject recorded) |
-| ATTENTION_KV_STATUS | ✅ resources MEASURED (9 configs); combinational form REJECTED, sequential form is next |
+| QUALITY_METRIC | ✅ MEASURED | attention quality: bit-exact vs a full-precision golden, 12000 randomised trials, 0 mismatches. The 5/5 cycle-1 CV 0.46% belongs to the SUSPECT tok/s measurement |
+| CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | **9** (acc x loop-topology; joint act x KV-quant; sequential vs combinational; clock source; AX7203-native build; critical-path isolation; Fmax noise audit; silicon clock + die telemetry) |
+| ATTENTION_KV_STATUS | ✅ resources + quality MEASURED (9 combinational, 7 sequential, 6 token-sequential configs); combinational form REJECTED (21.3% fabric); **token-sequential form ADOPTED** (505 LCs, 0.38%) |
 | RL_BENCHMARK_STATUS | ✅ contract + **19** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |
