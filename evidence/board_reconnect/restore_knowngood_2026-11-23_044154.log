@@ -1,0 +1,37 @@
+=== BOARD RESTORE TO KNOWN-GOOD — 2026-11-23 (round 10, Job F closure) ===
+
+State before: board held clock_probe_r4t4b.bit (the reproducibly-frozen-at-zero
+defective probe; see evidence/clock_probe/remeasure_2026-11-23/verdict.txt C6).
+
+--- step 1: load shipped artifact-of-record ---
+$ openFPGALoader -c digilent_hs2 bitstream/ternary_mac_demo_top_200t.bit
+Done
+Shift IR 35
+ir: 1 isc_done 1 isc_ena 0 init 1 done 1
+load_exit=0
+
+--- step 2: idcode ---
+$ openFPGALoader -c digilent_hs2 --detect
+	idcode 0x3636093
+	manufacturer xilinx
+
+--- step 3: post-load XADC (docs/ROLLBACK_RECOVERY.md §3.3 procedure) ---
+$ openFPGALoader -c digilent_hs2 --read-xadc
+{"temp": 41.3576,
+    "maxtemp": 42.2266,
+    "mintemp": 40.8654,
+"raw":  {"0": 40886, "1": 21835, "2": 39419, "3": 0, "4": 0, "5": 0, "6": 21842, "7": 0},
+"vccint": 0.999023,
+   "maxvccint": 1.00049,
+   "minvccint": 0.998291,
+"vccaux": 1.80542,
+   "maxvccaux": 1.80762,
+   "minvccaux": 1.80249,
+}
+
+--- verdict ---
+restore_verdict: PASS (load_exit=0; done=1; idcode 0x3636093; XADC in family range;
+  41.36 C idle consistent with the 44.7-45.3 C loaded sessions of shipped_bitstream_analysis.log;
+  this run does NOT exercise the ternary datapath — shipped v1 clock is dead on board,
+  provenance per evidence/clock_probe/shipped_bitstream_analysis.log)
+board_state_after: ternary_mac_demo_top_200t.bit sha256 a82c260d759f66afe95a3b6c705fb6e963a3d0ba58227511b1b69ea4a0e00c0b
