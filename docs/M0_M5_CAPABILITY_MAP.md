@@ -25,7 +25,7 @@ This is the M0–M5 mapping required by `T27_LAMB_LABS_MILESTONES_V1` step 3. Ga
 | Ternary numeric specs with invariants and tests | **SATISFIED (block scale)** | `specs/ternary/`: `trits.t27`, `ternary_mac.t27`, `trit_codon.t27`, `ternary_full_adder.t27`, `ternary_ripple_adder.t27`, `ternary_xor.t27` — repo law L4 requires tests in every `.t27` |
 | GF16 datapath spec + bit-exact golden | **SATISFIED (for attention path)** | `specs/fpga/gf16_accel.t27` + `gf16_accel.v` + `testbench/gf16_accel_tb.*`; attention verified bit-exact vs CPU golden: 1,200 randomized trials, 0 mismatches (`evidence/attention_fix/attention_correction_report.json`); earlier 12,000-trial pack (`evidence/attention_token/`) |
 | Measured accuracy/performance baselines | **SATISFIED** | Variance study across repeated cycle-1 runs (`evidence/variance_summary*.json`, README MEASURED table); board clocks 67.16/398.3 MHz (`evidence/clock_probe/`) |
-| Regression tests for format edge cases | **PARTIAL → R4** | `benchmark/validate_benchmark.py` validates the co-design contract; a standalone TNF/GF16 *conformance pack* (spec → golden vectors → RTL match, versioned artifact) is not yet a single reproducible unit |
+| Regression tests for format edge cases | ~~PARTIAL → R4~~ **SATISFIED (2026-11-23, owner verification pending)** | `conformance/run_conformance.py`: one entrypoint, OVERALL PASS (exit 0), reproduced ×2. Tier A 29/29 RTL bit-exact (ternary_mac_top vs independent golden, wrap boundaries incl.); Tier B 10/10 dot27 spec golden incl. −27 bound. `evidence/conformance/` hashed. dot27 RTL leg pending R3 |
 
 ## M2 — Bit-exact hardware pipeline
 
