@@ -194,6 +194,15 @@ def write_evidence(ok, extra):
         f.write(blob + "\nSHA256_SELF: %s\n" % hashlib.sha256(blob.encode()).hexdigest())
     log("WROTE %s" % os.path.relpath(p, REPO))
 
+def _det_stat(stdout):
+    """Deterministic slice of yosys output: the === stat blocks only."""
+    s = stdout[stdout.rfind("=== dot27_top ==="):]
+    end = s.find("End of script.")
+    if end >= 0:
+        s = s[:end]
+    return s.rstrip() + "\n[volatile yosys timing tail stripped for determinism]"
+
+
 def main():
     sp = parse_spec()
     sp["__mask"] = (1 << sp["bits_per_trit"]) - 1
@@ -270,7 +279,11 @@ endmodule
 
     write_evidence(True, {"vectors_total": len(vecs), "randomized": rand_n,
                           "mismatches": 0,
-                          "yosys_stat": y.stdout[y.stdout.rfind("=== dot27_top ==="):][:2000]})
+                          # store only the deterministic stat blocks; yosys appends a
+                          # wall-clock tail ("Logfile hash ... time ...s, MEM ... MB")
+                          # after "End of script." that differs run to run and would
+                          # break byte-identical regeneration (caught by G5 drift gate)
+                          "yosys_stat": _det_stat(y.stdout)})
     log("OVERALL: PASS")
     return 0
 

@@ -55,8 +55,9 @@ say "=== G4: $ROWS rows checked, $BAD mismatches"
 [ "$BAD" -eq 0 ] || FAIL=1
 
 # G5: deterministic pipeline -> no uncommitted drift after a full re-run.
+# (the log file this run is writing is excluded — it is the evidence, not drift)
 say "=== G5: tree drift after regeneration"
-DRIFT="$(git status --porcelain)"
+DRIFT="$(git status --porcelain | grep -vF "$OUT" || true)"
 if [ -z "$DRIFT" ]; then
   say "=== G5: PASS (tree clean, all regenerated artifacts byte-identical)"
 else
