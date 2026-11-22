@@ -20,3 +20,6 @@ f9093712c2eed1019a09657842a0391b9ab384956555701f3ba96cde462b775f  evidence/regre
 c2ffb4b6be098fc507c9c54c7bd7e82a27b979531a0fd1c13e1b5cedd8f45b59  evidence/regression/regress_2026-11-23_r12_pass.log
 
 94a5154435430bc93c2d180def010ac7dbc8d949a887000d41e71e9f07b786ec  evidence/regression/regress_2026-11-23_055642.log
+
+== r12 correction: script-side twins are authoritative (contain gate internals the stdout redirects lack) ==
+d6c0f1817178cad1e0a28ac7a1ddff5d2a2f4ea66dde4e29d7161b0f9edfd87e  evidence/regression/regress_2026-11-23_055732.log
