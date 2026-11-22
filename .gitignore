@@ -1,0 +1,32 @@
+# Local secrets and credentials - never commit
+dsh.json
+.env
+.env.*
+*.env
+secrets.json
+secrets/
+credentials.json
+.netrc
+.netrc.*
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+*.p12
+*.pfx
+cookies.txt
+*cookies*.json
+
+# Local logs and dumps that may embed keys (tracked evidence logs stay tracked)
+local-logs/
+logs/
+*.local.log
+*.dump
+*.core
+
+# Local scratch and build trees - no litter, no local artefacts in pushes
+tmp/
+scratch/
+node_modules/
+__pycache__/
+.DS_Store
