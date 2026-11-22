@@ -82,4 +82,4 @@ Every issue carries explicit acceptance criteria and the owner-verification-befo
 
 ## Live hardware status (2026-11-23)
 
-AX7203 powered and answering on Digilent HS2 (serial 210512180081); shipped `ternary_mac_demo_top_200t.bit` loaded to SRAM successfully, `done 1`; XADC nominal. R5 is the natural next measurement while the board is up.
+AX7203 powered and answering on Digilent HS2 (serial 210512180081). 2026-11-23 functional smoke (`evidence/functional_smoke_2026-11-23/`): CFGMCLK-domain live datapath PROVEN (magic 10/10, counter >10⁶ ticks, 66.88 MHz in band); R4/T4 probe counter FROZEN (fail C6) — board-clock liveness on R4/T4 not demonstrated today, 2026-11-22 ~398 MHz numbers stay NOT PUBLISHED. R5 full completion still blocked on missing nextpnr/xc7frames2bit (route (b) UART smoke) and on a Johnson-prescaler rebuild (corrected R4/T4 probe).
