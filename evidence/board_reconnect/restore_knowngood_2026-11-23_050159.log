@@ -1,0 +1,62 @@
+=== BOARD RESTORE TO KNOWN-GOOD (round-10 Job E closure, 2026-11-23_050159) ===
+
+After the wrap-aware live measurement the R4/T4 probe bitstream was on the
+board. Restoring the shipped known-good v1 (Job F discipline), per
+docs/ROLLBACK_RECOVERY.md:
+
+$ openFPGALoader -c digilent_hs2 bitstream/ternary_mac_demo_top_200t.bit
+empty
+Jtag frequency : requested 6.00MHz    -> real 6.00MHz   
+Open file DONE
+Parse file DONE
+load program
+Load SRAM: [====                                              ] 7.00%
+Load SRAM: [=======                                           ] 13.00%
+Load SRAM: [==========                                        ] 20.00%
+Load SRAM: [==============                                    ] 27.00%
+Load SRAM: [=================                                 ] 33.00%
+Load SRAM: [====================                              ] 40.00%
+Load SRAM: [=======================                           ] 46.00%
+Load SRAM: [===========================                       ] 53.00%
+Load SRAM: [==============================                    ] 60.00%
+Load SRAM: [=================================                 ] 66.00%
+Load SRAM: [====================================              ] 72.00%
+Load SRAM: [=======================================           ] 78.00%
+Load SRAM: [===========================================       ] 85.00%
+Load SRAM: [==============================================    ] 91.00%
+Load SRAM: [================================================= ] 98.00%
+Load SRAM: [==================================================] 100.00%
+
+Done
+Shift IR 35
+ir: 1 isc_done 1 isc_ena 0 init 1 done 1
+load_exit=0
+
+$ openFPGALoader -c digilent_hs2 --detect
+empty
+Jtag frequency : requested 6.00MHz    -> real 6.00MHz   
+index 0:
+	idcode 0x3636093
+	manufacturer xilinx
+	family artix a7 200t
+	model  xc7a200
+	irlength 6
+
+$ openFPGALoader -c digilent_hs2 --read-xadc
+empty
+Jtag frequency : requested 6.00MHz    -> real 6.00MHz   
+{"temp": 41.8555, 
+    "maxtemp": 42.4726, 
+    "mintemp": 41.0115, 
+"raw":  {"0": 40963, "1": 21847, "2": 39470, "3": 0, "4": 0, "5": 0, "6": 21857, "7": 0},
+"vccint": 0.999756, 
+   "maxvccint": 1.00049, 
+   "minvccint": 0.998291, 
+"vccaux": 1.80469, 
+   "maxvccaux": 1.80762, 
+   "minvccaux": 1.80322, 
+}
+
+restore_verdict: PASS (configuration only; shipped v1's clock is dead and the
+ternary datapath is NOT exercised by this bitstream - unchanged caveat).
+board_state_after: ternary_mac_demo_top_200t.bit sha256 a82c260d...

@@ -44,3 +44,20 @@ STATUS CHANGE
 
 NEW DEFECT FOUND AND DOCUMENTED: measure_clock.py wrap aliasing (host-side); protocol fix
 window < 0.8 * 2^20/rate; wrap-aware copy committed as measure_clock_wrap.py.
+
+STATUS UPDATE 2026-11-23, round 10 (Job D+E closure): the wrap-aware reader ran
+LIVE against the board with clock_probe_r4t4.bit loaded.
+- Live run #1 (wrap_aware_live_2026-11-23_045701.log) exposed a chain bug in
+  the reader itself: prev rate was taken from the summary list the first
+  window is excluded from, so the continuity chain broke every window, every
+  delta was mislabelled first-window-prior-guessed, run ended NO USABLE
+  DELTAS exit 1 despite plausible per-window rates. Reader fixed (chain
+  independent of summary exclusion); selftest re-passed 11/11, exit 0.
+- Live run #2 with the fixed reader (wrap_aware_live_2026-11-23_050142.log):
+  mean 399.0808 MHz, median 397.5362 MHz, stdev 5.5672 MHz, n=8 usable
+  windows (first prior-guessed window excluded), magic 10/10, exit 0.
+  Fourth independent session; consistent with the pooled 397.6223 MHz
+  PROVISIONAL figure above. Status unchanged: PROVISIONAL / EXPLAINED=NO;
+  NOT a design input.
+- Board restored to the shipped known-good bitstream afterwards
+  (evidence/board_reconnect/restore_knowngood_2026-11-23_050159.log).

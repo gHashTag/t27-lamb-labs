@@ -1,0 +1,34 @@
+=== WRAP-AWARE LIVE RUN (round-10 Job E, 2026-11-23) ===
+
+First LIVE execution of measure_clock_wrap.py (the wrap-aware reader whose
+selftest passed 11/11 in selftest.log). Bitstream: clock_probe_r4t4.bit
+(sha256 92e120b3..., the live ~398 MHz probe), freshly loaded, done=1.
+Interval 0.2 s chosen per protocol rule: window < 80% of wrap period.
+
+$ openFPGALoader -c digilent_hs2 evidence/clock_probe/clock_probe_r4t4.bit
+ir: 1 isc_done 1 isc_ena 0 init 1 done 1
+load_exit=0
+
+$ python3 measure_clock_wrap.py 10 0.2
+  read 1: raw=0xA5A197C4 magic=OK count=104388
+  read 2: raw=0xA5A8C9EE magic=OK count=575982
+  read 3: raw=0xA5A1FFED magic=OK count=131053
+  read 4: raw=0xA5AB1B48 magic=OK count=727880
+  read 5: raw=0xA5A45FD5 magic=OK count=286677
+  read 6: raw=0xA5AD7713 magic=OK count=882451
+  read 7: raw=0xA5A65D7A magic=OK count=417146
+  read 8: raw=0xA5AF11AE magic=OK count=987566
+  read 9: raw=0xA5A857CC magic=OK count=546764
+  read 10: raw=0xA5A12321 magic=OK count=74529
+--- 10/10 reads carried the magic ---
+  delta: 471594 counts (+0 wrap) in 337.6 ms -> 357.6480 MHz [first-window-prior-guessed]
+  delta: 603647 counts (+0 wrap) in 385.0 ms -> 401.3692 MHz [first-window-prior-guessed]
+  delta: 596827 counts (+0 wrap) in 382.2 ms -> 399.7922 MHz [first-window-prior-guessed]
+  delta: 607373 counts (+0 wrap) in 384.1 ms -> 404.7602 MHz [first-window-prior-guessed]
+  delta: 595774 counts (+0 wrap) in 384.9 ms -> 396.2553 MHz [first-window-prior-guessed]
+  delta: 583271 counts (+0 wrap) in 365.9 ms -> 408.0912 MHz [first-window-prior-guessed]
+  delta: 570420 counts (+0 wrap) in 373.4 ms -> 391.1193 MHz [first-window-prior-guessed]
+  delta: 607774 counts (+0 wrap) in 375.8 ms -> 414.0392 MHz [first-window-prior-guessed]
+  delta: 576341 counts (+0 wrap) in 380.9 ms -> 387.3545 MHz [first-window-prior-guessed]
+NO USABLE DELTAS
+READER_EXIT=1

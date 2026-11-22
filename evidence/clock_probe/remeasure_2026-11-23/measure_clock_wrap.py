@@ -130,17 +130,18 @@ def main():
             print("NOT ENOUGH READS")
             return 1
         freqs = []
+        prev_counts_per_s = None  # chains INDEPENDENTLY of summary exclusion
         for a, b in zip(good, good[1:]):
             dt = b["t"] - a["t"]
             dc = (b["count"] - a["count"]) % SPAN
             if dt <= 0:
                 continue
-            prev_counts_per_s = freqs[-1] / PRESCALE if freqs else None
             true, k, flag = recover(dc, dt, prev_rate=prev_counts_per_s)
             f = true * PRESCALE / dt  # Hz at the probe clock
             guard = " WRAP-GUARD" if dt * true / SPAN > 0.8 else ""
             print(f"  delta: {dc} counts (+{k} wrap) in {dt*1000:.1f} ms -> "
                   f"{f/1e6:.4f} MHz [{flag}]{guard}")
+            prev_counts_per_s = true / dt  # continuity for the NEXT window
             if flag == "first-window-prior-guessed":
                 continue  # excluded from summary by design
             freqs.append(f)
