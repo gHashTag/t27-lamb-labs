@@ -12,3 +12,5 @@ REAL MISMATCH: docs/M0_M5_CAPABILITY_MAP.md
 === G5: PASS (tree clean, all regenerated artifacts byte-identical)
 ===========================================
 REGRESSION: FAIL
+
+[STATUS UPDATE 2026-11-23_050834: this log was copied prematurely — captured between the docs commit and the manifest regeneration, so G4 legitimately reported 1 mismatch (stale docs row). Its commit message wrongly said ALL GATES PASS; corrected here. Superseded by evidence/regression/regress_2026-11-23_050834.log captured at the same HEAD, ALL GATES PASS exit 0, 275 rows, 0 mismatches.]

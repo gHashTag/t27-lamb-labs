@@ -10,4 +10,4 @@ dfc81f62f4dba3004cf45b5bd4ba50aed56a27155c1ef0ad1a321e638cac9961  evidence/regre
 24351a7b1d1a66bcd41932c7a51a46e4c3c2eb879b089afa3ac5663146cfd9de  evidence/regression/regress_2026-11-23_044741.log
 1bb960202014acece07ae8fddaace2aedaaab5b9e5277a732fb96b47a1c6e56e  evidence/regression/regress_2026-11-23_045621.log
 5966db968bb151b55b5481784c40fb010e85bef1cd116cc8ed72a51b28c69468  evidence/regression/regress_2026-11-23_050644.log
-d952d68942b6e7ecf973da5847c013072c18365c9419dbda368fcc098c1cb695  evidence/regression/regress_2026-11-23_050758.log
+22ad34a96d0b9b7300e12b68f79051c9deab81cb139d15d5bdc2dfc16248f521  evidence/regression/regress_2026-11-23_050758.log  # superseded: captured pre-manifest-regen (G4 1 mismatch); see correction addendum inside
