@@ -16,7 +16,7 @@ This is the M0–M5 mapping required by `T27_LAMB_LABS_MILESTONES_V1` step 3. Ga
 | `.gitignore` active, no credentials in history | **SATISFIED** | `.gitignore` = commit `a7ef751`; full-history scan re-run 2026-11-23 → `evidence/security/secret_scan_2026-11-23.log` = **CLEAN** (1 reviewed false positive: the ignore-file's own rule text) |
 | DSH default workspace/cwd verified after restart | **SATISFIED (with nuance)** | Restart happened; this session opened in the `t27-lamb-labs` worktree (`session-e6e4cd9f…` = the blank session prepared on 2026-11-22). cwd override persists: `~/.dsh/profiles/web/cordis.patch.yml:941` `defaultDirectory: /Users/playra/t27-lamb-labs` (config, restart-safe). Nuance: registry `defaultWorkspaceId` regressed to dead id `282d09f6…` and first-durable is now `woody-weed-bot`; per harness source the GUI's real default is `recentWorkspace` (freshest session activity = this one), so the field is cosmetic — but it must be re-checked after every registry mutation |
 | Evidence directory and artifact conventions | **SATISFIED** | `README.md` §Repository layout; per-experiment dirs under `evidence/`, each with `ARTIFACT_HASHES.txt`; `ARTIFACT_MANIFEST.txt` at root; sha256-only transfer rule |
-| Rollback and recovery procedure documented | **GAP → R1** | No rollback/recovery doc in `docs/`, `scripts/` (`handoff.sh` is a release-gate script for another repo, not a lab rollback path). Tags + manifests exist; the *procedure* does not |
+| Rollback and recovery procedure documented | ~~GAP → R1~~ **SATISFIED (2026-11-23, owner verification pending)** | `docs/ROLLBACK_RECOVERY.md` committed + **every command executed once** against live repo/board: tag restore 9,730,768 B, SHA256 gate PASS (== manifest row 11), SRAM load `done 1`, manifest integrity 0 real mismatches. `evidence/rollback_recovery/rollback_recovery_2026-11-23.log` |
 
 ## M1 — Ternary numeric core
 
@@ -52,7 +52,7 @@ This is the M0–M5 mapping required by `T27_LAMB_LABS_MILESTONES_V1` step 3. Ga
 |---|---|---|
 | Constraints under version control | **SATISFIED (board level)** | `specs/fpga/constraints/{arty_a7,qmtech_a100t}.xdc`, `evidence/ax7203_build/ax7203_attn.xdc` — FPGA package constraints, not ASIC IO/timing constraints |
 | Architecture trade-offs documented | **PARTIAL** | README co-design results + `docs/LL1_RESOURCE_BUDGET.md`, `docs/LL1_TARGET_MODEL.md`; no consolidated trade-study doc |
-| Risk register | **GAP → R6** | No risk register file (ASIC-facing risks, toolchain risks, single-board dependency) |
+| Risk register | ~~GAP → R6~~ **SATISFIED (2026-11-23, owner verification pending)** | `docs/RISK_REGISTER.md`: 10 rows (S×L, mitigation, evidence pointers) incl. fresh R4/T4 marginality; power methodology DECIDED: XADC-differential = MEASURED proxy w/ observed-repeatability error bars, watts unpublished until shunt/Vivado path |
 | Honest FPGA-proven vs ASIC-unproven separation | **SATISFIED** | README §Hard rules + WITHDRAWN/SUSPECT sections keep withdrawn claims in the record; no silicon language anywhere |
 
 ## M5 — Silicon-facing release
