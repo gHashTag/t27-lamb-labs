@@ -1,0 +1,46 @@
+=== VERDICT: LIVE RE-MEASURE SESSION 3 (2026-11-23) ===
+
+WHAT RAN (all on the connected AX7203, idcode 0x3636093, same reader IR 0x02, 12-bit magic):
+  1. clock_probe_r4t4.bit (md5 56a2e448 = THE bitstream behind the 2026-11-22 ~398 MHz runs)
+     run 1 @0.5 s  : 9/9 deltas, WRAP-ALIASED by the host script (see wrap_aliasing_analysis.txt);
+                      after k=1 correction every sample lands 384-407 MHz
+     run 2 @0.25 s : mean 396.2419 MHz, median 398.2006 MHz, stdev 10.7222, magic 10/10
+  2. clock_probe_ctrl.bit (CFGMCLK control)
+     run 1 @0.25 s : mean 66.7157 MHz, median 67.0933, stdev 2.1687, magic 10/10
+     run 2 @0.25 s : mean 66.6801 MHz, median 67.0032, stdev 1.3822, magic 10/10
+  3. clock_probe_r4t4b.bit (the C6-frozen smoke bitstream)
+     readback      : count = 0 on ALL 10 reads, magic 10/10 -> frozen state REPRODUCED today
+
+THREE-SESSION PICTURE
+  R4/T4 valid runs : 398.6926 (11-22 r1), 397.9325 (11-22 r2), 396.2419 (11-23)
+                     pooled mean 397.6223 MHz
+  CFGMCLK runs     : 67.1583 (ripple probe), 66.8595, 66.8154, 66.7157, 66.6801
+                     band 66.68-67.16 MHz
+  R4/T4 : CFGMCLK  : 5.965 / 5.953 / 5.939 across sessions - stable, chain-independent
+                     (the divide-ratio argument from divide_ratio_control.log)
+
+C6 NARROWED ATTRIBUTION (differential, same board, same reader, same hour):
+  r4t4.bit  -> counter LIVE at ~396-398 MHz (this session, twice)
+  r4t4b.bit -> counter FROZEN at exactly 0, magic OK (this session, reproduced)
+  => the smoke-test C6 failure is a property of the r4t4b DESIGN, not of the board,
+     the readback chain, or the R4/T4 measurement.
+  MECHANISM (SIMULATED, x_mechanism_sim.v): the committed reconstruction
+  clock_probe_r4t4.v contains `tick_q <= presc[PW-1]` with presc undeclared; iverilog
+  refuses to elaborate it, and yosys accepts it by implicitly declaring a 1-BIT wire
+  whose out-of-range bit-select is UNDEF -> tick_rise never true -> counter frozen at 0.
+  The simulation reproduces FROZEN_AT_ZERO over 4166 ticks. HYPOTHESIS (consistent,
+  not proven): r4t4b.bit was built from this defective reconstruction; r4t4.bit from
+  the original (lost) source. Provenance of r4t4b is not recorded anywhere - that gap
+  stands.
+
+STATUS CHANGE
+  R4/T4 ~397.6 MHz is now MEASURED IN THREE INDEPENDENT SESSIONS with the silicon-confirmed
+  divide ratio 256 and a matching CFGMCLK control each time. Labels:
+    MEASURED (3 sessions) - yes, as the BOARD'S OSCILLATOR BEHAVIOR
+    EXPLAINED - NO: parent SSOT documents "200 MHz on R4/T4"; why the board runs ~2x that
+    remains unknown (different board revision? nominal-vs-actual?)
+    DESIGN INPUT - still forbidden: no design may be closed against this clock until the
+    discrepancy is understood and the number is in a timing-verified build (needs PnR tools)
+
+NEW DEFECT FOUND AND DOCUMENTED: measure_clock.py wrap aliasing (host-side); protocol fix
+window < 0.8 * 2^20/rate; wrap-aware copy committed as measure_clock_wrap.py.

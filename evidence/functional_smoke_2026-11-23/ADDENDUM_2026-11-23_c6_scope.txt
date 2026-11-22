@@ -1,0 +1,24 @@
+=== ADDENDUM (2026-11-23, later same day): C6 SCOPE NARROWED ===
+
+Original verdict.txt: "C6 FAIL (counter frozen at 0, 0 deltas)" for P2 =
+clock_probe_r4t4b.bit. That verdict stands UNCHANGED for r4t4b.
+
+Same-session differential measured afterward (evidence/clock_probe/remeasure_2026-11-23/):
+  - clock_probe_r4t4.bit (md5 56a2e448, the 2026-11-22 measurement bitstream):
+    counter LIVE, 396.2419 MHz mean run (magic 10/10)
+  - clock_probe_r4t4b.bit: counter frozen at exactly 0 on all reads, magic 10/10
+    (reproduced 2026-11-23, minutes after the live reading, same board/reader)
+
+=> C6's failure is a property of the r4t4b DESIGN, not of the board, the readback
+   chain, or the R4/T4 measurement as such.
+
+Leading explanation (SIMULATED mechanism, hypothesis on provenance): the committed
+reconstruction evidence/clock_probe/clock_probe_r4t4.v contains `tick_q <= presc[PW-1]`
+with `presc` undeclared. iverilog refuses to elaborate it; yosys implicitly declares a
+1-BIT wire whose out-of-range bit-select is UNDEF -> tick_rise never true -> counter
+frozen at 0. The simulation (remeasure_2026-11-23/x_mechanism_sim.v) reproduces
+FROZEN_AT_ZERO. Hypothesis: r4t4b.bit was built from this defective reconstruction;
+provenance of r4t4b is not recorded anywhere - that gap stands.
+
+Consequence for the smoke conclusion: OVERALL FAIL (C6) remains recorded and honest;
+its blast radius is now measured to cover the r4t4b artifact only.

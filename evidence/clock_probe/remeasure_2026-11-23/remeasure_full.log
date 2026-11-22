@@ -1,0 +1,126 @@
+=== R4/T4 + CFGMCLK LIVE RE-MEASURE, SESSION 3 (2026-11-23, UTC+7) ===
+Board: AX7203 (XC7A200T), idcode 0x3636093, Digilent HS2
+Purpose: (1) third independent session for the ~398 MHz R4/T4 reading;
+         (2) differential test r4t4.bit vs r4t4b.bit (C6 smoke anomaly);
+         (3) reproduce-or-refute the frozen counter on r4t4b.
+
+=== LIVE RE-MEASURE SESSION 2026-11-23 (3rd session) ===
+2026-11-22T20:36:02Z
+--- load clock_probe_r4t4.bit (md5 56a2e448, the bitstream measured at ~398 MHz on 2026-11-22)
+ir: 1 isc_done 1 isc_ena 0 init 1 done 1
+--- R4/T4 run 1 today
+  read 1: raw=0xA5AF07DD magic=OK count=985053
+  read 2: raw=0xA5AEC13E magic=OK count=966974
+  read 3: raw=0xA5AF07DB magic=OK count=985051
+  read 4: raw=0xA5AF0944 magic=OK count=985412
+  read 5: raw=0xA5AF31C3 magic=OK count=995779
+  read 6: raw=0xA5AF7B9B magic=OK count=1014683
+  read 7: raw=0xA5AFF975 magic=OK count=1046901
+  read 8: raw=0xA5A039B8 magic=OK count=14776
+  read 9: raw=0xA5A05D0A magic=OK count=23818
+  read 10: raw=0xA5A0AD17 magic=OK count=44311
+--- 10/10 reads carried the magic ---
+  delta: 1030497 counts in 687.4 ms -> 383.7949 MHz
+  delta: 18077 counts in 670.6 ms -> 6.9008 MHz
+  delta: 361 counts in 686.1 ms -> 0.1347 MHz
+  delta: 10367 counts in 681.4 ms -> 3.8948 MHz
+  delta: 18904 counts in 681.0 ms -> 7.1065 MHz
+  delta: 32218 counts in 684.3 ms -> 12.0521 MHz
+  delta: 16451 counts in 677.8 ms -> 6.2133 MHz
+  delta: 9042 counts in 682.9 ms -> 3.3897 MHz
+  delta: 20493 counts in 683.9 ms -> 7.6714 MHz
+--- SUMMARY ---
+  CFGMCLK frequency: mean 47.9065 MHz, median 6.9008 MHz, stdev 126.0014 MHz, n=9
+  min 0.1347 MHz, max 383.7949 MHz
+
+--- R4/T4 run 2 today, interval 0.25 s (window < 2^20/1.55M = 0.70 s wrap period)
+  read 1: raw=0xA5AF5551 magic=OK count=1004881
+  read 2: raw=0xA5A8BDF9 magic=OK count=572921
+  read 3: raw=0xA5A30FC5 magic=OK count=200645
+  read 4: raw=0xA5AD49C1 magic=OK count=870849
+  read 5: raw=0xA5A75BBE magic=OK count=482238
+  read 6: raw=0xA5A18356 magic=OK count=99158
+  read 7: raw=0xA5AB1329 magic=OK count=725801
+  read 8: raw=0xA5A55382 magic=OK count=349058
+  read 9: raw=0xA5AF9F2B magic=OK count=1023787
+  read 10: raw=0xA5AA096E magic=OK count=657774
+--- 10/10 reads carried the magic ---
+  delta: 616616 counts in 424.4 ms -> 371.9430 MHz
+  delta: 676300 counts in 433.0 ms -> 399.8280 MHz
+  delta: 670204 counts in 418.4 ms -> 410.1137 MHz
+  delta: 659965 counts in 429.2 ms -> 393.5987 MHz
+  delta: 665496 counts in 427.8 ms -> 398.2006 MHz
+  delta: 626643 counts in 397.8 ms -> 403.2857 MHz
+  delta: 671833 counts in 434.0 ms -> 396.2666 MHz
+  delta: 674729 counts in 429.6 ms -> 402.1033 MHz
+  delta: 682563 counts in 447.1 ms -> 390.8377 MHz
+--- SUMMARY ---
+  CFGMCLK frequency: mean 396.2419 MHz, median 398.2006 MHz, stdev 10.7222 MHz, n=9
+  min 371.9430 MHz, max 410.1137 MHz
+
+--- load clock_probe_ctrl.bit
+ir: 1 isc_done 1 isc_ena 0 init 1 done 1
+--- CFGMCLK run today 1
+  read 1: raw=0xA5A19664 magic=OK count=104036
+  read 2: raw=0xA5A33413 magic=OK count=209939
+  read 3: raw=0xA5A4F3F7 magic=OK count=324599
+  read 4: raw=0xA5A6B49A magic=OK count=439450
+  read 5: raw=0xA5A86DA3 magic=OK count=552355
+  read 6: raw=0xA5AA299A magic=OK count=666010
+  read 7: raw=0xA5ABEAB9 magic=OK count=780985
+  read 8: raw=0xA5ADAFCC magic=OK count=896972
+  read 9: raw=0xA5AF73FF magic=OK count=1012735
+  read 10: raw=0xA5A12865 magic=OK count=75877
+--- 10/10 reads carried the magic ---
+  delta: 105903 counts in 439.5 ms -> 61.6886 MHz
+  delta: 114660 counts in 435.4 ms -> 67.4220 MHz
+  delta: 114851 counts in 434.5 ms -> 67.6703 MHz
+  delta: 112905 counts in 430.8 ms -> 67.0933 MHz
+  delta: 113655 counts in 438.0 ms -> 66.4232 MHz
+  delta: 114975 counts in 432.6 ms -> 68.0467 MHz
+  delta: 115987 counts in 447.0 ms -> 66.4206 MHz
+  delta: 115763 counts in 425.7 ms -> 69.6181 MHz
+  delta: 111718 counts in 432.9 ms -> 66.0586 MHz
+--- SUMMARY ---
+  CFGMCLK frequency: mean 66.7157 MHz, median 67.0933 MHz, stdev 2.1687 MHz, n=9
+  min 61.6886 MHz, max 69.6181 MHz
+--- CFGMCLK run today 2
+  read 1: raw=0xA5A4AA15 magic=OK count=305685
+  read 2: raw=0xA5A6410F magic=OK count=409871
+  read 3: raw=0xA5A7EDA9 magic=OK count=519593
+  read 4: raw=0xA5A9C318 magic=OK count=639768
+  read 5: raw=0xA5AB79FF magic=OK count=752127
+  read 6: raw=0xA5AD30F8 magic=OK count=864504
+  read 7: raw=0xA5AEEADE magic=OK count=977630
+  read 8: raw=0xA5A0A638 magic=OK count=42552
+  read 9: raw=0xA5A25EF2 magic=OK count=155378
+  read 10: raw=0xA5A42063 magic=OK count=270435
+--- 10/10 reads carried the magic ---
+  delta: 104186 counts in 420.8 ms -> 63.3811 MHz
+  delta: 109722 counts in 417.8 ms -> 67.2263 MHz
+  delta: 120175 counts in 466.6 ms -> 65.9277 MHz
+  delta: 112359 counts in 421.9 ms -> 68.1798 MHz
+  delta: 112377 counts in 427.8 ms -> 67.2515 MHz
+  delta: 113126 counts in 432.2 ms -> 67.0032 MHz
+  delta: 113498 counts in 434.3 ms -> 66.8960 MHz
+  delta: 112826 counts in 433.2 ms -> 66.6743 MHz
+  delta: 115057 counts in 435.8 ms -> 67.5804 MHz
+--- SUMMARY ---
+  CFGMCLK frequency: mean 66.6801 MHz, median 67.0032 MHz, stdev 1.3822 MHz, n=9
+  min 63.3811 MHz, max 68.1798 MHz
+
+--- load clock_probe_r4t4b.bit (the C6-frozen smoke bitstream)
+ir: 1 isc_done 1 isc_ena 0 init 1 done 1
+--- r4t4b readback today
+  read 1: raw=0xA5A00000 magic=OK count=0
+  read 2: raw=0xA5A00000 magic=OK count=0
+  read 3: raw=0xA5A00000 magic=OK count=0
+  read 4: raw=0xA5A00000 magic=OK count=0
+  read 5: raw=0xA5A00000 magic=OK count=0
+  read 6: raw=0xA5A00000 magic=OK count=0
+  read 7: raw=0xA5A00000 magic=OK count=0
+  read 8: raw=0xA5A00000 magic=OK count=0
+  read 9: raw=0xA5A00000 magic=OK count=0
+  read 10: raw=0xA5A00000 magic=OK count=0
+--- 10/10 reads carried the magic ---
+NO USABLE DELTAS

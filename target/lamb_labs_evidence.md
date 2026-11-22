@@ -64,7 +64,7 @@ inside the MAC datapath.
 | Parameter | Value |
 |---|---|
 | JTAG frequency | 6 MHz |
-| Clock source | 20-stage ring oscillator in fabric — **WITHDRAWN**: does not oscillate on silicon; real clocks are CFGMCLK 67.16 MHz MEASURED and the R4/T4 board clock (JTAG probe mean ≈398 MHz, NOT PUBLISHED pending divide-ratio validation). Log: `evidence/clock_probe/shipped_bitstream_analysis.log` |
+| Clock source | 20-stage ring oscillator in fabric — **WITHDRAWN**: does not oscillate on silicon; real clocks are CFGMCLK 67.16 MHz MEASURED and the R4/T4 board clock (JTAG probe MEASURED ×3 sessions, pooled mean **397.62 MHz**, /256 ratio silicon-confirmed; **PROVISIONAL** — SSOT documents 200 MHz, discrepancy unexplained). Log: `evidence/clock_probe/shipped_bitstream_analysis.log` |
 | Power method | external meter required for FPGA; nvidia-smi used for the 2x RTX 3070 box |
 | Token counting | ~~5 cycle-1 runs = 5 tokens~~ — **WITHDRAWN**: run provenance dead (see below); no token count is currently published |
 | Confidence interval | 95% from repeated runs |
@@ -219,7 +219,7 @@ K and V stored as sign + `QUANT_W` magnitude bits.
 
 **Latency (derived, not measured on silicon)**: combinational depth = SLOTS x HEAD_DIM MAC steps
 (16 x 8 = 128), ~640 ns/token at 150 MHz (basis **WITHDRAWN** — the 150 MHz oscillator is dead;
-re-derive against 67.16 MHz CFGMCLK or the R4/T4 probe when published). A sequential form would be 16 cycles (~107 ns) at a
+re-derive against 67.16 MHz CFGMCLK or the R4/T4 3-session measured mean 397.62 MHz (provisional). A sequential form would be 16 cycles (~107 ns) at a
 fraction of the LUT cost - not yet built.
 
 **Quality**: measured in iteration 2 below - bit-exact against the full-precision golden for
@@ -396,7 +396,7 @@ its contribution · `phase DONE` output valid + write the new KV slot + restart.
 
 > **Basis WITHDRAWN (2026-11-23)**: the ~150 MHz fabric oscillator does not run on silicon, so the
 > passes/s column is **historical only** — re-derive against CFGMCLK 67.16 MHz (MEASURED) or the
-> R4/T4 probe mean once published. The cycles/token column remains exact (counted, verified).
+> R4/T4 3-session measured mean 397.62 MHz (provisional). The cycles/token column remains exact (counted, verified).
 
 > **Important caveat**: these are attention **passes** per second for this block, **not** model tokens
 > per second. The 5.7 tok/s measured on the cycle-1 variance bitstream is a **different measurement**
@@ -765,10 +765,10 @@ ABC9 SCC detection"*.
 
 | Affected claim | Status |
 |---|---|
-| the ~150 MHz ring-oscillator clock in every derived throughput figure | **WITHDRAWN** - the oscillator appears not to run; the real clocks are CFGMCLK **67.16 MHz measured** and the board clock on R4/T4: two JTAG probe runs measured **≈398 MHz mean** (magic 10/10 each run) — **NOT PUBLISHED**, divide-ratio validation pending, and the live-board counter probe froze (C6 FAIL, `evidence/functional_smoke_2026-11-23/verdict.txt`) |
+| the ~150 MHz ring-oscillator clock in every derived throughput figure | **WITHDRAWN** - the oscillator appears not to run; the real clocks are CFGMCLK **67.16 MHz measured** and the board clock on R4/T4: **MEASURED ×3 independent sessions**, pooled mean **397.62 MHz** (398.6926/397.9325 on 2026-11-22; 396.2419 on 2026-11-23; magic 10/10 each run; Johnson /256 silicon-confirmed; wrap-aliasing defect of the host reader found and fixed). The 2026-11-23 smoke C6 freeze was NARROWED to the r4t4b artifact by a same-session differential + x-mechanism simulation (`evidence/clock_probe/remeasure_2026-11-23/verdict.txt`); **PROVISIONAL**, SSOT-vs-measured 2x discrepancy unexplained |
 | the shipped `ternary_mac_demo_top_200t.bit` and its 5.7 tok/s variance measurement | **WITHDRAWN** - **two** independent defects, both verified from the netlist: (1) all 6 flip-flops are clocked by the dead `osc`, so no state element ever advances; (2) `acc_in` is constant 0 and `w_code` constant −1, so synthesis **pruned the 32-bit accumulator to 2 bits** - the bitstream does not exercise the ternary MAC datapath at all. The `accumulator_final` values in `evidence/variance_summary.json` cannot have come from it, so the **variance gate is REOPENED**. Log: `evidence/clock_probe/shipped_bitstream_analysis.log` |
 | the power and J/token estimates | still **ESTIMATED**, but the inputs are now real: 45.27 °C loaded, VCCINT 0.99926 V measured, +0.590 °C thermal signature |
-| the achievable attention clock | still **UNKNOWN**, but the question is sharper: time it against 67.16 MHz measured (CFGMCLK) or the ≈398 MHz R4/T4 probe mean (not yet published), not against an estimated 150 MHz fabric oscillator |
+| the achievable attention clock | still **UNKNOWN**, but the question is sharper: time it against 67.16 MHz measured (CFGMCLK) or the R4/T4 3-session measured mean 397.62 MHz (provisional - discrepancy vs the documented 200 MHz is unexplained), not against an estimated 150 MHz fabric oscillator |
 
 ### 9e. Toolchain findings (each one a build blocker that was removed)
 
@@ -945,7 +945,7 @@ order of magnitude.
 | RL_BENCHMARK_STATUS | ✅ contract + **19** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |
-| BLOCKERS | - | **No throughput number yet** - the board's clock is now MEASURED (67.16 MHz CFGMCLK, 398.3 MHz R4/T4), so the next step is a design with a running clock. **FPGA power still ESTIMATED** (needs a current meter); **the variance gate is REOPENED**; the documented 200 MHz for R4/T4 does not match the measured 398.3 MHz (discrepancy recorded, cause unknown); openXC7 cannot route the attention design (LUT6 packing + carry-chain splitting) |
+| BLOCKERS | - | **No throughput number yet** - the board's clock is now MEASURED (67.16 MHz CFGMCLK, 398.3 MHz R4/T4), so the next step is a design with a running clock. **FPGA power still ESTIMATED** (needs a current meter); **the variance gate is REOPENED**; the documented 200 MHz for R4/T4 does not match the 3-session measured mean 397.62 MHz (discrepancy recorded, cause unknown; hence PROVISIONAL); openXC7 cannot route the attention design (LUT6 packing + carry-chain splitting) |
 
 ---
 
