@@ -1,0 +1,36 @@
+=== CFGMCLK FREQUENCY MEASUREMENT ON THE AX7203 (xc7a200tfbg484-2) ===
+Date: 2026-11-22 ~10:20 UTC+7
+Host: macOS, Digilent HS2 (FT232H 0x0403:0x6014), busdev 1:3
+Bitstream: clock_probe_cfg.bit  md5 22834ed68c001f05c50c7c00479bc437
+Flash: openFPGALoader -c digilent_hs2 --busdev-num 1:3 clock_probe_cfg.bit
+       -> Done / Shift IR 35 / ir: 1 isc_done 1 isc_ena 0 init 1 done 1
+Command: python3 tools/jtag/measure_clock.py 10 0.5
+
+  read 1: raw=0xA5ABBB12 magic=OK count=768786
+  read 2: raw=0xA5AE0AB1 magic=OK count=920241
+  read 3: raw=0xA5A077B7 magic=OK count=30647
+  read 4: raw=0xA5A2D8A5 magic=OK count=186533
+  read 5: raw=0xA5A537E8 magic=OK count=341992
+  read 6: raw=0xA5A79606 magic=OK count=497158
+  read 7: raw=0xA5A9FA54 magic=OK count=653908
+  read 8: raw=0xA5AC5B02 magic=OK count=809730
+  read 9: raw=0xA5AEBEF3 magic=OK count=966387
+  read 10: raw=0xA5A120D1 magic=OK count=73937
+--- 10/10 reads carried the magic ---
+  delta: 151455 counts in 605.9 ms -> 63.9965 MHz
+  delta: 158982 counts in 590.9 ms -> 68.8719 MHz
+  delta: 155886 counts in 589.9 ms -> 67.6545 MHz
+  delta: 155459 counts in 587.3 ms -> 67.7597 MHz
+  delta: 155166 counts in 596.7 ms -> 66.5667 MHz
+  delta: 156750 counts in 595.4 ms -> 67.3927 MHz
+  delta: 155822 counts in 589.9 ms -> 67.6241 MHz
+  delta: 156657 counts in 595.4 ms -> 67.3604 MHz
+  delta: 156126 counts in 594.8 ms -> 67.1981 MHz
+--- SUMMARY ---
+  CFGMCLK frequency: mean 67.1583 MHz, median 67.3927 MHz, stdev 1.3325 MHz, n=9
+  min 63.9965 MHz, max 68.8719 MHz
+
+Counting scheme: the counter advances once per 2^8 CFGMCLK edges (8-bit ripple prescaler,
+rising-edge detected), so f = delta_counts * 256 / delta_seconds.
+Reference: the Artix-7 CFGMCLK family nominal is ~66 MHz (docs/fpga/clocking.md in the parent
+repository). MEASURED 67.16 MHz mean, 1.8% above the nominal.

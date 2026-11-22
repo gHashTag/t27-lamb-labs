@@ -1,0 +1,98 @@
+  [idle] reading 1/5: temp=44.687 C  vccint=0.999756 V  vccaux=1.806150 V
+  [idle] reading 2/5: temp=44.701 C  vccint=0.999756 V  vccaux=1.806150 V
+  [idle] reading 3/5: temp=44.620 C  vccint=0.999023 V  vccaux=1.805420 V
+  [idle] reading 4/5: temp=44.657 C  vccint=0.999023 V  vccaux=1.804690 V
+  [idle] reading 5/5: temp=44.741 C  vccint=0.999023 V  vccaux=1.805420 V
+--- SUMMARY ---
+{
+  "label": "idle",
+  "busdev": "1:3",
+  "n_readings": 5,
+  "interval_seconds": 2,
+  "temp_c": {
+    "mean": 44.6812,
+    "median": 44.6874,
+    "stdev": 0.0457,
+    "min": 44.6201,
+    "max": 44.7412,
+    "xadc_internal_max": 45.3641,
+    "xadc_internal_min": 30.4147
+  },
+  "vccint_v": {
+    "mean": 0.999316,
+    "min": 0.999023,
+    "max": 0.999756
+  },
+  "vccaux_v": {
+    "mean": 1.805566,
+    "min": 1.80469,
+    "max": 1.80615
+  },
+  "readings": [
+    {
+      "temp": 44.6874,
+      "maxtemp": 45.3641,
+      "mintemp": 30.4147,
+      "vccint": 0.999756,
+      "maxvccint": 1.00195,
+      "minvccint": 0.997559,
+      "vccaux": 1.80615,
+      "maxvccaux": 1.80835,
+      "minvccaux": 1.80176,
+      "reading": 1,
+      "unix_time": 1795311820.511
+    },
+    {
+      "temp": 44.7008,
+      "maxtemp": 45.3641,
+      "mintemp": 30.4147,
+      "vccint": 0.999756,
+      "maxvccint": 1.00195,
+      "minvccint": 0.997559,
+      "vccaux": 1.80615,
+      "maxvccaux": 1.80835,
+      "minvccaux": 1.80176,
+      "reading": 2,
+      "unix_time": 1795311822.862
+    },
+    {
+      "temp": 44.6201,
+      "maxtemp": 45.3641,
+      "mintemp": 30.4147,
+      "vccint": 0.999023,
+      "maxvccint": 1.00195,
+      "minvccint": 0.997559,
+      "vccaux": 1.80542,
+      "maxvccaux": 1.80835,
+      "minvccaux": 1.80176,
+      "reading": 3,
+      "unix_time": 1795311825.249
+    },
+    {
+      "temp": 44.6566,
+      "maxtemp": 45.3641,
+      "mintemp": 30.4147,
+      "vccint": 0.999023,
+      "maxvccint": 1.00195,
+      "minvccint": 0.997559,
+      "vccaux": 1.80469,
+      "maxvccaux": 1.80835,
+      "minvccaux": 1.80176,
+      "reading": 4,
+      "unix_time": 1795311827.653
+    },
+    {
+      "temp": 44.7412,
+      "maxtemp": 45.3641,
+      "mintemp": 30.4147,
+      "vccint": 0.999023,
+      "maxvccint": 1.00195,
+      "minvccint": 0.997559,
+      "vccaux": 1.80542,
+      "maxvccaux": 1.80835,
+      "minvccaux": 1.80176,
+      "reading": 5,
+      "unix_time": 1795311830.015
+    }
+  ]
+}

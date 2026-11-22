@@ -1,0 +1,36 @@
+=== XADC DIE TELEMETRY ON THE AX7203 (xc7a200tfbg484-2) ===
+Date: 2026-11-22 ~08:45 UTC+7
+Host: macOS, Digilent HS2 (FT232H 0x0403:0x6014), busdev 1:3
+Command: openFPGALoader -c digilent_hs2 --busdev-num 1:3 --read-xadc
+Script:  measure_xadc.py (evidence/xadc/measure_xadc.py) - openFPGALoader emits JSON with a
+         trailing comma, which is not valid JSON, so the fields are parsed with a regex.
+
+--- IDLE BOARD (configured with the shipped ternary_mac_demo_top_200t.bit already resident) ---
+  reading 1/5: temp=44.687 C  vccint=0.999756 V  vccaux=1.806150 V
+  reading 2/5: temp=44.701 C  vccint=0.999756 V  vccaux=1.806150 V
+  reading 3/5: temp=44.620 C  vccint=0.999023 V  vccaux=1.805420 V
+  reading 4/5: temp=44.657 C  vccint=0.999023 V  vccaux=1.804690 V
+  reading 5/5: temp=44.741 C  vccint=0.999023 V  vccaux=1.805420 V
+  idle temp mean 44.681 C, stdev 0.046 C; VCCINT 0.99926 V; VCCAUX 1.80557 V
+
+--- AFTER LOADING ternary_mac_demo_top_200t.bit TO SRAM (the design running) ---
+  reading 1/5: temp=45.583 C  vccint=0.999023 V  vccaux=1.805420 V
+  reading 2/5: temp=45.318 C  vccint=0.999756 V  vccaux=1.805420 V
+  reading 3/5: temp=45.191 C  vccint=0.999756 V  vccaux=1.804690 V
+  reading 4/5: temp=45.118 C  vccint=0.999023 V  vccaux=1.805420 V
+  reading 5/5: temp=45.143 C  vccint=0.999756 V  vccaux=1.804690 V
+  loaded temp mean 45.271 C, stdev 0.176 C; VCCINT 0.99926 V; VCCAUX 1.80532 V
+
+--- XADC INTERNAL HISTORY (from the device's own min/max registers) ---
+  maxtemp 45.3641 C, mintemp 30.4147 C, maxvccint 1.00195 V, minvccint 0.997559 V,
+  maxvccaux 1.80835 V, minvccaux 1.80176 V
+
+WHAT THIS IS:
+- Die temperature: MEASURED. 44.681 C idle, 45.271 C with the design loaded, +0.590 C.
+- VCCINT: MEASURED at 0.99926 V, the XC7A200T nominal (1.0 V for the -2 speed grade).
+- VCCAUX: MEASURED at 1.80532 V, the nominal (1.8 V).
+- The temperature rise with the design loaded is a thermal signature of the fabric doing work.
+
+WHAT THIS IS NOT:
+- This is NOT a power measurement. The XADC senses voltage and temperature, not current;
+  the XC7A200T has no on-die current sensor. POWER_WATTS and J/token remain ESTIMATED.

@@ -697,6 +697,99 @@ timing report or silicon.
 Two claims made by this project were withdrawn by its own measurement. That is the point of an
 evidence-first portfolio: the rule is applied to the tool's numbers as carefully as to the design's.
 
+## Co-Design Iteration 9: FIRST SILICON MEASUREMENTS (✅ MEASURED)
+
+The Digilent HS2 was connected for part of this work, which made two things measurable for the
+first time: the board's real clock frequency, and the die's own telemetry.
+
+### 9a. Die telemetry — MEASURED (XADC over JTAG)
+
+| | Idle | Design loaded | Delta |
+|---|---|---|---|
+| Die temperature | **44.681 °C** (σ 0.046) | **45.271 °C** (σ 0.176) | **+0.590 °C** |
+| VCCINT | 0.99926 V | 0.99926 V | - |
+| VCCAUX | 1.80557 V | 1.80532 V | - |
+
+Device XADC min/max history: 30.41-45.36 °C, VCCINT 0.9976-1.0020 V.
+
+> **Not a power measurement.** The XADC senses voltage and temperature, **not current**, and the
+> XC7A200T has no on-die current sensor. `POWER_WATTS` and `J/token` remain **ESTIMATED**. The
+> +0.590 °C rise is a thermal **signature** of the fabric working, not a power figure.
+
+### 9b. CFGMCLK frequency — MEASURED on silicon
+
+A purpose-built probe: `STARTUPE2.CFGMCLK` → 8-bit ripple prescaler → 20-bit ripple binary counter
+→ 32-bit **BSCANE2 USER1** register read over JTAG. The counter advances once per 2¸ clock edges,
+so `f = Δcounts × 256 / Δt`. Ten reads 0.5 s apart; the 20-bit counter wraps and the difference
+is taken modulo 2²⁰.
+
+| | MHz |
+|---|---|
+| **MEASURED mean** | **67.1583** |
+| median | 67.3927 |
+| stdev | 1.3325 (n=9 intervals) |
+| min / max | 63.9965 / 68.8719 |
+| reads with valid magic | 10/10 |
+
+Family nominal ~66 MHz → **measured 67.16 MHz, 1.8% above nominal**.
+
+### 9c. The fabric ring oscillator — appears NOT to oscillate
+
+The same probe with the 20-stage fabric ring oscillator in place of CFGMCLK returned a **frozen**
+counter: 20 consecutive reads over 6.7 s all returned the identical register value `0xA5A5A5A4`,
+with the magic intact. `bit0` was 1 in **0/20** reads.
+
+**Controlled comparison**: the CFGMCLK version of the **same** probe - identical counter logic,
+identical readback, identical register layout, **only the clock source differs** - returned
+changing values on every read. A counter that advances under one clock source and is frozen
+under another, with everything else identical, localises the fault to the clock source.
+
+**Corroboration**: the parent repo's `docs/fpga/clocking.md` says *"Ring Oscillator (DOES NOT
+WORK) ... -abc9 inserts SCC breaker that destroys the combinational loop - Behavioral
+`assign osc = ~osc` is optimized away by Yosys - LUT1 primitive instantiation also broken by
+ABC9 SCC detection"*.
+
+> **Caveat, recorded honestly**: the frozen reading was taken with the FIRST counter implementation
+> (a hand-rolled Gray counter whose update was later found to be wrong). The controlled re-test with
+> the **identical ripple binary counter** used for the CFGMCLK measurement is built
+> (`clock_probe_ring.bit`, md5 `35c167a1a58015286a58b98e33fb9b9c`) and was ready to flash when the
+> HS2 dropped off the USB bus. Until that runs, this is **strongly supported, not confirmed**.
+
+### 9d. Consequences for this portfolio
+
+| Affected claim | Status |
+|---|---|
+| the ~150 MHz ring-oscillator clock in every derived throughput figure | **WITHDRAWN** - the oscillator appears not to run; the real clocks are CFGMCLK **67.16 MHz measured** and the board's 200 MHz on R4/T4 (not yet measured) |
+| the shipped `ternary_mac_demo_top_200t.bit` and its 5.7 tok/s variance measurement | **SUSPECT** - that bitstream clocks from the SAME ring oscillator, so its counter may never have advanced |
+| the power and J/token estimates | still **ESTIMATED**, but the inputs are now real: 45.27 °C loaded, VCCINT 0.99926 V measured, +0.590 °C thermal signature |
+| the achievable attention clock | still **UNKNOWN**, but the question is sharper: time it against 67.16 MHz measured or 200 MHz, not against an estimated 150 MHz fabric oscillator |
+
+### 9e. Toolchain findings (each one a build blocker that was removed)
+
+- **openXC7's LUT6 packing defect is bypassed** by restricting the ABC mapping: `abc -lut 2` instead
+  of the stock `abc -luts 2:2,3,6:5`. With no LUT6 in the netlist the *"No wire found for port O6"*
+  failure disappears. **This is what finally made the clock probe build.**
+- **A carry-chain counter is what breaks routing**: the placer splits the CARRY4 chain across
+  non-adjacent slices. A plain flip-flop **ripple counter** has no CARRY4 and routes, at the cost
+  of a slow increment - affordable because it advances once per prescaler tick.
+- **BSCANE2 USER1 readback works over the HS2** with a 6-bit IR (USER1 = 0x02) and this framing:
+  `TLR(5) → RTI → Select-DR → Select-IR → Capture-IR → Shift-IR → 6 IR bits → Update-IR → RTI`,
+  then `RTI → Select-DR → Capture-DR → Shift-DR`.
+- `openFPGALoader --read-xadc` emits JSON with a **trailing comma**, which is not valid JSON; the
+  fields have to be parsed with a regex.
+- The AX7203 answers at **busdev 1:3** in this session, not the SSOT's 0:4 - the USB bus renumbers.
+
+**Report**: `evidence/clock_probe/clock_probe_report.json`
+**Logs**: `evidence/clock_probe/{cfgmclk_measurement,ring_oscillator_measurement,xadc_measurement}.log`
+**Bitstreams**: `evidence/clock_probe/clock_probe_{cfg,ring}.bit`
+**Scripts**: `evidence/clock_probe/{measure_clock,read_user1}.py`
+
+### Two bugs of my own, found by measurement
+
+The hand-rolled Gray counter (wrong update → non-monotonic readback) and the host-side Gray decoder
+(tracked the gray bit instead of the binary bit). Both produced **plausible-looking numbers that were
+wrong**, and both are recorded because that is what the protocol demands.
+
 ## DRAM Reads Per Token (✅ MEASURED)
 
 | Metric | Value | Status |
@@ -783,14 +876,14 @@ order of magnitude.
 | BRAM_UTILIZATION | ✅ MEASURED | 0 / 365 (0.0%) |
 | LUT_UTILIZATION | ✅ MEASURED | 32 / 134,600 (0.024%) |
 | DSP_UTILIZATION | ✅ MEASURED | 0 / 740 (0.0%) |
-| CLOCK_MHZ | ⚠️ | 6 (JTAG); **attention design's achievable clock is UNKNOWN** (nextpnr Fmax varies 45-73 MHz on an identical netlist, so it is placement noise); CFGMCLK 66 family nominal; ring osc ~150 ESTIMATED |
+| CLOCK_MHZ | ✅ **67.16 MEASURED** (CFGMCLK, mean of 9, σ 1.33) · attention design's achievable clock still UNKNOWN · ring osc ~150 **WITHDRAWN** (appears not to oscillate) |
 | QUALITY_METRIC | ✅ MEASURED | 5/5 bit-exact, CV 0.46% |
 | CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | 1 (8 configurations, accept/reject recorded) |
 | ATTENTION_KV_STATUS | ✅ resources MEASURED (9 configs); combinational form REJECTED, sequential form is next |
 | RL_BENCHMARK_STATUS | ✅ contract + **19** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |
-| BLOCKERS | - | FPGA power: Vivado report_power (AMD login) or external meter; **achievable clock UNKNOWN** (needs Vivado timing or silicon; nextpnr Fmax is placement noise); **openXC7 packer defect blocks the bitstream**; Digilent HS2 disconnected (XADC + UART beacon + silicon latency outstanding) |
+| BLOCKERS | - | **FPGA power still ESTIMATED** (needs a current meter; XADC gives voltage+temperature only); **R4/T4 200 MHz oscillator unmeasured** (needs a pin-bearing probe); **ring-oscillator confirmation run outstanding** (bitstream built, cable needed); **the shipped bitstream's 5.7 tok/s is SUSPECT** (same dead clock); openXC7 packer defect now bypassed via `abc -lut 2` |
 
 ---
 

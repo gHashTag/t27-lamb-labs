@@ -525,7 +525,8 @@
     "clock": "evidence/clock/clock_iteration_report.json",
     "ax7203_build": "evidence/ax7203_build/ax7203_build_report.json",
     "critical_path": "evidence/critical_path/critical_path_report.json",
-    "fmax_noise": "evidence/fmax_noise/fmax_noise_report.json"
+    "fmax_noise": "evidence/fmax_noise/fmax_noise_report.json",
+    "clock_probe": "evidence/clock_probe/clock_probe_report.json"
   },
   "co_design_rule": "The KV cache stores sign + quant_w magnitude bits of an act_bits-wide signed value, so losslessness requires quant_w >= act_bits. QUANT_W is not an independent lever: narrowing it alone is lossy, narrowing act_bits alone at quant_w=8 wastes cache bits. The two must move together.",
   "open_source_engagement": {
@@ -590,7 +591,7 @@
   },
   "toolchain_constraints": {
     "clock_shortfall": {
-      "status": "WITHDRAWN - the achievable clock is UNKNOWN",
+      "status": "REPLACED BY A MEASURED CLOCK REFERENCE",
       "what_was_claimed": "iterations 6 and 7 claimed a 3x shortfall against the board's 200 MHz and blamed the KV read mux",
       "why_withdrawn": "the same byte-identical netlist measured 45.13, 48.98, 57.30, 71.86 and 73.15 MHz across five seed/router combinations - a 62% spread - so nextpnr's reported Fmax is placement noise on this design, not a measure of logic depth",
       "direct_tests": {
@@ -602,7 +603,9 @@
       },
       "what_survives": "the resource numbers (LUT/FF/BRAM/DSP), the quality metric, the combinational-vs-sequational comparison and the lossless rule are stable across seeds",
       "what_is_needed": "a Vivado timing report or a silicon measurement against the AX7203's 200 MHz oscillator",
-      "consequence": "no tok/s or J/token figure may be derived from a nextpnr-reported Fmax"
+      "consequence": "no tok/s or J/token figure may be derived from a nextpnr-reported Fmax",
+      "reference_clock_mhz_measured": 67.1583,
+      "note": "the design must be timed against 67.16 MHz measured (CFGMCLK) or 200 MHz (the board oscillator, still unmeasured) - NOT against an estimated 150 MHz fabric oscillator"
     },
     "openxc7_packer_defect": {
       "failures_observed": [
@@ -622,5 +625,43 @@
       "action": "Vivado, a patched nextpnr, or a LUT4/constant-net constrained variant. The FPGA flow is part of the design space."
     }
   },
-  "bram_note": "the KV cache sits in fabric with 0 BRAM in the register-file implementation; moving it to block RAM costs 1 RAMB36 of 365 and leaves the reported Fmax identical. The 'BRAM = 0' figure is a property of the register implementation, not of the architecture."
+  "bram_note": "the KV cache sits in fabric with 0 BRAM in the register-file implementation; moving it to block RAM costs 1 RAMB36 of 365 and leaves the reported Fmax identical. The 'BRAM = 0' figure is a property of the register implementation, not of the architecture.",
+  "measured_clock": {
+    "cfgmclk_mhz": {
+      "mean": 67.1583,
+      "median": 67.3927,
+      "stdev": 1.3325,
+      "min": 63.9965,
+      "max": 68.8719,
+      "n_intervals": 9,
+      "status": "MEASURED on silicon",
+      "method": "BSCANE2 USER1 readback of a 20-bit ripple counter clocked from STARTUPE2.CFGMCLK, prescaled by 2^8",
+      "reference_nominal_mhz": 66
+    },
+    "board_oscillator_r4_t4_mhz": {
+      "value": 200,
+      "status": "SPECIFIED by the board, NOT MEASURED - needs a pin-bearing probe"
+    },
+    "fabric_ring_oscillator": {
+      "estimated_mhz": 150,
+      "status": "WITHDRAWN - the probe counter was frozen over 20 reads / 6.7 s; the controlled re-test with the identical ripple counter is built and pending the cable",
+      "corroboration": "the parent repository's docs/fpga/clocking.md: 'Ring Oscillator (DOES NOT WORK)'"
+    }
+  },
+  "die_telemetry": {
+    "method": "openFPGALoader --read-xadc over JTAG, 5 readings 2 s apart",
+    "idle_temp_c_mean": 44.681,
+    "loaded_temp_c_mean": 45.271,
+    "temp_rise_c": 0.59,
+    "vccint_v_mean": 0.99926,
+    "vccaux_v_mean": 1.80532,
+    "status": "MEASURED",
+    "explicit_non_claim": "this is NOT a power measurement: the XADC senses voltage and temperature, not current, and the XC7A200T has no on-die current sensor. POWER_WATTS and J/token remain ESTIMATED."
+  },
+  "toolchain_workarounds": {
+    "openxc7_lut6_packer_defect": "BYPASSED - restrict the ABC mapping to `abc -lut 2` instead of the stock `abc -luts 2:2,3,6:5`; with no LUT6 in the netlist the 'No wire found for port O6' failure disappears",
+    "carry_chain_routing_failure": "AVOIDED - a plain flip-flop ripple counter has no CARRY4; openXC7's placer splits CARRY4 chains across non-adjacent slices",
+    "bscane2_user1_readback": "WORKS over the Digilent HS2: 6-bit IR (USER1 = 0x02), framing TLR(5) -> RTI -> Select-DR -> Select-IR -> Capture-IR -> Shift-IR -> 6 IR bits -> Update-IR -> RTI, then RTI -> Select-DR -> Capture-DR -> Shift-DR",
+    "openfpgaloader_xadc_json": "emits JSON with a trailing comma, which is not valid JSON - parse the fields with a regex"
+  }
 }

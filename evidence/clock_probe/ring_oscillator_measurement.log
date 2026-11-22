@@ -1,0 +1,45 @@
+=== FABRIC RING OSCILLATOR: FROZEN COUNTER ON THE AX7203 ===
+Date: 2026-11-22 ~09:50 UTC+7
+Bitstream: clock_probe.bit (ring oscillator + counter + BSCANE2 USER1 readback)
+Flash: openFPGALoader ... -> Done / isc_done 1
+Command: python3 tools/jtag/read_user1.py 20 0.3
+
+  read 1: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 2: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 3: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 4: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 5: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 6: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 7: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 8: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 9: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 10: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 11: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 12: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 13: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 14: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 15: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 16: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 17: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 18: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 19: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+  read 20: raw=0xA5A5A5A4 magic=OK bit0=0 bit28=0
+
+  bit0=1 in 0/20 reads over a 6.7 s window; the raw register value never changed.
+  The magic comes back correctly, so the readback path works and the design is loaded.
+
+CONTROLLED COMPARISON: the CFGMCLK version of the SAME probe (identical counter logic,
+identical readback, identical register layout; only the clock source differs) returned
+CHANGING values on every read. A counter that advances under one clock source and is
+frozen under another, with everything else identical, localises the fault to the clock source.
+
+CONSISTENT WITH the parent repository's docs/fpga/clocking.md: "Ring Oscillator (DOES NOT
+WORK) ... -abc9 inserts SCC breaker that destroys the combinational loop - Behavioral
+assign osc = ~osc is optimized away by Yosys - LUT1 primitive instantiation also broken by
+ABC9 SCC detection".
+
+CAVEAT, recorded honestly: the frozen reading above was taken with the FIRST counter
+implementation (a hand-rolled Gray counter whose reflected-Gray update was later found to be
+wrong). The controlled re-test with the IDENTICAL ripple binary counter used for the CFGMCLK
+measurement is built (clock_probe_ring.bit, md5 35c167a1a58015286a58b98e33fb9b9c) and was
+ready to flash when the Digilent HS2 dropped off the USB bus. That confirmation is OUTSTANDING.
