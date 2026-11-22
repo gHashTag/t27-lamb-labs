@@ -40,7 +40,7 @@ workload; external weight reads per generated token: measured value.**
 | Rail voltages | VCCINT 0.99926 V, VCCAUX 1.80532 V | `evidence/clock_probe/xadc_measurement.log` |
 | **External DRAM reads / token** | **0** | `evidence/` (DRAM reads report) |
 | **Attention quality** | **bit-exact** vs a full-precision golden - 12,000 randomised trials, **0 mismatches** | `evidence/attention_token/token_sequential_verification.py` |
-| Attention resources | **WITHDRAWN** - the committed module's KV cache was dead, so 505 LCs / 345 FF was a cache-less design. **Corrected: 18,912 LCs / 3,879 FF** at the adopted HEAD_DIM=8 / KV_LEN=16 = 14.0% of the fabric, **outside** the 10% cap. HEAD_DIM 1 / 2 / 4 at KV_LEN=16 fit: 392 / 1,385 / 5,160 LCs. | `evidence/attention_fix/attention_correction_report.json` |
+| Attention resources | **CORRECTED and VERIFIED.** The committed module's KV cache was dead, so 505 LCs / 345 FF was a cache-less design. Five defects were found and fixed; the corrected module passes **1,200 randomised Verilog trials** against a CPU golden with 0 mismatches. At the adopted HEAD_DIM=8 / KV_LEN=16: **2,763 LCs** with a distributed-RAM cache (2.05% of the fabric, zero BRAM), **2,934 LCs** with 6 block RAMs (2.17%), or **18,695 LCs** with the cache in registers (13.9%, outside the 10% cap). **The cache implementation is a first-class co-design choice.** | `evidence/attention_fix/attention_correction_report.json` |
 | Combinational attention (rejected) | 28,582 LCs = **21.3% of the fabric** | `evidence/attention/` |
 | KV-cache per-slot cost | **9.3 LCs + 6.6 FFs** per slot | `evidence/attention_seq/` |
 | Zero-DSP | **DSP48E1 = 0** in all 22 attention configurations | `benchmark/validate_benchmark.py` |

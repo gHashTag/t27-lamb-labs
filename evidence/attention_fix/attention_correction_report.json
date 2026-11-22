@@ -1,57 +1,359 @@
 {
-  "timestamp": "2026-11-22T16:20:00Z",
+  "timestamp": "2026-11-22T17:40:00Z",
   "iteration_id": 10,
   "name": "CORRECTION: the published attention resource numbers were for a design with NO KV cache",
-  "status": "MEASURED (resources); the corrected RTL is NOT yet verified against the golden",
+  "status": "MEASURED (resources); the corrected RTL is VERIFIED; the throughput probe does not route in openXC7",
   "why_this_iteration_exists": "Building the first throughput probe on a design with a running clock forced the attention module to be instantiated in a new context. The probe's counter never advanced past its first value, which exposed that the committed attention module's KV cache was not actually present in the synthesized netlist.",
   "defects_found": [
     {
-      "id": "DEAD_KV_CACHE",
-      "severity": "fatal to the published numbers",
-      "detail": "The cache was declared `reg [QUANT_W-1:0] kv_kmag [0:HEAD_DIM-1];` - ONE dimension - and then indexed `kv_kmag[c][slot_ptr]`, which is a bit-select out of range on an 8-bit value. The whole memory was dead: synthesis pruned the cache away.",
-      "evidence": "the committed module synthesised to 333 flip-flops with no KV cache in the netlist; the corrected module synthesises to 3879 flip-flops at HEAD_DIM=8, KV_LEN=16, with the cache present",
-      "consequence": "every published attention resource number - 505 LCs, 345 FFs, 0 BRAM, 0 DSP for the token-sequential form - was for a design with NO KV cache. The real cost is about 37x larger in flip-flops."
+      "id": "DEAD_KV_CACHE_BY_DECLARATION",
+      "detail": "the cache was declared `reg [QUANT_W-1:0] kv_kmag [0:HEAD_DIM-1];` - ONE dimension - and indexed `kv_kmag[c][slot_ptr]`, a bit-select out of range on an 8-bit value",
+      "evidence": "the committed module synthesises to 145 LCs and 279 FFs at HEAD_DIM=2/KV_LEN=16 with NO cache; the corrected module has 6 RAMB18E1 or 18 RAM32M or 999 FFs",
+      "consequence": "every published attention resource number was for a design with NO KV cache"
+    },
+    {
+      "id": "DEAD_KV_CACHE_BY_UNSYNTHESIZABLE_WRITE",
+      "detail": "a flat packed vector written with a VARIABLE-OFFSET part-select is not synthesizable as a register file: yosys drops the write, the cache reads as constant, and the memory is pruned - while the SIMULATION still passes",
+      "evidence": "the corrected module in the flat-vector form still synthesised to 333 FFs with no cache until the cache was changed to a MEMORY",
+      "lesson": "a design can be correct in simulation and dead in synthesis; only the netlist tells the truth"
     },
     {
       "id": "SCORE_OVERFLOW",
-      "severity": "fatal to correctness",
-      "detail": "The key magnitude was padded as {1'b0, magnitude, 1'b0}, a factor of 16, and then multiplied by a separate +/-1 weight. With a 17-bit score accumulator, ordinary inputs overflowed, so the SIGN of the score - which selects whether the value is added or subtracted - was wrong.",
-      "evidence": "a Verilog testbench comparing the committed module against a CPU golden mismatched on 40/40 trials; the corrected module's score is 3*5=15 for the hand-checked case where the committed module's overflowed"
+      "detail": "the key magnitude was padded as {1'b0, magnitude, 1'b0}, a factor of 16, and multiplied by a separate +/-1 weight, so the 17-bit score accumulator overflowed and the score's SIGN - which selects add versus subtract - was wrong",
+      "evidence": "the Verilog golden testbench mismatched on 40/40 trials of the committed module"
     },
     {
-      "id": "SIGN_WIDTH_IN_THE_KEY",
-      "severity": "fatal to correctness",
-      "detail": "In the corrected module the key magnitude was first held in a QUANT_W-bit SIGNED register, so any magnitude >= 2^(QUANT_W-1) was interpreted as negative before the stored sign was applied. It needs QUANT_W+1 bits.",
-      "evidence": "found by the Verilog testbench; the golden uses the wider form"
+      "id": "SIGNED_KEY_MAGNITUDE",
+      "detail": "the key magnitude was held in a QUANT_W-bit SIGNED register, so any magnitude >= 2^(QUANT_W-1) came out negative before the stored sign was applied",
+      "evidence": "found by the Verilog testbench"
+    },
+    {
+      "id": "UNSIGNED_ACCUMULATOR",
+      "detail": "the accumulator addition was `out_next[c*16 +: 16] + vq_ext`, and a Verilog part-select is ALWAYS UNSIGNED, so a negative value contribution was added as a large unsigned number (-240 became 272, and eight slots gave 2176 instead of -1920)",
+      "evidence": "the DUT produced exactly 2176 where the golden produced -1920"
     }
   ],
   "corrected_resource_numbers": {
-    "note": "yosys 0.67+post synth_xilinx -family xc7 -nodsp -nosrl -top attn_token -flatten, HEAD_DIM x KV_LEN sweep, token-sequential form",
-    "rows": [
-      {"head_dim": 1, "kv_len": 4,  "estimated_lcs": 184,  "ffs": 183,  "carry4": 81},
-      {"head_dim": 1, "kv_len": 8,  "estimated_lcs": 261,  "ffs": 297,  "carry4": 84},
-      {"head_dim": 1, "kv_len": 16, "estimated_lcs": 392,  "ffs": 519,  "carry4": 87},
-      {"head_dim": 1, "kv_len": 32, "estimated_lcs": 657,  "ffs": 957,  "carry4": 90},
-      {"head_dim": 2, "kv_len": 4,  "estimated_lcs": 495,  "ffs": 339,  "carry4": 159},
-      {"head_dim": 2, "kv_len": 8,  "estimated_lcs": 820,  "ffs": 561,  "carry4": 162},
-      {"head_dim": 2, "kv_len": 16, "estimated_lcs": 1385, "ffs": 999,  "carry4": 165},
-      {"head_dim": 2, "kv_len": 32, "estimated_lcs": 2634, "ffs": 1869, "carry4": 168},
-      {"head_dim": 4, "kv_len": 4,  "estimated_lcs": 1667, "ffs": 651,  "carry4": 315},
-      {"head_dim": 4, "kv_len": 8,  "estimated_lcs": 2692, "ffs": 1089, "carry4": 318},
-      {"head_dim": 4, "kv_len": 16, "estimated_lcs": 5160, "ffs": 1959, "carry4": 321},
-      {"head_dim": 4, "kv_len": 32, "estimated_lcs": 9348, "ffs": 3693, "carry4": 324},
-      {"head_dim": 8, "kv_len": 4,  "estimated_lcs": 5548, "ffs": 1275, "carry4": 627},
-      {"head_dim": 8, "kv_len": 8,  "estimated_lcs": 10030, "ffs": 2145, "carry4": 630},
-      {"head_dim": 8, "kv_len": 16, "estimated_lcs": 18912, "ffs": 3879, "carry4": 633},
-      {"head_dim": 8, "kv_len": 32, "estimated_lcs": 39542, "ffs": 7341, "carry4": 636}
-    ],
-    "adopted_config_before": {"head_dim": 8, "kv_len": 16, "published_lcs": 505, "published_ffs": 345, "was_correct": false},
-    "adopted_config_after":  {"head_dim": 8, "kv_len": 16, "corrected_lcs": 18912, "corrected_ffs": 3879},
+    "note": "yosys 0.67+post synth_xilinx -family xc7 -nodsp -nosrl -flatten. THREE cache implementations are valid, and which one is used is a real co-design choice.",
+    "implementations": {
+      "distributed_ram_LUTRAM": {
+        "description": "the cache is a memory and yosys infers distributed RAM (RAM32M); zero block RAM",
+        "adopted_config": {
+          "head_dim": 8,
+          "kv_len": 16,
+          "estimated_lcs": 2763,
+          "ffs": 435,
+          "ram32m": 72,
+          "bram": 0,
+          "lcs_percent_of_device": 2.05,
+          "fits_the_10pct_cap": true
+        },
+        "sweep": [
+          {
+            "head_dim": 1,
+            "kv_len": 4,
+            "estimated_lcs": 232,
+            "ffs": 81,
+            "ram32m": 12
+          },
+          {
+            "head_dim": 1,
+            "kv_len": 8,
+            "estimated_lcs": 236,
+            "ffs": 90,
+            "ram32m": 12
+          },
+          {
+            "head_dim": 1,
+            "kv_len": 16,
+            "estimated_lcs": 238,
+            "ffs": 99,
+            "ram32m": 12
+          },
+          {
+            "head_dim": 1,
+            "kv_len": 32,
+            "estimated_lcs": 240,
+            "ffs": 108,
+            "ram32m": 12
+          },
+          {
+            "head_dim": 2,
+            "kv_len": 4,
+            "estimated_lcs": 604,
+            "ffs": 129,
+            "ram32m": 18
+          },
+          {
+            "head_dim": 2,
+            "kv_len": 8,
+            "estimated_lcs": 608,
+            "ffs": 138,
+            "ram32m": 18
+          },
+          {
+            "head_dim": 2,
+            "kv_len": 16,
+            "estimated_lcs": 610,
+            "ffs": 147,
+            "ram32m": 18
+          },
+          {
+            "head_dim": 2,
+            "kv_len": 32,
+            "estimated_lcs": 612,
+            "ffs": 156,
+            "ram32m": 18
+          },
+          {
+            "head_dim": 4,
+            "kv_len": 4,
+            "estimated_lcs": 1216,
+            "ffs": 225,
+            "ram32m": 36
+          },
+          {
+            "head_dim": 4,
+            "kv_len": 8,
+            "estimated_lcs": 1214,
+            "ffs": 234,
+            "ram32m": 36
+          },
+          {
+            "head_dim": 4,
+            "kv_len": 16,
+            "estimated_lcs": 1211,
+            "ffs": 243,
+            "ram32m": 36
+          },
+          {
+            "head_dim": 4,
+            "kv_len": 32,
+            "estimated_lcs": 1213,
+            "ffs": 252,
+            "ram32m": 36
+          },
+          {
+            "head_dim": 8,
+            "kv_len": 4,
+            "estimated_lcs": 2745,
+            "ffs": 417,
+            "ram32m": 72
+          },
+          {
+            "head_dim": 8,
+            "kv_len": 8,
+            "estimated_lcs": 2775,
+            "ffs": 426,
+            "ram32m": 72
+          },
+          {
+            "head_dim": 8,
+            "kv_len": 16,
+            "estimated_lcs": 2763,
+            "ffs": 435,
+            "ram32m": 72
+          },
+          {
+            "head_dim": 8,
+            "kv_len": 32,
+            "estimated_lcs": 2769,
+            "ffs": 444,
+            "ram32m": 72
+          }
+        ]
+      },
+      "block_ram": {
+        "description": "the cache is a memory and yosys infers block RAM (RAMB18E1); -nolutram",
+        "adopted_config": {
+          "head_dim": 8,
+          "kv_len": 16,
+          "estimated_lcs": 2934,
+          "ffs": 810,
+          "ramb18e1": 6,
+          "bram": 0.8,
+          "lcs_percent_of_device": 2.17,
+          "fits_the_10pct_cap": true
+        },
+        "sweep": [
+          {
+            "head_dim": 1,
+            "kv_len": 8,
+            "estimated_lcs": 320,
+            "ramb18e1": 0
+          },
+          {
+            "head_dim": 1,
+            "kv_len": 16,
+            "estimated_lcs": 293,
+            "ramb18e1": 6
+          },
+          {
+            "head_dim": 1,
+            "kv_len": 32,
+            "estimated_lcs": 295,
+            "ramb18e1": 6
+          },
+          {
+            "head_dim": 2,
+            "kv_len": 8,
+            "estimated_lcs": 664,
+            "ramb18e1": 6
+          },
+          {
+            "head_dim": 2,
+            "kv_len": 16,
+            "estimated_lcs": 667,
+            "ramb18e1": 6
+          },
+          {
+            "head_dim": 2,
+            "kv_len": 32,
+            "estimated_lcs": 671,
+            "ramb18e1": 6
+          },
+          {
+            "head_dim": 4,
+            "kv_len": 8,
+            "estimated_lcs": 1436,
+            "ramb18e1": 6
+          },
+          {
+            "head_dim": 8,
+            "kv_len": 8,
+            "estimated_lcs": 2922,
+            "ramb18e1": 6
+          },
+          {
+            "head_dim": 8,
+            "kv_len": 16,
+            "estimated_lcs": 2934,
+            "ramb18e1": 6
+          },
+          {
+            "head_dim": 8,
+            "kv_len": 32,
+            "estimated_lcs": 2927,
+            "ramb18e1": 6
+          }
+        ]
+      },
+      "registers": {
+        "description": "the cache is a flat packed vector, so it becomes flip-flops and a mux; no RAM primitive at all",
+        "adopted_config": {
+          "head_dim": 8,
+          "kv_len": 16,
+          "estimated_lcs": 18695,
+          "ffs": 3879,
+          "ram": 0,
+          "lcs_percent_of_device": 13.9,
+          "fits_the_10pct_cap": false
+        },
+        "sweep": [
+          {
+            "head_dim": 1,
+            "kv_len": 4,
+            "estimated_lcs": 188,
+            "ffs": 183
+          },
+          {
+            "head_dim": 1,
+            "kv_len": 8,
+            "estimated_lcs": 269,
+            "ffs": 297
+          },
+          {
+            "head_dim": 1,
+            "kv_len": 16,
+            "estimated_lcs": 393,
+            "ffs": 519
+          },
+          {
+            "head_dim": 1,
+            "kv_len": 32,
+            "estimated_lcs": 702,
+            "ffs": 957
+          },
+          {
+            "head_dim": 2,
+            "kv_len": 4,
+            "estimated_lcs": 483,
+            "ffs": 339
+          },
+          {
+            "head_dim": 2,
+            "kv_len": 8,
+            "estimated_lcs": 791,
+            "ffs": 561
+          },
+          {
+            "head_dim": 2,
+            "kv_len": 16,
+            "estimated_lcs": 1371,
+            "ffs": 999
+          },
+          {
+            "head_dim": 2,
+            "kv_len": 32,
+            "estimated_lcs": 2587,
+            "ffs": 1869
+          },
+          {
+            "head_dim": 4,
+            "kv_len": 4,
+            "estimated_lcs": 1619,
+            "ffs": 651
+          },
+          {
+            "head_dim": 4,
+            "kv_len": 8,
+            "estimated_lcs": 2862,
+            "ffs": 1089
+          },
+          {
+            "head_dim": 4,
+            "kv_len": 16,
+            "estimated_lcs": 5109,
+            "ffs": 1959
+          },
+          {
+            "head_dim": 4,
+            "kv_len": 32,
+            "estimated_lcs": 8825,
+            "ffs": 3693
+          },
+          {
+            "head_dim": 8,
+            "kv_len": 4,
+            "estimated_lcs": 5597,
+            "ffs": 1275
+          },
+          {
+            "head_dim": 8,
+            "kv_len": 8,
+            "estimated_lcs": 10362,
+            "ffs": 2145
+          },
+          {
+            "head_dim": 8,
+            "kv_len": 16,
+            "estimated_lcs": 18695,
+            "ffs": 3879
+          },
+          {
+            "head_dim": 8,
+            "kv_len": 32,
+            "estimated_lcs": 39466,
+            "ffs": 7341
+          }
+        ]
+      }
+    },
+    "co_design_finding": "The cache IMPLEMENTATION is a first-class decision: distributed RAM costs 2763 LCs and zero BRAM, block RAM costs 2934 LCs and 6 RAMB18E1 (0.8% of the 730 available), and registers cost 18695 LCs and no RAM at all. The register form is the only one that does NOT fit the 10% cap.",
     "resource_cap_consequence": {
       "cap_lcs": 13460,
       "cap_percent_of_device": 10,
-      "adopted_config_lcs_percent_of_device": 14.0,
-      "verdict": "the adopted HEAD_DIM=8 configuration NO LONGER FITS the 10% cap: 18912 LCs is 14.0% of the XC7A200T. The architectures that DO fit are HEAD_DIM=1 (392 LCs at KV_LEN=16, 0.3%) and HEAD_DIM=2 (1385 LCs, 1.0%). HEAD_DIM=4 at KV_LEN=16 is 5160 LCs (3.8%), also inside the cap."
+      "verdict": "with a memory-based cache the adopted HEAD_DIM=8 / KV_LEN=16 configuration FITS the 10% cap comfortably - 2763 LCs (2.05%) distributed RAM or 2934 LCs (2.17%) with 6 block RAMs. The earlier 'it does not fit' verdict came from the register-cache form alone."
     }
   },
   "what_survives": [
@@ -67,20 +369,53 @@
     "the BRAM = 0 statement, for the attention: the corrected cache is registers at these sizes, but that is now a measured statement about a different design"
   ],
   "verification_state_of_the_corrected_rtl": {
-    "status": "NOT YET VERIFIED",
-    "what_was_done": "the corrected module is written (evidence/attention_fix/attn_token_fixed.v) and a Verilog testbench against a CPU golden exists (evidence/attention_fix/attn_token_fixed_tb.v). The testbench found the sign-width defect, which was fixed.",
-    "what_remains": "the testbench still mismatches on most randomised trials. The remaining discrepancy is in the VALUE accumulation: the DUT and the golden disagree by exactly one slot's contribution on some channels and in sign on others. The cause is NOT yet identified.",
-    "honest_statement": "the corrected module's EQUATIONS are the ones the Python golden model verified over 12000 randomised trials, but the Verilog implementation of those equations has NOT been shown equal to the golden. Until that is done, the corrected resource numbers are a measurement of a module whose behaviour is not verified."
+    "status": "VERIFIED",
+    "method": "Verilator, which enforces the semantics a synthesizer sees; a CPU golden computed from the same cache contents",
+    "why_verilator_not_icarus": "Icarus ACCEPTED the variable-offset part-select write that yosys silently drops, so a module could pass in Icarus and be dead in the netlist. Verilator rejects it.",
+    "coverage": "10 configurations (HEAD_DIM x KV_LEN: 1x1, 1x4, 1x8, 1x16, 2x8, 2x16, 4x8, 4x16, 8x8, 8x16), 120 randomised trials each = 1200 trials",
+    "result": "0 mismatches in every configuration",
+    "script": "evidence/attention_fix/verify_attention.sh",
+    "module": "evidence/attention_fix/attn_token_verified.v",
+    "register_form_module": "evidence/attention_fix/attn_token_verified_registers.v",
+    "golden_side_bugs_found_and_fixed": [
+      "a Verilog part-select of q is always UNSIGNED, so the golden multiplied an unsigned activation byte by a signed score; the DUT used $signed(q[...]) and was right",
+      "the golden ignored the value's stored sign",
+      "the golden started the comparison while the fill token's done pulse was still high"
+    ],
+    "honest_note": "the testbench found five real defects in the RTL under test and three in the golden itself. Each one produced plausible-looking numbers that were wrong, which is why the test runs against an independent golden under a simulator that enforces synthesis semantics."
   },
-  "decision": "PUBLISH THE CORRECTION NOW; do not publish any throughput number from this module until the corrected RTL passes the Verilog golden test",
+  "decision": "PUBLISH THE CORRECTED, VERIFIED RTL AND ITS TRUE RESOURCE NUMBERS WITH THE THREE CACHE IMPLEMENTATIONS; the throughput number remains unpublished because the probe does not route in openXC7",
   "decision_rationale": [
     "The published numbers are wrong by about 37x in flip-flops, and leaving them up would be a false claim in the portfolio's headline section.",
     "The correction itself is a measured result: the corrected resource numbers come from the same synthesis flow as the original ones.",
     "The throughput measurement depends on this module, so it waits until the module is verified rather than shipping a number from an unverified design."
   ],
   "next_iteration": [
-    "finish the Verilog golden test: dump the DUT's per-slot score and value contribution and compare them slot by slot with the golden",
-    "once it passes, measure the corrected resources across the sweep and publish them",
-    "then build the token-rate probe on the 200 MHz clock and measure the first throughput number"
-  ]
+    "obtain a working flow for a memory-based design: Vivado, a patched nextpnr, or a reduced probe small enough to route",
+    "then measure the first throughput number on the verified module and publish it with its uncertainty"
+  ],
+  "throughput_attempt": {
+    "status": "ATTEMPTED - the probe does not route in openXC7",
+    "probe": "evidence/attention_fix/token_rate_probe.v - the VERIFIED attention at HEAD_DIM=2, KV_LEN=16, clocked from the R4/T4 200 MHz oscillator, with a 20-bit token counter read over BSCANE2 and an LED on B13",
+    "routing_attempts": [
+      {
+        "cache": "block RAM",
+        "seeds_tried": 6,
+        "error": "No wire found for port A6 on destination cell - the BRAM's address input"
+      },
+      {
+        "cache": "distributed RAM",
+        "seeds_tried": 8,
+        "error": "No wire found for port DI2 on destination cell u_attn.kv_vword.0.0/DPR2_1 - the LUTRAM's data input"
+      },
+      {
+        "cache": "registers",
+        "seeds_tried": 36,
+        "error": "Failed to route arc 0 of net 'sr[28]' - the BSCANE2 shift register scattered by the placer"
+      }
+    ],
+    "diagnosis": "openXC7's RAM packer cannot wire a memory's ports in this design, and its placer scatters the BSCANE2 shift register when the design is large enough to give it room to do so. The BSCANE2-only clock probes route; the attention does not.",
+    "an_important_subtlety_found": "the probe's token counter counts `done`, which depends only on the CONTROL machine. If the LED showed only the counter, the attention's data path would be unobservable and synthesis would prune the arithmetic and the cache away - the probe would look absurdly small and would measure nothing. Making the LED carry the attention's output keeps the data path alive.",
+    "what_is_needed": "a working Xilinx flow for a design with a memory-based KV cache: Vivado (AMD account), or a patched nextpnr, or a design small enough for the placer not to scatter the shift register"
+  }
 }

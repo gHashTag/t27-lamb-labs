@@ -768,11 +768,13 @@
     "the sequential attention design still does not route in openXC7"
   ],
   "attention_resource_correction": {
-    "status": "PUBLISHED - the committed attention module's KV cache was dead, so its resource numbers were for a cache-less design",
-    "defects": [
-      "the KV cache was declared with one dimension but indexed with two, so synthesis pruned it away",
-      "the score carried a factor-of-16 padding and overflowed its 17-bit accumulator, so the score's sign was wrong",
-      "the key magnitude was held in a QUANT_W-bit SIGNED register, so magnitudes >= 2^(QUANT_W-1) came out negative"
+    "status": "PUBLISHED - the committed attention module's KV cache was dead; the corrected module is VERIFIED",
+    "defects_found_in_the_committed_rtl": [
+      "the cache was declared with one dimension and indexed with two, so synthesis pruned it away",
+      "a flat packed vector written with a variable-offset part-select is not synthesizable as a register file - yosys drops the write while the simulation still passes",
+      "the score carried a factor-of-16 padding that overflowed its 17-bit accumulator, so the score's sign was wrong",
+      "the key magnitude was held in a QUANT_W-bit SIGNED register, so magnitudes >= 2^(QUANT_W-1) came out negative",
+      "the accumulator addition was UNSIGNED, because a Verilog part-select is always unsigned"
     ],
     "published_numbers_withdrawn": {
       "token_sequential_lcs": 505,
@@ -780,40 +782,33 @@
       "adopted_config_head_dim": 8,
       "adopted_config_kv_len": 16
     },
-    "corrected_numbers": {
-      "head_dim": 8,
-      "kv_len": 16,
-      "estimated_lcs": 18912,
-      "ffs": 3879,
-      "lcs_percent_of_device": 14.0,
-      "resource_cap_lcs": 13460,
-      "fits_the_10pct_cap": false
-    },
-    "configurations_that_do_fit": [
-      {
-        "head_dim": 1,
-        "kv_len": 16,
-        "lcs": 392,
-        "pct": 0.3
+    "corrected_numbers_at_adopted_config": {
+      "distributed_ram_cache": {
+        "estimated_lcs": 2763,
+        "ffs": 435,
+        "ram32m": 72,
+        "bram": 0,
+        "pct_of_device": 2.05,
+        "fits_10pct_cap": true
       },
-      {
-        "head_dim": 2,
-        "kv_len": 16,
-        "lcs": 1385,
-        "pct": 1.0
+      "block_ram_cache": {
+        "estimated_lcs": 2934,
+        "ffs": 810,
+        "ramb18e1": 6,
+        "bram": 0.8,
+        "pct_of_device": 2.17,
+        "fits_10pct_cap": true
       },
-      {
-        "head_dim": 4,
-        "kv_len": 16,
-        "lcs": 5160,
-        "pct": 3.8
+      "register_cache": {
+        "estimated_lcs": 18695,
+        "ffs": 3879,
+        "ram": 0,
+        "pct_of_device": 13.9,
+        "fits_10pct_cap": false
       }
-    ],
-    "survives": [
-      "the QUANT_W >= ACT_BITS losslessness rule (it came from an exact simulation of the equations)",
-      "the sequential form's ordering versus the combinational form",
-      "the SLOTS + 2 cycles per token control structure"
-    ],
-    "corrected_rtl_verification": "NOT YET VERIFIED - the Verilog golden testbench still mismatches, so no throughput number may be published from this module"
+    },
+    "co_design_finding": "the cache IMPLEMENTATION is a first-class decision: distributed RAM 2763 LCs and zero BRAM, block RAM 2934 LCs and 6 RAMB18E1, registers 18695 LCs and no RAM. Only the register form misses the 10% cap.",
+    "verification": "VERIFIED - Verilator against a CPU golden, 10 configurations x 120 randomised trials = 1200 trials, 0 mismatches. Verilator rather than Icarus because Icarus accepted the variable-offset write that yosys drops.",
+    "throughput_attempt": "ATTEMPTED - the token-rate probe does not route in openXC7: block RAM 'No wire found for port A6', distributed RAM 'port DI2', registers the placer scattered the BSCANE2 shift register over 36 seeds. No throughput number is published."
   }
 }

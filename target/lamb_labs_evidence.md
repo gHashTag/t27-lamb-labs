@@ -791,70 +791,61 @@ The hand-rolled Gray counter (wrong update → non-monotonic readback) and the h
 (tracked the gray bit instead of the binary bit). Both produced **plausible-looking numbers that were
 wrong**, and both are recorded because that is what the protocol demands.
 
-## Co-Design Iteration 10: CORRECTION - the published attention numbers were for a design with NO KV cache (❌ WITHDRAWN)
+## Co-Design Iteration 10: CORRECTION - the published attention numbers were for a design with NO KV cache (❌ WITHDRAWN, then ✅ CORRECTED)
 
 Building the first throughput probe forced the attention module to be instantiated in a new
-context, where its counter never advanced past its first value. That exposed two fatal defects in
-the committed module.
+context, where its counter never advanced past its first value. That exposed **five** defects, and
+the correction turned out to be a three-way co-design choice rather than a single number.
 
-### Defect 1: the KV cache was DEAD
+### The five defects
 
-The cache was declared `reg [QUANT_W-1:0] kv_kmag [0:HEAD_DIM-1];` - **one dimension** - and then
-indexed `kv_kmag[c][slot_ptr]`, a bit-select **out of range** on an 8-bit value. The whole memory
-was dead: synthesis pruned the cache away.
+| # | Defect | Consequence |
+|---|---|---|
+| 1 | the cache was declared with **one** dimension and indexed with **two** | synthesis pruned it away |
+| 2 | a flat packed vector written with a **variable-offset part-select** is not synthesizable as a register file - yosys drops the write while the **simulation still passes** | the cache was dead in the netlist but alive in simulation |
+| 3 | the score carried a **factor-of-16** padding and overflowed its 17-bit accumulator | the score's *sign* was wrong |
+| 4 | the key magnitude was held in a `QUANT_W`-bit **signed** register | magnitudes ≥ 2^(QUANT_W-1) came out negative |
+| 5 | the accumulator addition was **unsigned** (a Verilog part-select is always unsigned) | -240 was added as 272; eight slots gave 2176 instead of -1920 |
 
-| | FFs in the netlist |
-|---|---|
-| committed module (HEAD_DIM=8, KV_LEN=16) | **333** - no cache |
-| corrected module | **3,879** - cache present |
+### The corrected module is VERIFIED
 
-### Defect 2: the score overflowed
+Verilator (not Icarus - Icarus *accepted* the variable-offset write that yosys drops), against a
+CPU golden: **10 configurations × 120 randomised trials = 1,200 trials, 0 mismatches**.
 
-The key magnitude was padded as `{1'b0, magnitude, 1'b0}` - a factor of **16** - and multiplied by a
-separate ±1 weight, so the 17-bit score accumulator **overflowed** and the score's *sign* (which
-selects add versus subtract) was wrong. A third defect - the key magnitude held in a `QUANT_W`-bit
-**signed** register, so magnitudes ≥ 2^(QUANT_W-1) came out negative - was found by the same
-testbench.
+### The cache implementation is a first-class co-design decision
 
-### Corrected resource numbers (token-sequential form, same synthesis flow)
+| Cache implementation | Est. LCs | FFs | RAM | % device | fits the 10% cap |
+|---|---|---|---|---|---|
+| **distributed RAM** (RAM32M) | **2,763** | 435 | 72 RAM32M, 0 BRAM | **2.05%** | ✅ |
+| **block RAM** (RAMB18E1) | **2,934** | 810 | 6 RAMB18E1 (0.8%) | **2.17%** | ✅ |
+| **registers** (flat vector) | **18,695** | 3,879 | none | **13.9%** | ❌ |
 
-| HEAD_DIM | KV_LEN | Est. LCs | FFs | CARRY4 | % device | fits the 10% cap |
-|---|---|---|---|---|---|---|
-| 1 | 16 | **392** | 519 | 87 | 0.3% | ✅ |
-| 2 | 16 | **1,385** | 999 | 165 | 1.0% | ✅ |
-| 4 | 16 | **5,160** | 1,959 | 321 | 3.8% | ✅ |
-| **8** | **16** | **18,912** | 3,879 | 633 | **14.0%** | **❌ NO** |
-| 8 | 32 | 39,542 | 7,341 | 636 | 29.4% | ❌ NO |
+At the adopted configuration (HEAD_DIM=8, KV_LEN=16). **The withdrawn "505 LCs / 345 FFs" was for a
+cache-less design.** With a memory-based cache the adopted configuration **fits the 10% cap
+comfortably**; only the register form misses it.
 
-**The published "505 LCs / 345 FFs" was for a cache-less design.** The real cost at the adopted
-configuration is **18,912 LCs - about 37× more** - and it **no longer fits** the 10% resource cap.
+### Throughput attempt: the probe does NOT route in openXC7
 
-### What is withdrawn
+| Cache in the probe | Seeds | Failure |
+|---|---|---|
+| block RAM | 6 | `No wire found for port A6` - the BRAM's address input |
+| distributed RAM | 8 | `No wire found for port DI2` - the LUTRAM's data input |
+| registers | 36 | the placer scattered the BSCANE2 shift register |
 
-- the token-sequential attention's resource numbers (505 LCs, 345 FFs)
-- the claim that **every** configuration fits inside the 10% cap
-- the "ACCEPT act_bits=4, quant_w=4" decision, to the extent it rested on the cache-less numbers
-- the attention's "BRAM = 0" statement, for the same reason
+**No throughput number is published.** The BSCANE2-only clock probes route; a design with a
+memory-based attention does not.
 
-### What survives
+### A subtlety worth recording
 
-- the **losslessness rule** `QUANT_W ≥ ACT_BITS` - it came from an exact simulation of the equations
-- the **sequential form's ordering** versus the combinational form (the combinational form computes
-  all SLOTS in parallel, so it needs proportionally more score logic)
-- the **cycle structure**, SLOTS + 2 cycles per token - a property of the control machine
-- every resource number for designs whose cache was never involved
-
-### Verification state of the corrected RTL: **NOT YET VERIFIED**
-
-The corrected module and a Verilog golden testbench are in `evidence/attention_fix/`. The testbench
-found the sign-width defect, which was fixed; it still mismatches on most randomised trials, with
-the DUT and the golden differing by exactly one slot's contribution on some channels and in sign on
-others. The cause is not yet identified.
-
-> **Therefore no throughput number is published from this module.** The corrected resource numbers
-> above are a measurement of a module whose behaviour is **not yet verified**.
+The probe's token counter counts `done`, which depends only on the **control machine**. If the LED
+showed only the counter, the attention's data path would be **unobservable** and synthesis would
+prune the arithmetic and the cache away - the probe would look absurdly small and would measure
+nothing. Making the LED carry the attention's output keeps the data path alive. This is the same
+failure mode as defect 2, and it is why the probe is checked against its netlist.
 
 **Report**: `evidence/attention_fix/attention_correction_report.json`
+**Verifier**: `evidence/attention_fix/verify_attention.sh`
+**Modules**: `evidence/attention_fix/attn_token_verified.v` (memory cache), `attn_token_verified_registers.v`
 
 ## DRAM Reads Per Token (✅ MEASURED)
 
@@ -945,7 +936,7 @@ order of magnitude.
 | CLOCK_MHZ | ✅ **67.16 MEASURED** (CFGMCLK, mean of 9, σ 1.33) · attention design's achievable clock still UNKNOWN · ring osc ~150 **WITHDRAWN** (appears not to oscillate) |
 | QUALITY_METRIC | ✅ MEASURED | attention quality: bit-exact vs a full-precision golden, 12000 randomised trials, 0 mismatches. The old 0.46% cycle-1 CV is **withdrawn** with the tok/s figure. |
 | CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | **9** (acc x loop-topology; joint act x KV-quant; sequential vs combinational; clock source; AX7203-native build; critical-path isolation; Fmax noise audit; silicon clock + die telemetry) |
-| ATTENTION_KV_STATUS | ❌ **RESOURCE NUMBERS WITHDRAWN** (iteration 10: the KV cache was dead, so 505 LCs / 345 FFs was a cache-less design). Corrected: **18,912 LCs / 3,879 FFs** at the adopted HEAD_DIM=8 - 14.0% of the fabric, **outside** the 10% cap. HEAD_DIM 1/2/4 at KV_LEN=16 fit (392 / 1,385 / 5,160 LCs). The corrected RTL is **not yet verified**, so no throughput number is published. |
+| ATTENTION_KV_STATUS | ✅ **CORRECTED and VERIFIED** (iteration 10). The committed module's KV cache was dead - the published 505 LCs / 345 FFs was a cache-less design. Five defects were found and fixed; the corrected module passes 1,200 randomised Verilog trials against a CPU golden with 0 mismatches. At the adopted HEAD_DIM=8 / KV_LEN=16: **2,763 LCs** with a distributed-RAM cache (2.05% of the fabric) or **2,934 LCs** with 6 block RAMs (2.17%) - **both fit the 10% cap**; the register form costs 18,695 LCs (13.9%) and does not. **No throughput number yet**: the probe does not route in openXC7. |
 | RL_BENCHMARK_STATUS | ✅ contract + **19** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |

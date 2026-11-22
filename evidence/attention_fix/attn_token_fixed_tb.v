@@ -59,15 +59,19 @@ module attn_clean_tb;
           if (w_code[c*2 +: 2] == 2'b01) sc =  sc;
           else if (w_code[c*2 +: 2] == 2'b10) sc = -sc;
           else sc = 0;
-          acc = acc + q[c*8 +: 8] * sc;
+          // a Verilog part-select is ALWAYS UNSIGNED, even out of a signed reg:
+          // the DUT uses $signed(q[...]), so the golden must too, or a negative
+          // activation byte comes out positive and the score's sign is wrong.
+          acc = acc + $signed(q[c*8 +: 8]) * sc;
         end
         for (c = 0; c < HD; c = c + 1) begin
           // the value carries its own stored sign, and the score's sign selects whether it
           // is added or subtracted
           if (g_vs[c][s]) vv = -$signed({1'b0, g_v[c][s]});
           else            vv =  $signed({1'b0, g_v[c][s]});
-          if (acc < 0) g_out[c*16 +: 16] = g_out[c*16 +: 16] - vv;
-          else         g_out[c*16 +: 16] = g_out[c*16 +: 16] + vv;
+          // the DUT accumulates each channel in 16 bits, so the golden does too
+          if (acc < 0) g_out[c*16 +: 16] = $signed(g_out[c*16 +: 16]) - vv;
+          else         g_out[c*16 +: 16] = $signed(g_out[c*16 +: 16]) + vv;
         end
       end
     end
@@ -112,8 +116,6 @@ module attn_clean_tb;
               $write("k=%h/%b v=%h/%b  ", g_k[c][s], g_ks[c][s], g_v[c][s], g_vs[c][s]);
             $display("");
           end
-          $display("  DUT cache kmag=%h vmag=%h ksign=%h vsign=%h",
-                   u.kv_kmag, u.kv_vmag, u.kv_ksign, u.kv_vsign);
         end
       end
     end

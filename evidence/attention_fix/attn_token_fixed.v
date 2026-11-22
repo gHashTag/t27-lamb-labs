@@ -100,7 +100,12 @@ module attn_token #(
       for (c = 0; c < HEAD_DIM; c = c + 1) begin
         vq_ext = $signed({1'b0, kv_vmag[slot_ptr*HEAD_DIM*QUANT_W + c*QUANT_W +: QUANT_W]});
         if (kv_vsign[c*SLOTS + slot_ptr]) vq_ext = -vq_ext;
-        out_next[c*16 +: 16] = out_next[c*16 +: 16] +
+        // The accumulator addition must be SIGNED. A Verilog part-select is always
+        // UNSIGNED, so `out_next[c*16 +: 16] + vq_ext` added a negative value
+        // contribution as a large unsigned number (e.g. -240 became 272, and eight slots
+        // gave 2176 instead of -1920). The $signed cast on the accumulator is what makes
+        // the two's-complement arithmetic correct.
+        out_next[c*16 +: 16] = $signed(out_next[c*16 +: 16]) +
             (score_reg[SCORE_W-1] ? -vq_ext : vq_ext);
       end
     end
