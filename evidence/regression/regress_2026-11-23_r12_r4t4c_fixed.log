@@ -1,0 +1,14 @@
+T27-LAMB-LABS REGRESSION GATE  2026-11-22T22:47:27Z  HEAD=7202984
+=== G1: portfolio acceptance
+=== G1: PASS
+=== G2: t27c_lite spec->Verilog compiler
+=== G2: PASS
+=== G3: conformance pack (A/B/B2)
+=== G3: PASS
+=== G4: artifact manifest hash sweep
+=== G4: 293 rows checked, 0 mismatches
+=== G5: tree drift after regeneration
+ M ARTIFACT_MANIFEST.txt
+=== G5: FAIL (regenerated artifacts differ from the committed ones)
+===========================================
+REGRESSION: FAIL

@@ -1,0 +1,21 @@
+T27-LAMB-LABS REGRESSION GATE  2026-11-22T22:46:44Z  HEAD=7202984
+=== G1: portfolio acceptance
+=== G1: PASS
+=== G2: t27c_lite spec->Verilog compiler
+=== G2: PASS
+=== G3: conformance pack (A/B/B2)
+=== G3: PASS
+=== G4: artifact manifest hash sweep
+REAL MISMATCH: docs/M0_M5_CAPABILITY_MAP.md
+=== G4: 285 rows checked, 1 mismatches
+=== G5: tree drift after regeneration
+=== G5: PASS (tree clean, all regenerated artifacts byte-identical)
+===========================================
+REGRESSION: FAIL
+
+CORRECTION ADDENDUM (2026-11-23): this FAIL is a sequencing error of the
+round-12 commit, not an artifact defect — the R12 commit included the edited
+docs/M0_M5_CAPABILITY_MAP.md but did NOT regenerate ARTIFACT_MANIFEST.txt, so
+G4 saw a stale row for it. Same failure class as the one corrected at 037d345.
+Superseded by regress_2026-11-23_r12_r4t4c_fixed.log (ALL GATES PASS) captured
+after manifest regeneration at the same tree content.
