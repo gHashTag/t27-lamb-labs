@@ -1,0 +1,49 @@
+=== BOARD RECONNECT SMOKE ON THE AX7203 (xc7a200tfbg484-2) ===
+Date: 2026-11-23 ~00:40 UTC+7 (Asia/Bangkok)
+Host: macOS, DSH session worktree dsh-e6e4cd9f-d7f1 (t27-lamb-labs @ a7ef751)
+Cable: Digilent HS2 (FTDI 0x0403:0x6014), serial 210512180081
+       (second USB serial device 1130 present but not probed in this smoke)
+Purpose: first hardware touch after the board was (re)connected; verify the
+         JTAG chain and that the SHIPPED bitstream still loads. MEASURED.
+
+--- 1. JTAG chain detection ---------------------------------------------
+Command: openFPGALoader -c digilent_hs2 --detect
+Jtag frequency : requested 6.00MHz    -> real 6.00MHz
+index 0:
+        idcode 0x3636093
+        manufacturer xilinx
+        family artix a7 200t
+        model  xc7a200
+        irlength 6
+-> matches the SSOT chain (idcode 0x3636093 = AX7203's XC7A200T).
+
+--- 2. Bitstream integrity ----------------------------------------------
+Command: shasum -a 256 bitstream/ternary_mac_demo_top_200t.bit
+a82c260d759f66afe95a3b6c705fb6e963a3d0ba58227511b1b69ea4a0e00c0b
+-> equals ARTIFACT_MANIFEST.txt entry (bit-exact artifact identity).
+
+--- 3. SRAM load of the shipped bitstream -------------------------------
+Command: openFPGALoader -c digilent_hs2 bitstream/ternary_mac_demo_top_200t.bit
+Load SRAM: [==================================================] 100.00%
+Done
+Shift IR 35
+ir: 1 isc_done 1 isc_ena 0 init 1 done 1
+Exit: 0
+-> DONE pin asserted; same acceptance criterion as the committed
+   "Bitstream flashed | isc_done 1 confirmed" evidence line.
+
+--- 4. XADC with the design loaded --------------------------------------
+Command: openFPGALoader -c digilent_hs2 --read-xadc
+{"temp": 41.869, "maxtemp": 42.7495, "mintemp": 41.4729,
+ "vccint": 0.999756, "maxvccint": 1.00122, "minvccint": 0.998291,
+ "vccaux": 1.80615, "maxvccaux": 1.80762, "minvccaux": 1.80322}
+-> rails nominal (VCCINT ~1.000 V, VCCAUX ~1.806 V); die cool.
+
+--- Honest scope of this smoke ------------------------------------------
+MEASURED here: JTAG chain, bitstream artifact identity, configuration
+(DONE=1), XADC health.
+NOT verified here: functional datapath behaviour of
+ternary_mac_demo_top_200t over UART/IO. The historical "gf8 512/512
+answers over UART" smoke belonged to a different bitstream. A functional
+UART/IP smoke for THIS bitstream remains an open M3 item.
+No flash write performed (SRAM load only; -f intentionally not used).
