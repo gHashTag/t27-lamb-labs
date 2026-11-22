@@ -60,7 +60,7 @@ This is the M0–M5 mapping required by `T27_LAMB_LABS_MILESTONES_V1` step 3. Ga
 | DoD item | Status | Evidence / note |
 |---|---|---|
 | Tagged milestone line with hashes | **SATISFIED** | 19 tags, root `ARTIFACT_MANIFEST.txt` + per-dir `ARTIFACT_HASHES.txt`; artifact identity re-verified live today (bitstream sha256 match) |
-| GitHub Release objects with rollback path | **GAP → R7** | No GitHub Releases on `gHashTag/t27-lamb-labs` (the pinned release `t27os-ladder-512k-caps` belongs to `Trinity-S-AI-DNA/t27`, not this lab). Rollback path per release = undocumented (ties to R1) |
+| GitHub Release objects with rollback path | ~~GAP → R7~~ **SATISFIED-DRAFT (2026-11-23, owner verification pending)** | 19/19 v0.1.x releases created as DRAFTS (`e18549d`): notes = tag subject + message + full ARTIFACT_MANIFEST@tag (sha256 list) + commit sha + rollback pointer + provenance caveats; zero assets (no secret-bearing assets possible); remote tags untouched; publishing = owner one-click |
 | Regression suite | **PARTIAL** | `benchmark/validate_benchmark.py` + published reproduce commands; no single entrypoint that runs spec checks + benchmarks + evidence-hash verification in one command |
 | Portfolio narrative | **SATISFIED** | `README.md` ("Scope, stated honestly") + `target/lamb_labs_evidence.md` dashboard |
 
