@@ -18,7 +18,7 @@
 #   OUT=path/to/log bash scripts/regress_all.sh
 set -u
 cd "$(dirname "$0")/.." || exit 1
-OUT="${OUT:-evidence/regression/regress_$(date +%Y-%m-%d).log}"
+OUT="${OUT:-evidence/regression/regress_$(date +%Y-%m-%d_%H%M%S).log}"
 mkdir -p "$(dirname "$OUT")"
 
 FAIL=0
@@ -35,9 +35,7 @@ gate() { # gate <id> <desc> <cmd...>
 }
 
 : > "$OUT"
-say "T27-LAMB-LABS REGRESSION GATE  $(date -u '+%Y-%m-%dT%H:%M:%SZ')  HEAD=$(git rev-parse --short HEAD)"
-
-gate G1 "portfolio acceptance"              python3 scripts/verify_portfolio.py
+say "T27-LAMB-LABS REGRESSION GATE  $(date -u '+%Y-%m-%dT%H:%M:%SZ')  HEAD=$(git rev-parse --short HEAD)"gate G1 "portfolio acceptance"              python3 scripts/verify_portfolio.py
 gate G2 "t27c_lite spec->Verilog compiler"  python3 t27c_lite.py
 gate G3 "conformance pack (A/B/B2)"         python3 conformance/run_conformance.py
 
