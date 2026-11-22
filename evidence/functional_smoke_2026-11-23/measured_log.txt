@@ -1,0 +1,133 @@
+=== FUNCTIONAL SMOKE MEASURED LOG — 2026-11-23 ===
+UTC: 2026-11-22T18:55:52Z
+
+--- C1a: load clock_probe_ctrl.bit ---
+empty
+Jtag frequency : requested 6.00MHz    -> real 6.00MHz   
+Open file DONE
+Parse file DONE
+load program
+Load SRAM: [===                                               ] 6.00%
+Load SRAM: [=======                                           ] 13.00%
+Load SRAM: [==========                                        ] 19.00%
+Load SRAM: [=============                                     ] 26.00%
+Load SRAM: [=================                                 ] 33.00%
+Load SRAM: [====================                              ] 40.00%
+Load SRAM: [=======================                           ] 46.00%
+Load SRAM: [==========================                        ] 52.00%
+Load SRAM: [=============================                     ] 58.00%
+Load SRAM: [================================                  ] 64.00%
+Load SRAM: [===================================               ] 70.00%
+Load SRAM: [======================================            ] 76.00%
+Load SRAM: [=========================================         ] 82.00%
+Load SRAM: [============================================      ] 88.00%
+Load SRAM: [===============================================   ] 94.00%
+Load SRAM: [==================================================] 99.00%
+Load SRAM: [==================================================] 100.00%
+
+Done
+Shift IR 35
+ir: 1 isc_done 1 isc_ena 0 init 1 done 1
+load_exit=0
+
+--- C7a: XADC after P1 load ---
+empty
+Jtag frequency : requested 6.00MHz    -> real 6.00MHz   
+{"temp": 42.0535, 
+    "maxtemp": 42.6111, 
+    "mintemp": 41.1961, 
+"raw":  {"0": 40983, "1": 21840, "2": 39440, "3": 0, "4": 0, "5": 0, "6": 21848, "7": 0},
+"vccint": 0.999756, 
+   "maxvccint": 1.00049, 
+   "minvccint": 0.998291, 
+"vccaux": 1.80396, 
+   "maxvccaux": 1.80688, 
+   "minvccaux": 1.80322, 
+}
+
+--- C2/C3/C4: measure_clock.py 10 0.5 (USER1 via BSCANE2) ---
+  read 1: raw=0xA5A2DA99 magic=OK count=187033
+  read 2: raw=0xA5A5213A magic=OK count=336186
+  read 3: raw=0xA5A7E104 magic=OK count=516356
+  read 4: raw=0xA5AAB949 magic=OK count=702793
+  read 5: raw=0xA5AD7DE3 magic=OK count=884195
+  read 6: raw=0xA5A03BB4 magic=OK count=15284
+  read 7: raw=0xA5A2EFC6 magic=OK count=192454
+  read 8: raw=0xA5A5A586 magic=OK count=370054
+  read 9: raw=0xA5A85A43 magic=OK count=547395
+  read 10: raw=0xA5AB0559 magic=OK count=722265
+--- 10/10 reads carried the magic ---
+  delta: 149153 counts in 600.8 ms -> 63.5508 MHz
+  delta: 180170 counts in 695.2 ms -> 66.3498 MHz
+  delta: 186437 counts in 700.6 ms -> 68.1220 MHz
+  delta: 181402 counts in 687.6 ms -> 67.5408 MHz
+  delta: 179665 counts in 679.3 ms -> 67.7121 MHz
+  delta: 177170 counts in 671.9 ms -> 67.4997 MHz
+  delta: 177600 counts in 690.4 ms -> 65.8554 MHz
+  delta: 177341 counts in 652.3 ms -> 69.5993 MHz
+  delta: 174870 counts in 681.9 ms -> 65.6477 MHz
+--- SUMMARY ---
+  CFGMCLK frequency: mean 66.8753 MHz, median 67.4997 MHz, stdev 1.7458 MHz, n=9
+  min 63.5508 MHz, max 69.5993 MHz
+measure_exit=0
+
+--- C1b: load clock_probe_r4t4b.bit ---
+empty
+Jtag frequency : requested 6.00MHz    -> real 6.00MHz   
+Open file DONE
+Parse file DONE
+load program
+Load SRAM: [===                                               ] 5.00%
+Load SRAM: [======                                            ] 11.00%
+Load SRAM: [=========                                         ] 17.00%
+Load SRAM: [============                                      ] 23.00%
+Load SRAM: [===============                                   ] 30.00%
+Load SRAM: [==================                                ] 36.00%
+Load SRAM: [=====================                             ] 42.00%
+Load SRAM: [========================                          ] 48.00%
+Load SRAM: [============================                      ] 55.00%
+Load SRAM: [===============================                   ] 61.00%
+Load SRAM: [==================================                ] 67.00%
+Load SRAM: [=====================================             ] 74.00%
+Load SRAM: [========================================          ] 80.00%
+Load SRAM: [===========================================       ] 86.00%
+Load SRAM: [==============================================    ] 92.00%
+Load SRAM: [================================================= ] 98.00%
+Load SRAM: [==================================================] 100.00%
+
+Done
+Shift IR 35
+ir: 1 isc_done 1 isc_ena 0 init 1 done 1
+load_exit=0
+
+--- C7b: XADC after P2 load ---
+empty
+Jtag frequency : requested 6.00MHz    -> real 6.00MHz   
+{"temp": 42.3477, 
+    "maxtemp": 42.7956, 
+    "mintemp": 41.3576, 
+"raw":  {"0": 41015, "1": 21836, "2": 39428, "3": 0, "4": 0, "5": 0, "6": 21853, "7": 0},
+"vccint": 0.999023, 
+   "maxvccint": 1.00049, 
+   "minvccint": 0.998291, 
+"vccaux": 1.80396, 
+   "maxvccaux": 1.80762, 
+   "minvccaux": 1.80322, 
+}
+
+--- C5/C6: read_user1.py 10 0.3 (USER1 via BSCANE2) ---
+  read 1: raw=0xA5A00000 magic=BAD bit0=0 bit28=0 t=1795373811.297863
+  read 2: raw=0xA5A00000 magic=BAD bit0=0 bit28=0 t=1795373811.781875
+  read 3: raw=0xA5A00000 magic=BAD bit0=0 bit28=0 t=1795373812.257738
+  read 4: raw=0xA5A00000 magic=BAD bit0=0 bit28=0 t=1795373812.747524
+  read 5: raw=0xA5A00000 magic=BAD bit0=0 bit28=0 t=1795373813.233020
+  read 6: raw=0xA5A00000 magic=BAD bit0=0 bit28=0 t=1795373813.715850
+  read 7: raw=0xA5A00000 magic=BAD bit0=0 bit28=0 t=1795373814.194189
+  read 8: raw=0xA5A00000 magic=BAD bit0=0 bit28=0 t=1795373814.679836
+  read 9: raw=0xA5A00000 magic=BAD bit0=0 bit28=0 t=1795373815.166370
+  read 10: raw=0xA5A00000 magic=BAD bit0=0 bit28=0 t=1795373815.650411
+read_exit=0
+
+--- final board state ---
+UTC: 2026-11-22T18:56:56Z
+P2 bitstream left in SRAM (volatile); no flash write performed.

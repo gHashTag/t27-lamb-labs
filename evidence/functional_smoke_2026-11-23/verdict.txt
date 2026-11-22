@@ -1,0 +1,49 @@
+VERDICT — functional smoke 2026-11-23 (executed per PLAN.md @ commit 01d1bc1)
+=============================================================================
+OVERALL: **FAIL** (criterion C6 failed; plan forbids partial credit for the
+failed probe). Recorded honestly; issue #5 stays OPEN.
+
+C1  Load isc_done/done ............ PASS (both probes; transcript in measured_log.txt)
+C2  P1 magic 10/10 (0xA5A) ........ PASS
+C3  P1 counter advancing .......... PASS (10/10 monotonic incl. one 2^20 wrap:
+                                    187033 -> 336186 -> 516356 -> 702793 -> 884195
+                                    -> 15284(wrap) -> ... -> 722265)
+C4  P1 CFGMCLK in 55..80 MHz ...... PASS (mean 66.8753 MHz, median 67.4997,
+                                    stdev 1.7458, min 63.5508, max 69.5993, n=9;
+                                    consistent with 2026-11-22: 66.86/67.16 mean)
+C5  P2 magic ...................... **INVALID AS WRITTEN** — plan assigned
+    read_user1.py (28-bit magic 0xA5A5A5A layout) to r4t4b, but the loaded
+    design's readback actually carries the 12-bit 0xA5A layout (raw reads
+    0xA5A00000). Re-read with measure_clock.py: magic 10/10 OK.
+    This is a PLAN ERROR (wrong reader->bitstream assignment), not a hardware
+    result; the diagnostic run is in measured_log.txt.
+C6  P2 counter liveness ........... **FAIL.** With the correct committed reader
+    (measure_clock.py): magic 10/10 but count = 0 on all 10 reads, 0 deltas.
+    The R4/T4 probe's counter is FROZEN today -> the board's 200 MHz R4/T4
+    clock liveness is NOT demonstrated in this run. The 2026-11-22 R4/T4
+    numbers (~398 MHz, divide ratio unvalidated, ripple prescaler flagged as
+    marginal in r4t4_measurement.log) remain NOT PUBLISHED and now have a
+    failed same-artifact replication attempt: today, same bitstream
+    (sha256 1953c597...), same board, counter frozen at 0.
+C7  XADC health ................... PASS (temp/vccint/vccaux nominal across loads)
+
+WHAT THIS RUN ESTABLISHES
+-------------------------
+1. A live functional datapath ON THE BOARD is proven for the CFGMCLK domain:
+   configured design, working BSCANE2 USER1 readback, 20-bit binary counter
+   advancing >1e6 ticks during the run, frequency in family band. That is real
+   datapath behaviour, not DONE=1.
+2. The R4/T4 clock claim is NOT re-confirmed; the frozen counter matches the
+   known ripple-prescaler marginality warning in r4t4_measurement.log.
+3. read_user1.py's docstring layout does not describe clock_probe_r4t4b.bit;
+   recorded as a documentation defect in the committed reader.
+
+DISPOSITION / NEXT STEPS (all recorded, none executed yet)
+----------------------------------------------------------
+- R5 stays open. Route (b) (ax7203_attn UART known-answer) remains blocked on
+  missing nextpnr-xilinx/xc7frames2bit on this host (R8 log).
+- A future P2 attempt should use a JOHNSON prescaler (the fix r4t4_measurement.log
+  itself names), which requires a rebuild -> same PnR blocker.
+- read_user1.py layout doc: correct or annotate in a follow-up commit; do NOT
+  silently rewrite history (evidence law).
+Board left with clock_probe_r4t4b.bit in SRAM (volatile); no flash writes.
