@@ -11,7 +11,12 @@
   "gate4 PASS: yosys synth_xilinx clean; stat captured",
   "gate5a PASS: emitted rtl/t27c_lite/stream_ternary_mac_top.v (1065 bytes)",
   "gate5 PASS: 344/344 bit-exact stream cycles (24 streams, en=0 holds: 73 cycles)",
-  "gate6 PASS: yosys synth_xilinx clean; stat captured"
+  "gate6 PASS: yosys synth_xilinx clean; stat captured",
+  "comb parsed: codes={'N': 0, 'Z': 1, 'P': 2} positions=27 bits/trit=2 result=i8 spec_tests=4",
+  "gate7 PASS: comb golden satisfies all 4 spec-embedded tests",
+  "gate8a PASS: emitted rtl/t27c_lite/comb_ternary_dot_top.v (7006 bytes)",
+  "gate8 PASS: 69/69 bit-exact comb vectors (incl. 60 randomized, seed 20261125)",
+  "gate9 PASS: yosys synth_xilinx clean; stat captured"
  ],
  "extra": {
   "vectors_total": 117,
@@ -25,7 +30,16 @@
    "mismatches": 0,
    "seed": 20261124,
    "yosys_stat": "=== stream_ternary_mac_top ===\n\n        +----------Local Count, excluding submodules.\n        | \n       46 wires\n      419 wire bits\n        6 public wires\n      148 public wire bits\n        5 ports\n      142 port bits\n      215 cells\n        1   BUFG\n        8   CARRY4\n       32   FDRE\n      110   IBUF\n       32   LUT2\n       32   OBUF\n        1 submodules\n        1   dot27_top\n\n=== tmul_lut ===\n\n        +----------Local Count, excluding submodules.\n        | \n        3 wires\n        6 wire bits\n        3 public wires\n        6 public wire bits\n        3 ports\n        6 port bits\n        2 cells\n        1   LUT2\n        1   LUT4\n\n=== design hierarchy ===\n\n        +----------Count including submodules.\n        | \n      426 stream_ternary_mac_top\n      157 dot27_top\n        2   tmul_lut\n\n        +----------Count including submodules.\n        | \n      318 wires\n     1243 wire bits\n      195 public wires\n      730 public wire bits\n       89 ports\n      418 port bits\n        - memories\n        - memory bits\n        - processes\n      426 cells\n        1   BUFG\n       10   CARRY4\n       32   FDRE\n      110   IBUF\n       68   LUT2\n       36   LUT3\n       30   LUT4\n       12   LUT5\n       73   LUT6\n       18   MUXF7\n        4   MUXF8\n       32   OBUF\n        1 submodules\n        1   dot27_top\n[volatile yosys timing tail stripped for determinism]"
+  },
+  "comb": {
+   "spec": "specs/ternary/comb_ternary_dot.t27",
+   "spec_sha256": "1cb1bf87cd3f9cb92778ec47f85d079c6514ad532a7f8ee777481dd031ba4651",
+   "vectors_total": 69,
+   "randomized": 60,
+   "mismatches": 0,
+   "seed": 20261125,
+   "yosys_stat": "=== comb_ternary_dot_top ===\n\n        +----------Local Count, excluding submodules.\n        | \n      194 wires\n      734 wire bits\n      110 public wires\n      486 public wire bits\n        3 ports\n      116 port bits\n      276 cells\n        2   CARRY4\n      108   IBUF\n        9   LUT2\n       37   LUT3\n        4   LUT4\n       15   LUT5\n       72   LUT6\n       17   MUXF7\n        4   MUXF8\n        8   OBUF\n       27 submodules\n       27   tmul_lut_c\n\n=== tmul_lut_c ===\n\n        +----------Local Count, excluding submodules.\n        | \n        3 wires\n        6 wire bits\n        3 public wires\n        6 public wire bits\n        3 ports\n        6 port bits\n        2 cells\n        1   LUT2\n        1   LUT4\n\n=== design hierarchy ===\n\n        +----------Count including submodules.\n        | \n      330 comb_ternary_dot_top\n        2 tmul_lut_c\n\n        +----------Count including submodules.\n        | \n      275 wires\n      896 wire bits\n      191 public wires\n      648 public wire bits\n       84 ports\n      278 port bits\n        - memories\n        - memory bits\n        - processes\n      330 cells\n        2   CARRY4\n      108   IBUF\n       36   LUT2\n       37   LUT3\n       31   LUT4\n       15   LUT5\n       72   LUT6\n       17   MUXF7\n        4   MUXF8\n        8   OBUF\n       27 submodules\n       27   tmul_lut_c\n[volatile yosys timing tail stripped for determinism]"
   }
  }
 }
-SHA256_SELF: 17d435de05b138331b508d54b25b007b4986ba1c4f3f8ac39122b028b171f0bf
+SHA256_SELF: b486a6c03079b999a26a0b541ac7058b7fe63129084a32b711fbf31af0368359

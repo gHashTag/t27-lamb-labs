@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """t27c_lite.py — spec-first subset compiler for the ternary dot-product pattern.
 
-Compiles `specs/ternary/stream_ternary_mac.t27` (the packed-trit dot27 subset)
-to structural Verilog. NOTHING is hand-transcribed: the emitted RTL is derived
-from the parsed spec text —
+Compiles TWO spec patterns to structural Verilog:
+  1. `specs/ternary/stream_ternary_mac.t27` (clocked: dot27 + var/on_clock/en
+     streaming wrapper) -> dot27_top.v + stream_ternary_mac_top.v;
+  2. `specs/ternary/comb_ternary_dot.t27` (combinational: on_comb(a,b) -> i8)
+     -> comb_ternary_dot_top.v.
+
+NOTHING is hand-transcribed: the emitted RTL is derived from the parsed spec
+text —
   - trit code constants from the spec's own code table comment {N=..., Z=..., P=...};
   - the tmul truth table by symbolically evaluating the spec's if/return chain
     for every defined (ta, tb) code pair;
@@ -18,9 +23,9 @@ cell convention (ternary_mac_top: 2'b00 and 2'b11 decode to 0); vectors never
 exercise them, and the emitted header says so.
 
 Pipeline: parse -> validate golden against spec tests -> emit Verilog ->
-iverilog bit-exact run (spec tests + edges + 108 random vectors) -> yosys
-synth_xilinx (must be clean) -> evidence JSON + sha256.
-Exit non-zero on any failure.
+iverilog bit-exact run (spec tests + edges + randomized vectors) -> yosys
+synth_xilinx (must be clean) -> evidence JSON + sha256. Gates 1-6 cover the
+streaming spec, gates 7-9 the combinational spec. Exit non-zero on any failure.
 """
 import hashlib
 import json
@@ -35,6 +40,8 @@ REPO = os.path.dirname(os.path.abspath(__file__))
 SPEC = os.path.join(REPO, "specs", "ternary", "stream_ternary_mac.t27")
 OUTDIR = os.path.join(REPO, "rtl", "t27c_lite")
 SPEC_SHA = hashlib.sha256(open(SPEC, "rb").read()).hexdigest()
+COMB_SPEC = os.path.join(REPO, "specs", "ternary", "comb_ternary_dot.t27")
+COMB_SPEC_SHA = hashlib.sha256(open(COMB_SPEC, "rb").read()).hexdigest()
 
 log_lines = []
 def log(s):
@@ -42,15 +49,16 @@ def log(s):
     log_lines.append(s)
 
 # ---------------- 1. PARSE ----------------
-def parse_spec():
-    text = open(SPEC).read()
-    codes = {}
+def _parse_codes(text):
     m = re.search(r"\{((?:[NZP]=0b[01]{2}(?:,\s*)?)+)\}", text)
+    codes = {}
     for name, val in re.findall(r"([NZP])=0b([01]{2})", m.group(1)):
         codes[name] = int(val, 2)
     if sorted(codes) != ["N", "P", "Z"]:
         fail("code table parse: %r" % codes)
+    return codes
 
+def _parse_tmul(text, codes):
     fn_m = re.search(r"fn tmul\(ta: u8, tb: u8\) -> i8 \{(.*?)\n\}", text, re.S)
     chain = []
     for cond, ret in re.findall(r"if \((ta == [^)]+|tb == [^)]+)\) \{ return (-?\d+); \}", fn_m.group(1)):
@@ -80,16 +88,32 @@ def parse_spec():
                 table[(ta, tb)] = int(tail)
     if len(table) != 9:
         fail("tmul table incomplete: %r" % table)
+    return table
 
+def _parse_tp(text):
     tp_m = re.search(r"fn tp\(a: u64, b: u64, i: u32\) -> i8 \{\s*return (.*?);", text, re.S)
     sh_m = re.search(r"\(a >> \(i << (\d+)\)\) & (\d+)", tp_m.group(1))
     trit_shift, trit_mask = int(sh_m.group(1)), int(sh_m.group(2))
     bits_per_trit = trit_shift + 1  # i << 1 -> 2 bits per trit field
     if trit_mask != (1 << bits_per_trit) - 1:
         fail("mask %d inconsistent with %d-bit fields" % (trit_mask, bits_per_trit))
+    return bits_per_trit
+
+def _dot_positions(body, ap, bp, label):
+    positions = [int(p) for p in re.findall(r"tp\(%s,%s,(\d+)\)" % (ap, bp), body)]
+    if positions != list(range(len(positions))):
+        fail("%s body: positions not contiguous 0..%d: %r"
+             % (label, len(positions) - 1, positions))
+    return positions
+
+def parse_spec():
+    text = open(SPEC).read()
+    codes = _parse_codes(text)
+    table = _parse_tmul(text, codes)
+    bits_per_trit = _parse_tp(text)
 
     dot_m = re.search(r"fn dot27\(a: u64, b: u64\) -> i8 \{\s*return (.*?);\s*\}", text, re.S)
-    positions = [int(p) for p in re.findall(r"tp\(a,b,(\d+)\)", dot_m.group(1))]
+    positions = _dot_positions(dot_m.group(1), "a", "b", "dot27")
 
     tests = [(int(va), int(vb), int(vx)) for va, vb, vx in
              re.findall(r"assert_eq\(dot27\((\d+), (\d+)\), (-?\d+)\);", text)]
@@ -121,6 +145,40 @@ def parse_spec():
     return dict(codes=codes, table=table, positions=positions,
                 bits_per_trit=bits_per_trit, tests=tests,
                 acc=acc, on_clock=dict(a=a_p, b=b_p), en_gated=True)
+
+def parse_comb_spec():
+    """Second spec pattern: combinational on_comb(a, b) -> i8 (no state, no clk).
+
+    Parsed items -> emitted RTL:
+      on_comb(a: u64, b: u64)  -> input ports a [53:0], b [53:0]
+      -> i8 return type        -> output wire signed [7:0] result
+      `output wire result`     -> the output port is continuously driven
+                                  (spec-header sentence, may wrap across //)
+      tp(a,b,i) sum in body    -> positional structure (contiguous 0..N-1)
+      tmul if/return chain     -> truth table by symbolic eval (shared helper)
+    """
+    text = open(COMB_SPEC).read()
+    codes = _parse_codes(text)
+    table = _parse_tmul(text, codes)
+    bits_per_trit = _parse_tp(text)
+    oc_m = re.search(r"fn on_comb\((\w+): u64, (\w+): u64\) -> i(\d+) \{\s*return (.*?);\s*\}",
+                     text, re.S)
+    if not oc_m:
+        fail("on_comb body not in the supported shape "
+             "`return tp(a,b,0) + ... + tp(a,b,N)`")
+    a_p, b_p, rw, body = oc_m.groups()
+    positions = _dot_positions(body, a_p, b_p, "on_comb")
+    # spec-header port contract; the sentence wraps across // comment lines
+    om = re.search(r"`output wire\s*(?://\s*)?result`", text)
+    if not om:
+        fail("spec-header contract `output wire result` missing")
+    tests = [(int(va), int(vb), int(vx)) for va, vb, vx in
+             re.findall(r"assert_eq\(on_comb\((\d+), (\d+)\), (-?\d+)\);", text)]
+    if not tests:
+        fail("no on_comb spec tests parsed")
+    return dict(codes=codes, table=table, positions=positions,
+                bits_per_trit=bits_per_trit, tests=tests,
+                result_bits=int(rw), on_comb=dict(a=a_p, b=b_p))
 
 def fail(msg):
     log("FAIL: " + msg)
@@ -224,6 +282,75 @@ def emit_stream_verilog(sp):
         "",
     ])
 
+def emit_comb_verilog(csp):
+    """Emit comb_ternary_dot_top.v from the parsed comb-spec items (gates 7-9).
+
+    Every line below traces to the comb spec text:
+      a, b [53:0]      <- on_comb(a: u64, b: u64) parameters; width = positions
+                          x bits-per-trit (both from the parsed spec);
+      result [7:0]     <- `-> i8` return type;
+      output wire      <- the spec-header contract "`output wire result`";
+      continuously     <- "continuously-driven output wire" -> a single assign,
+      driven             no clock, no register;
+      tmul_lut_c       <- symbolic eval of the spec's own if/return chain;
+      adder tree       <- the tp(a,b,i) sum in the on_comb body.
+    The spec declares no state -> no clock, no reset, no initial block.
+    """
+    W = (max(csp["positions"]) + 1) * csp["bits_per_trit"]
+    R = csp["result_bits"]
+    lines = [
+        "`default_nettype none",
+        "// comb_ternary_dot_top.v — GENERATED by t27c_lite.py — DO NOT HAND-EDIT.",
+        "// Source spec: specs/ternary/comb_ternary_dot.t27",
+        "// Spec sha256: %s" % COMB_SPEC_SHA,
+        "// Derived from spec text: ports from on_comb(%s: u64, %s: u64);"
+        " output wire result, signed to i%d from the return type; continuously"
+        " driven per the spec-header `output wire result` contract; tmul truth"
+        " table by symbolic eval of the spec if/return chain over all 9 code"
+        " pairs; %d trit positions from the on_comb body; %d-bit fields from"
+        " the tp body. No clock, no reset: the spec declares no state."
+        % (csp["on_comb"]["a"], csp["on_comb"]["b"], R, len(csp["positions"]),
+           csp["bits_per_trit"]),
+        "// Out-of-spec operand code 2'b11 maps to 0 by committed cell convention",
+        "// (ternary_mac_top: 2'b00 and 2'b11 decode to 0). Vectors never use it.",
+        "module tmul_lut_c(input [1:0] ta, input [1:0] tb, output reg signed [1:0] y);",
+        "    always @(*) case ({ta, tb})",
+    ]
+    for (ta, tb), v in sorted(csp["table"].items()):
+        lines.append("        4'b%04d: y = %s;  // %s*%s"
+                     % (int(format(ta, "02b") + format(tb, "02b")), TMUL_TXT[v],
+                        {v: k for k, v in csp["codes"].items()}.get(ta, "?"),
+                        {v: k for k, v in csp["codes"].items()}.get(tb, "?")))
+    lines += ["        default: y = 2'b00;  // out-of-spec operand code -> 0 (cell convention)",
+              "    endcase", "endmodule", "",
+              "module comb_ternary_dot_top(input [%d:0] a, input [%d:0] b,"
+              " output wire signed [%d:0] result);" % (W - 1, W - 1, R - 1)]
+    for i in csp["positions"]:
+        lo = i << (csp["bits_per_trit"] - 1)
+        hi = lo + csp["bits_per_trit"] - 1
+        lines.append("    wire [%d:0] fa%d = a[%d:%d]; wire [%d:0] fb%d = b[%d:%d];"
+                     % (csp["bits_per_trit"] - 1, i, hi, lo,
+                        csp["bits_per_trit"] - 1, i, hi, lo))
+        lines.append("    wire signed [1:0] t%d;" % i)
+        lines.append("    tmul_lut_c lut%d(.ta(fa%d), .tb(fb%d), .y(t%d));"
+                     % (i, i, i, i))
+    # balanced adder tree, sign-extended to the spec's return width
+    level = ["{{%d{%s[1]}}, %s}" % (R - 2, "t%d" % i, "t%d" % i)
+             for i in csp["positions"]]
+    n = 0
+    while len(level) > 1:
+        nxt = []
+        for j in range(0, len(level) - 1, 2):
+            lines.append("    wire signed [%d:0] s%d = $signed(%s) + $signed(%s);"
+                         % (R - 1, n, level[j], level[j + 1]))
+            nxt.append("s%d" % n); n += 1
+        if len(level) % 2:
+            nxt.append(level[-1])
+        level = nxt
+    lines += ["    assign result = $signed(%s);" % level[0],
+              "endmodule", "`default_nettype wire", ""]
+    return "\n".join(lines)
+
 # ---------------- 4. VECTORS ----------------
 def build_vectors(sp):
     vecs = [("spec_test_%d" % k, a, b, x) for k, (a, b, x) in enumerate(sp["tests"])]
@@ -250,6 +377,27 @@ def sp2pack(sp, trits):
     for i, t in enumerate(trits):
         v |= t << (i << (sp["bits_per_trit"] - 1))
     return v
+
+def build_comb_vectors(csp):
+    """Vectors for the comb pattern: spec tests + edges + randomized (fixed seed)."""
+    vecs = [("spec_test_%d" % k, a, b, x) for k, (a, b, x) in enumerate(csp["tests"])]
+    Nc, Zc, Pc = csp["codes"]["N"], csp["codes"]["Z"], csp["codes"]["P"]
+    vecs += [
+        ("edge_single_plus",  sp2pack(csp, [Pc] + [Zc] * 26), sp2pack(csp, [Pc] + [Zc] * 26), 1),
+        ("edge_single_minus", sp2pack(csp, [Pc] + [Zc] * 26), sp2pack(csp, [Nc] + [Zc] * 26), -1),
+        ("edge_bound_26",     sp2pack(csp, [Pc] * 26 + [Zc]), sp2pack(csp, [Pc] * 26 + [Zc]), 26),
+        ("edge_bound_minus27", sp2pack(csp, [Nc] * 27), sp2pack(csp, [Pc] * 27), -27),
+        ("edge_all_zero",     sp2pack(csp, [Zc] * 27), sp2pack(csp, [Zc] * 27), 0),
+    ]
+    codes = sorted(csp["codes"].values())
+    rng = random.Random(20261125)  # fixed seed: evidence reproducibility
+    for k in range(60):
+        a = b = 0
+        for i in csp["positions"]:
+            a |= rng.choice(codes) << (i << (csp["bits_per_trit"] - 1))
+            b |= rng.choice(codes) << (i << (csp["bits_per_trit"] - 1))
+        vecs.append(("crandom_%03d" % k, a, b, golden_dot27(csp, a, b)))
+    return vecs
 
 def write_evidence(ok, extra):
     outdir = os.path.join(REPO, "evidence", "t27c_lite")
@@ -431,6 +579,82 @@ endmodule
     if not clean2:
         fail("yosys stream rc=%d stderr=%s" % (y2.returncode, y2.stderr[-500:]))
 
+    # ------- combinational layer (comb spec): gates 7, 8, 9 -------
+    csp = parse_comb_spec()
+    csp["__mask"] = (1 << csp["bits_per_trit"]) - 1
+    log("comb parsed: codes=%s positions=%d bits/trit=%d result=i%d spec_tests=%d"
+        % (csp["codes"], len(csp["positions"]), csp["bits_per_trit"],
+           csp["result_bits"], len(csp["tests"])))
+
+    # gate 7: comb golden (pure comb-spec text) must satisfy the comb spec tests
+    for a, b, x in csp["tests"]:
+        g = golden_dot27(csp, a, b)
+        if g != x:
+            fail("comb spec test on_comb(%d,%d): golden %d != spec %d" % (a, b, g, x))
+    log("gate7 PASS: comb golden satisfies all %d spec-embedded tests"
+        % len(csp["tests"]))
+
+    # gate 8: emit + bit-exact sim (comb spec tests + edges + 60 randomized)
+    cout = os.path.join(OUTDIR, "comb_ternary_dot_top.v")
+    with open(cout, "w") as f:
+        f.write(emit_comb_verilog(csp))
+    log("gate8a PASS: emitted %s (%d bytes)"
+        % (os.path.relpath(cout, REPO), os.path.getsize(cout)))
+    cvecs = build_comb_vectors(csp)
+    with tempfile.TemporaryDirectory() as ctmp:
+        vf = os.path.join(ctmp, "cv.txt")
+        with open(vf, "w") as f:
+            for name, a, b, _ in cvecs:
+                f.write("%s %d %d\n" % (name, a, b))
+        tb = os.path.join(ctmp, "tb_comb.v")
+        with open(tb, "w") as f:
+            f.write("""
+`timescale 1ns/1ps
+module tb_comb;
+  reg [53:0] a, b; wire signed [7:0] result; integer fd, n; reg [1023:0] name;
+  comb_ternary_dot_top dut(.a(a), .b(b), .result(result));
+  initial begin
+    fd = $fopen("cv.txt", "r");
+    while (!$feof(fd)) begin
+      n = $fscanf(fd, "%s %d %d", name, a, b);
+      if (n == 3) begin #1; $display("COMBRESULT %0s %0d", name, result); end
+    end
+    $display("COMBDONE"); $finish;
+  end
+endmodule
+""")
+        c = subprocess.run(["iverilog", "-g2012", "-o", os.path.join(ctmp, "simc"),
+                            tb, cout], capture_output=True, text=True, cwd=ctmp)
+        if c.returncode != 0:
+            fail("iverilog comb compile:\n" + c.stderr)
+        r3 = subprocess.run(["vvp", os.path.join(ctmp, "simc"), "-n"],
+                            capture_output=True, text=True, cwd=ctmp)
+        cg = {}
+        for line in r3.stdout.splitlines():
+            if line.startswith("COMBRESULT"):
+                _, nm, val = line.split()
+                cg[nm] = int(val)
+    if "COMBDONE" not in r3.stdout or len(cg) != len(cvecs):
+        fail("comb sim incomplete %d/%d\n%s"
+             % (len(cg), len(cvecs), r3.stderr[-300:]))
+    cmism = [(nm, x, cg[nm]) for nm, _, _, x in cvecs if cg[nm] != x]
+    crand_n = sum(1 for nm, _, _, _ in cvecs if nm.startswith("crandom_"))
+    log("gate8 %s: %d/%d bit-exact comb vectors (incl. %d randomized, seed 20261125)"
+        % ("PASS" if not cmism else "FAIL", len(cvecs) - len(cmism),
+           len(cvecs), crand_n))
+    if cmism:
+        fail("first comb mismatches: %r" % cmism[:5])
+
+    # gate 9: yosys synth_xilinx clean on the comb top
+    y3 = subprocess.run(["yosys", "-p", "read_verilog %s; synth_xilinx -family xc7 "
+                         "-top comb_ternary_dot_top; stat" % cout],
+                        capture_output=True, text=True)
+    clean3 = y3.returncode == 0 and "ERROR" not in y3.stderr
+    log("gate9 %s: yosys synth_xilinx %s" % ("PASS" if clean3 else "FAIL",
+        "clean; stat captured" if clean3 else "dirty"))
+    if not clean3:
+        fail("yosys comb rc=%d stderr=%s" % (y3.returncode, y3.stderr[-500:]))
+
     write_evidence(True, {"vectors_total": len(vecs), "randomized": rand_n,
                           "mismatches": 0,
                           # store only the deterministic stat blocks; yosys appends a
@@ -442,7 +666,14 @@ endmodule
                                      "en0_hold_cycles": n_en0, "mismatches": 0,
                                      "seed": 20261124,
                                      "yosys_stat": _det_stat(y2.stdout,
-                                                             "stream_ternary_mac_top")}})
+                                                             "stream_ternary_mac_top")},
+                          "comb": {"spec": os.path.relpath(COMB_SPEC, REPO),
+                                   "spec_sha256": COMB_SPEC_SHA,
+                                   "vectors_total": len(cvecs),
+                                   "randomized": crand_n, "mismatches": 0,
+                                   "seed": 20261125,
+                                   "yosys_stat": _det_stat(y3.stdout,
+                                                           "comb_ternary_dot_top")}})
     log("OVERALL: PASS")
     return 0
 

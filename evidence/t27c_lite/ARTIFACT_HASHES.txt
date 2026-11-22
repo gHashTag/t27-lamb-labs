@@ -1,6 +1,8 @@
-d4dadb429beefdc9a357886a5f7594b5d9f8a563fb10cf7a7f7e269143d743dc was pre-B3; superseded 2026-11-23 by the streaming on_clock tier (gates 5/6 added; dot27_top.v byte-identical, 4d8bb716...):
-94b03a14c28e9ae97c1beb99cfc3027b127edd4ad80fa90eba209f91f7ea52d3  evidence/t27c_lite/t27c_lite_run_2026-11-23.json
-d57fffb3683b2dddc98d2d343a7954db76d6e24e305fd199347fc9db864a7d3a  t27c_lite.py
+d4dadb429beefdc9a357886a5f7594b5d9f8a563fb10cf7a7f7e269143d743dc was pre-B3; superseded 2026-11-23 by the streaming on_clock tier (gates 5/6 added; dot27_top.v byte-identical, 4d8bb716...); comb tier added same day (gates 7-9, second spec pattern):
+c05a75d70b6a1e4fc719318c2d7558bdafb26ad14cd845f3e66eaff2c3f1f75a  evidence/t27c_lite/t27c_lite_run_2026-11-23.json
+bd22d4334bf1b7fcaf6a816df9bf4f7e4b37c269f8ed82fb390daee1b17a9a1e  t27c_lite.py
 4d8bb716970fb9256dbc390b7a8402df8e5e1b891e2a0ee0e23d3275898bd95a  rtl/t27c_lite/dot27_top.v
 3c2a7707b95302df1db5cf90e60418acb8ccfd6bd2ef2fc9f74f83e9582afd4a  rtl/t27c_lite/stream_ternary_mac_top.v
+2d596cee288793f46d737ed81ecb1d3d205e8752c40ba9b5e500733c488db908  rtl/t27c_lite/comb_ternary_dot_top.v
 f46c60b0ba669110f8cf4a169987c7c2e794b317bd6889f0e90e40cfcb158632  specs/ternary/stream_ternary_mac.t27
+1cb1bf87cd3f9cb92778ec47f85d079c6514ad532a7f8ee777481dd031ba4651  specs/ternary/comb_ternary_dot.t27
