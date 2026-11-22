@@ -791,6 +791,71 @@ The hand-rolled Gray counter (wrong update → non-monotonic readback) and the h
 (tracked the gray bit instead of the binary bit). Both produced **plausible-looking numbers that were
 wrong**, and both are recorded because that is what the protocol demands.
 
+## Co-Design Iteration 10: CORRECTION - the published attention numbers were for a design with NO KV cache (❌ WITHDRAWN)
+
+Building the first throughput probe forced the attention module to be instantiated in a new
+context, where its counter never advanced past its first value. That exposed two fatal defects in
+the committed module.
+
+### Defect 1: the KV cache was DEAD
+
+The cache was declared `reg [QUANT_W-1:0] kv_kmag [0:HEAD_DIM-1];` - **one dimension** - and then
+indexed `kv_kmag[c][slot_ptr]`, a bit-select **out of range** on an 8-bit value. The whole memory
+was dead: synthesis pruned the cache away.
+
+| | FFs in the netlist |
+|---|---|
+| committed module (HEAD_DIM=8, KV_LEN=16) | **333** - no cache |
+| corrected module | **3,879** - cache present |
+
+### Defect 2: the score overflowed
+
+The key magnitude was padded as `{1'b0, magnitude, 1'b0}` - a factor of **16** - and multiplied by a
+separate ±1 weight, so the 17-bit score accumulator **overflowed** and the score's *sign* (which
+selects add versus subtract) was wrong. A third defect - the key magnitude held in a `QUANT_W`-bit
+**signed** register, so magnitudes ≥ 2^(QUANT_W-1) came out negative - was found by the same
+testbench.
+
+### Corrected resource numbers (token-sequential form, same synthesis flow)
+
+| HEAD_DIM | KV_LEN | Est. LCs | FFs | CARRY4 | % device | fits the 10% cap |
+|---|---|---|---|---|---|---|
+| 1 | 16 | **392** | 519 | 87 | 0.3% | ✅ |
+| 2 | 16 | **1,385** | 999 | 165 | 1.0% | ✅ |
+| 4 | 16 | **5,160** | 1,959 | 321 | 3.8% | ✅ |
+| **8** | **16** | **18,912** | 3,879 | 633 | **14.0%** | **❌ NO** |
+| 8 | 32 | 39,542 | 7,341 | 636 | 29.4% | ❌ NO |
+
+**The published "505 LCs / 345 FFs" was for a cache-less design.** The real cost at the adopted
+configuration is **18,912 LCs - about 37× more** - and it **no longer fits** the 10% resource cap.
+
+### What is withdrawn
+
+- the token-sequential attention's resource numbers (505 LCs, 345 FFs)
+- the claim that **every** configuration fits inside the 10% cap
+- the "ACCEPT act_bits=4, quant_w=4" decision, to the extent it rested on the cache-less numbers
+- the attention's "BRAM = 0" statement, for the same reason
+
+### What survives
+
+- the **losslessness rule** `QUANT_W ≥ ACT_BITS` - it came from an exact simulation of the equations
+- the **sequential form's ordering** versus the combinational form (the combinational form computes
+  all SLOTS in parallel, so it needs proportionally more score logic)
+- the **cycle structure**, SLOTS + 2 cycles per token - a property of the control machine
+- every resource number for designs whose cache was never involved
+
+### Verification state of the corrected RTL: **NOT YET VERIFIED**
+
+The corrected module and a Verilog golden testbench are in `evidence/attention_fix/`. The testbench
+found the sign-width defect, which was fixed; it still mismatches on most randomised trials, with
+the DUT and the golden differing by exactly one slot's contribution on some channels and in sign on
+others. The cause is not yet identified.
+
+> **Therefore no throughput number is published from this module.** The corrected resource numbers
+> above are a measurement of a module whose behaviour is **not yet verified**.
+
+**Report**: `evidence/attention_fix/attention_correction_report.json`
+
 ## DRAM Reads Per Token (✅ MEASURED)
 
 | Metric | Value | Status |
@@ -880,7 +945,7 @@ order of magnitude.
 | CLOCK_MHZ | ✅ **67.16 MEASURED** (CFGMCLK, mean of 9, σ 1.33) · attention design's achievable clock still UNKNOWN · ring osc ~150 **WITHDRAWN** (appears not to oscillate) |
 | QUALITY_METRIC | ✅ MEASURED | attention quality: bit-exact vs a full-precision golden, 12000 randomised trials, 0 mismatches. The old 0.46% cycle-1 CV is **withdrawn** with the tok/s figure. |
 | CO_DESIGN_ITERATIONS_COMPLETED | ✅ MEASURED | **9** (acc x loop-topology; joint act x KV-quant; sequential vs combinational; clock source; AX7203-native build; critical-path isolation; Fmax noise audit; silicon clock + die telemetry) |
-| ATTENTION_KV_STATUS | ✅ resources + quality MEASURED (9 combinational, 7 sequential, 6 token-sequential configs); combinational form REJECTED (21.3% fabric); **token-sequential form ADOPTED** (505 LCs, 0.38%) |
+| ATTENTION_KV_STATUS | ❌ **RESOURCE NUMBERS WITHDRAWN** (iteration 10: the KV cache was dead, so 505 LCs / 345 FFs was a cache-less design). Corrected: **18,912 LCs / 3,879 FFs** at the adopted HEAD_DIM=8 - 14.0% of the fabric, **outside** the 10% cap. HEAD_DIM 1/2/4 at KV_LEN=16 fit (392 / 1,385 / 5,160 LCs). The corrected RTL is **not yet verified**, so no throughput number is published. |
 | RL_BENCHMARK_STATUS | ✅ contract + **19** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |

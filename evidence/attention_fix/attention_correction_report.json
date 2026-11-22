@@ -1,0 +1,86 @@
+{
+  "timestamp": "2026-11-22T16:20:00Z",
+  "iteration_id": 10,
+  "name": "CORRECTION: the published attention resource numbers were for a design with NO KV cache",
+  "status": "MEASURED (resources); the corrected RTL is NOT yet verified against the golden",
+  "why_this_iteration_exists": "Building the first throughput probe on a design with a running clock forced the attention module to be instantiated in a new context. The probe's counter never advanced past its first value, which exposed that the committed attention module's KV cache was not actually present in the synthesized netlist.",
+  "defects_found": [
+    {
+      "id": "DEAD_KV_CACHE",
+      "severity": "fatal to the published numbers",
+      "detail": "The cache was declared `reg [QUANT_W-1:0] kv_kmag [0:HEAD_DIM-1];` - ONE dimension - and then indexed `kv_kmag[c][slot_ptr]`, which is a bit-select out of range on an 8-bit value. The whole memory was dead: synthesis pruned the cache away.",
+      "evidence": "the committed module synthesised to 333 flip-flops with no KV cache in the netlist; the corrected module synthesises to 3879 flip-flops at HEAD_DIM=8, KV_LEN=16, with the cache present",
+      "consequence": "every published attention resource number - 505 LCs, 345 FFs, 0 BRAM, 0 DSP for the token-sequential form - was for a design with NO KV cache. The real cost is about 37x larger in flip-flops."
+    },
+    {
+      "id": "SCORE_OVERFLOW",
+      "severity": "fatal to correctness",
+      "detail": "The key magnitude was padded as {1'b0, magnitude, 1'b0}, a factor of 16, and then multiplied by a separate +/-1 weight. With a 17-bit score accumulator, ordinary inputs overflowed, so the SIGN of the score - which selects whether the value is added or subtracted - was wrong.",
+      "evidence": "a Verilog testbench comparing the committed module against a CPU golden mismatched on 40/40 trials; the corrected module's score is 3*5=15 for the hand-checked case where the committed module's overflowed"
+    },
+    {
+      "id": "SIGN_WIDTH_IN_THE_KEY",
+      "severity": "fatal to correctness",
+      "detail": "In the corrected module the key magnitude was first held in a QUANT_W-bit SIGNED register, so any magnitude >= 2^(QUANT_W-1) was interpreted as negative before the stored sign was applied. It needs QUANT_W+1 bits.",
+      "evidence": "found by the Verilog testbench; the golden uses the wider form"
+    }
+  ],
+  "corrected_resource_numbers": {
+    "note": "yosys 0.67+post synth_xilinx -family xc7 -nodsp -nosrl -top attn_token -flatten, HEAD_DIM x KV_LEN sweep, token-sequential form",
+    "rows": [
+      {"head_dim": 1, "kv_len": 4,  "estimated_lcs": 184,  "ffs": 183,  "carry4": 81},
+      {"head_dim": 1, "kv_len": 8,  "estimated_lcs": 261,  "ffs": 297,  "carry4": 84},
+      {"head_dim": 1, "kv_len": 16, "estimated_lcs": 392,  "ffs": 519,  "carry4": 87},
+      {"head_dim": 1, "kv_len": 32, "estimated_lcs": 657,  "ffs": 957,  "carry4": 90},
+      {"head_dim": 2, "kv_len": 4,  "estimated_lcs": 495,  "ffs": 339,  "carry4": 159},
+      {"head_dim": 2, "kv_len": 8,  "estimated_lcs": 820,  "ffs": 561,  "carry4": 162},
+      {"head_dim": 2, "kv_len": 16, "estimated_lcs": 1385, "ffs": 999,  "carry4": 165},
+      {"head_dim": 2, "kv_len": 32, "estimated_lcs": 2634, "ffs": 1869, "carry4": 168},
+      {"head_dim": 4, "kv_len": 4,  "estimated_lcs": 1667, "ffs": 651,  "carry4": 315},
+      {"head_dim": 4, "kv_len": 8,  "estimated_lcs": 2692, "ffs": 1089, "carry4": 318},
+      {"head_dim": 4, "kv_len": 16, "estimated_lcs": 5160, "ffs": 1959, "carry4": 321},
+      {"head_dim": 4, "kv_len": 32, "estimated_lcs": 9348, "ffs": 3693, "carry4": 324},
+      {"head_dim": 8, "kv_len": 4,  "estimated_lcs": 5548, "ffs": 1275, "carry4": 627},
+      {"head_dim": 8, "kv_len": 8,  "estimated_lcs": 10030, "ffs": 2145, "carry4": 630},
+      {"head_dim": 8, "kv_len": 16, "estimated_lcs": 18912, "ffs": 3879, "carry4": 633},
+      {"head_dim": 8, "kv_len": 32, "estimated_lcs": 39542, "ffs": 7341, "carry4": 636}
+    ],
+    "adopted_config_before": {"head_dim": 8, "kv_len": 16, "published_lcs": 505, "published_ffs": 345, "was_correct": false},
+    "adopted_config_after":  {"head_dim": 8, "kv_len": 16, "corrected_lcs": 18912, "corrected_ffs": 3879},
+    "resource_cap_consequence": {
+      "cap_lcs": 13460,
+      "cap_percent_of_device": 10,
+      "adopted_config_lcs_percent_of_device": 14.0,
+      "verdict": "the adopted HEAD_DIM=8 configuration NO LONGER FITS the 10% cap: 18912 LCs is 14.0% of the XC7A200T. The architectures that DO fit are HEAD_DIM=1 (392 LCs at KV_LEN=16, 0.3%) and HEAD_DIM=2 (1385 LCs, 1.0%). HEAD_DIM=4 at KV_LEN=16 is 5160 LCs (3.8%), also inside the cap."
+    }
+  },
+  "what_survives": [
+    "the QUALITY RULE, QUANT_W >= ACT_BITS for losslessness: it was derived from an exact simulation of the EQUATIONS, which the defects did not change",
+    "the sequential-vs-combinational ORDERING: the combinational form computes all SLOTS in parallel and therefore needs SLOTS times more score logic, so it is still the worse form",
+    "the cycle structure, SLOTS + 2 cycles per token: it is a property of the control machine, not of the arithmetic",
+    "every resource number for designs whose cache was never involved - the MAC probe, the utilisation report"
+  ],
+  "what_is_withdrawn": [
+    "the token-sequential attention's resource numbers (505 LCs, 345 FFs) - they were for a cache-less design",
+    "the claim that every configuration fits inside the 10% resource cap - the adopted HEAD_DIM=8 configuration does not",
+    "the 'ACCEPT act_bits=4, quant_w=4' decision at the adopted HEAD_DIM, to the extent it rested on the cache-less numbers",
+    "the BRAM = 0 statement, for the attention: the corrected cache is registers at these sizes, but that is now a measured statement about a different design"
+  ],
+  "verification_state_of_the_corrected_rtl": {
+    "status": "NOT YET VERIFIED",
+    "what_was_done": "the corrected module is written (evidence/attention_fix/attn_token_fixed.v) and a Verilog testbench against a CPU golden exists (evidence/attention_fix/attn_token_fixed_tb.v). The testbench found the sign-width defect, which was fixed.",
+    "what_remains": "the testbench still mismatches on most randomised trials. The remaining discrepancy is in the VALUE accumulation: the DUT and the golden disagree by exactly one slot's contribution on some channels and in sign on others. The cause is NOT yet identified.",
+    "honest_statement": "the corrected module's EQUATIONS are the ones the Python golden model verified over 12000 randomised trials, but the Verilog implementation of those equations has NOT been shown equal to the golden. Until that is done, the corrected resource numbers are a measurement of a module whose behaviour is not verified."
+  },
+  "decision": "PUBLISH THE CORRECTION NOW; do not publish any throughput number from this module until the corrected RTL passes the Verilog golden test",
+  "decision_rationale": [
+    "The published numbers are wrong by about 37x in flip-flops, and leaving them up would be a false claim in the portfolio's headline section.",
+    "The correction itself is a measured result: the corrected resource numbers come from the same synthesis flow as the original ones.",
+    "The throughput measurement depends on this module, so it waits until the module is verified rather than shipping a number from an unverified design."
+  ],
+  "next_iteration": [
+    "finish the Verilog golden test: dump the DUT's per-slot score and value contribution and compare them slot by slot with the golden",
+    "once it passes, measure the corrected resources across the sweep and publish them",
+    "then build the token-rate probe on the 200 MHz clock and measure the first throughput number"
+  ]
+}

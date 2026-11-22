@@ -40,7 +40,7 @@ workload; external weight reads per generated token: measured value.**
 | Rail voltages | VCCINT 0.99926 V, VCCAUX 1.80532 V | `evidence/clock_probe/xadc_measurement.log` |
 | **External DRAM reads / token** | **0** | `evidence/` (DRAM reads report) |
 | **Attention quality** | **bit-exact** vs a full-precision golden - 12,000 randomised trials, **0 mismatches** | `evidence/attention_token/token_sequential_verification.py` |
-| Attention resources | token-sequential: **505 LCs**, 345 FF, 0 BRAM, 0 DSP (0.38% of the fabric) | `evidence/attention_token/` |
+| Attention resources | **WITHDRAWN** - the committed module's KV cache was dead, so 505 LCs / 345 FF was a cache-less design. **Corrected: 18,912 LCs / 3,879 FF** at the adopted HEAD_DIM=8 / KV_LEN=16 = 14.0% of the fabric, **outside** the 10% cap. HEAD_DIM 1 / 2 / 4 at KV_LEN=16 fit: 392 / 1,385 / 5,160 LCs. | `evidence/attention_fix/attention_correction_report.json` |
 | Combinational attention (rejected) | 28,582 LCs = **21.3% of the fabric** | `evidence/attention/` |
 | KV-cache per-slot cost | **9.3 LCs + 6.6 FFs** per slot | `evidence/attention_seq/` |
 | Zero-DSP | **DSP48E1 = 0** in all 22 attention configurations | `benchmark/validate_benchmark.py` |

@@ -305,7 +305,10 @@
       "bram": 0,
       "bit_exact": false,
       "mean_rel_err_vs_full_precision": 0.800591,
-      "decision": "REJECT: quality floor violated (80% mean relative error)"
+      "decision": "REJECT: quality floor violated (80% mean relative error)",
+      "resource_numbers": {
+        "status": "WITHDRAWN - see attention_resource_correction"
+      }
     },
     {
       "state": {
@@ -320,7 +323,10 @@
       "bram": 0,
       "bit_exact": false,
       "mean_rel_err_vs_full_precision": 0.949815,
-      "decision": "REJECT: quality floor violated (95% mean relative error). Supersedes the resource-only preference in iteration 1."
+      "decision": "REJECT: quality floor violated (95% mean relative error). Supersedes the resource-only preference in iteration 1.",
+      "resource_numbers": {
+        "status": "WITHDRAWN - see attention_resource_correction"
+      }
     },
     {
       "state": {
@@ -335,7 +341,10 @@
       "bram": 0,
       "bit_exact": true,
       "mean_rel_err_vs_full_precision": 0.0,
-      "decision": "REJECT by the 10% cap; valid lossless point"
+      "decision": "REJECT by the 10% cap; valid lossless point",
+      "resource_numbers": {
+        "status": "WITHDRAWN - see attention_resource_correction"
+      }
     },
     {
       "state": {
@@ -350,7 +359,10 @@
       "bram": 0,
       "bit_exact": true,
       "mean_rel_err_vs_full_precision": 0.0,
-      "decision": "REJECT: lossless but wasteful (cache stores 2 bits more than the data needs)"
+      "decision": "REJECT: lossless but wasteful (cache stores 2 bits more than the data needs)",
+      "resource_numbers": {
+        "status": "WITHDRAWN - see attention_resource_correction"
+      }
     },
     {
       "state": {
@@ -365,7 +377,10 @@
       "bram": 0,
       "bit_exact": true,
       "mean_rel_err_vs_full_precision": 0.0,
-      "decision": "ACCEPT: cheapest lossless configuration, 7.9% of the device LUT fabric, inside the 10% cap"
+      "decision": "ACCEPT: cheapest lossless configuration, 7.9% of the device LUT fabric, inside the 10% cap",
+      "resource_numbers": {
+        "status": "WITHDRAWN - see attention_resource_correction"
+      }
     },
     {
       "state": {
@@ -380,7 +395,10 @@
       "bram": 0,
       "bit_exact": true,
       "mean_rel_err_vs_full_precision": 0.0,
-      "decision": "REJECT: wasteful"
+      "decision": "REJECT: wasteful",
+      "resource_numbers": {
+        "status": "WITHDRAWN - see attention_resource_correction"
+      }
     },
     {
       "state": {
@@ -396,7 +414,10 @@
       "bit_exact": true,
       "mean_rel_err_vs_full_precision": 0.0,
       "exact_cycles_per_token": 10,
-      "decision": "ACCEPT: 0.27% of device, exact 10 cycles/token, verified identical to the combinational golden"
+      "decision": "ACCEPT: 0.27% of device, exact 10 cycles/token, verified identical to the combinational golden",
+      "resource_numbers": {
+        "status": "WITHDRAWN - see attention_resource_correction"
+      }
     },
     {
       "state": {
@@ -412,7 +433,10 @@
       "bit_exact": true,
       "mean_rel_err_vs_full_precision": 0.0,
       "exact_cycles_per_token": 18,
-      "decision": "ACCEPT: 0.38% of device, exact 18 cycles/token, verified identical to the combinational golden"
+      "decision": "ACCEPT: 0.38% of device, exact 18 cycles/token, verified identical to the combinational golden",
+      "resource_numbers": {
+        "status": "WITHDRAWN - see attention_resource_correction"
+      }
     },
     {
       "state": {
@@ -428,7 +452,10 @@
       "bit_exact": true,
       "mean_rel_err_vs_full_precision": 0.0,
       "exact_cycles_per_token": 34,
-      "decision": "ACCEPT: 0.61% of device, exact 34 cycles/token"
+      "decision": "ACCEPT: 0.61% of device, exact 34 cycles/token",
+      "resource_numbers": {
+        "status": "WITHDRAWN - see attention_resource_correction"
+      }
     },
     {
       "state": {
@@ -444,7 +471,10 @@
       "bit_exact": true,
       "mean_rel_err_vs_full_precision": 0.0,
       "exact_cycles_per_token": 18,
-      "decision": "CANDIDATE"
+      "decision": "CANDIDATE",
+      "resource_numbers": {
+        "status": "WITHDRAWN - see attention_resource_correction"
+      }
     },
     {
       "state": {
@@ -460,7 +490,10 @@
       "bit_exact": true,
       "mean_rel_err_vs_full_precision": 0.0,
       "exact_cycles_per_token": 18,
-      "decision": "CANDIDATE"
+      "decision": "CANDIDATE",
+      "resource_numbers": {
+        "status": "WITHDRAWN - see attention_resource_correction"
+      }
     },
     {
       "state": {
@@ -477,7 +510,10 @@
       "bit_exact": true,
       "mean_rel_err_vs_full_precision": 0.0,
       "exact_cycles_per_token": 10,
-      "decision": "ACCEPT: 0.28% of device, exact 10 cycles/token, silicon-specified clock"
+      "decision": "ACCEPT: 0.28% of device, exact 10 cycles/token, silicon-specified clock",
+      "resource_numbers": {
+        "status": "WITHDRAWN - see attention_resource_correction"
+      }
     },
     {
       "state": {
@@ -494,7 +530,10 @@
       "bit_exact": true,
       "mean_rel_err_vs_full_precision": 0.0,
       "exact_cycles_per_token": 18,
-      "decision": "ACCEPT: 0.35% of device, exact 18 cycles/token, silicon-specified clock (reference design)"
+      "decision": "ACCEPT: 0.35% of device, exact 18 cycles/token, silicon-specified clock (reference design)",
+      "resource_numbers": {
+        "status": "WITHDRAWN - see attention_resource_correction"
+      }
     },
     {
       "state": {
@@ -511,7 +550,10 @@
       "bit_exact": true,
       "mean_rel_err_vs_full_precision": 0.0,
       "exact_cycles_per_token": 34,
-      "decision": "ACCEPT: 0.57% of device, exact 34 cycles/token"
+      "decision": "ACCEPT: 0.57% of device, exact 34 cycles/token",
+      "resource_numbers": {
+        "status": "WITHDRAWN - see attention_resource_correction"
+      }
     }
   ],
   "source_of_truth": {
@@ -526,7 +568,8 @@
     "ax7203_build": "evidence/ax7203_build/ax7203_build_report.json",
     "critical_path": "evidence/critical_path/critical_path_report.json",
     "fmax_noise": "evidence/fmax_noise/fmax_noise_report.json",
-    "clock_probe": "evidence/clock_probe/clock_probe_report.json"
+    "clock_probe": "evidence/clock_probe/clock_probe_report.json",
+    "attention_correction": "evidence/attention_fix/attention_correction_report.json"
   },
   "co_design_rule": "The KV cache stores sign + quant_w magnitude bits of an act_bits-wide signed value, so losslessness requires quant_w >= act_bits. QUANT_W is not an independent lever: narrowing it alone is lossy, narrowing act_bits alone at quant_w=8 wastes cache bits. The two must move together.",
   "open_source_engagement": {
@@ -723,5 +766,54 @@
     "redo the variance gate on a design whose clock runs",
     "FPGA power and J/token: still ESTIMATED, a current meter in series with the rail is required",
     "the sequential attention design still does not route in openXC7"
-  ]
+  ],
+  "attention_resource_correction": {
+    "status": "PUBLISHED - the committed attention module's KV cache was dead, so its resource numbers were for a cache-less design",
+    "defects": [
+      "the KV cache was declared with one dimension but indexed with two, so synthesis pruned it away",
+      "the score carried a factor-of-16 padding and overflowed its 17-bit accumulator, so the score's sign was wrong",
+      "the key magnitude was held in a QUANT_W-bit SIGNED register, so magnitudes >= 2^(QUANT_W-1) came out negative"
+    ],
+    "published_numbers_withdrawn": {
+      "token_sequential_lcs": 505,
+      "token_sequential_ffs": 345,
+      "adopted_config_head_dim": 8,
+      "adopted_config_kv_len": 16
+    },
+    "corrected_numbers": {
+      "head_dim": 8,
+      "kv_len": 16,
+      "estimated_lcs": 18912,
+      "ffs": 3879,
+      "lcs_percent_of_device": 14.0,
+      "resource_cap_lcs": 13460,
+      "fits_the_10pct_cap": false
+    },
+    "configurations_that_do_fit": [
+      {
+        "head_dim": 1,
+        "kv_len": 16,
+        "lcs": 392,
+        "pct": 0.3
+      },
+      {
+        "head_dim": 2,
+        "kv_len": 16,
+        "lcs": 1385,
+        "pct": 1.0
+      },
+      {
+        "head_dim": 4,
+        "kv_len": 16,
+        "lcs": 5160,
+        "pct": 3.8
+      }
+    ],
+    "survives": [
+      "the QUANT_W >= ACT_BITS losslessness rule (it came from an exact simulation of the equations)",
+      "the sequential form's ordering versus the combinational form",
+      "the SLOTS + 2 cycles per token control structure"
+    ],
+    "corrected_rtl_verification": "NOT YET VERIFIED - the Verilog golden testbench still mismatches, so no throughput number may be published from this module"
+  }
 }
