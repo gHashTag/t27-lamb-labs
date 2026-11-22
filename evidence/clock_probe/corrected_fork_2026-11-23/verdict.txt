@@ -1,0 +1,35 @@
+CORRECTED FORK clock_probe_r4t4c — SIMULATION VERDICT (2026-11-23)
+=====================================================================
+
+WHAT: single-line fix of the documented reconstruction defect
+      (`tick_q <= presc[PW-1]` with undeclared `presc` -> tick_rise stuck 0
+      -> counter frozen at 0 == observed clock_probe_r4t4b.bit C6 failure).
+      Fixed line: `tick_q <= tick;` (as in silicon-proven clock_probe_ctrl.v).
+
+RESULT: PASS (r4t4c_sim_2026-11-23_053815.log)
+  - steady-state divide ratio: 8/8 tick intervals span exactly 256 cfgmclk
+    edges through the FULL design (IBUFDS -> two-stage Johnson -> detector);
+  - counter advancing: cnt == ticks_seen == 12, no wrap;
+  - USER1 readback returns 0xA5A0000C == {12'hA5A, cnt} (LSB-first,
+    read_user1.py convention); magic proves the counter bits;
+  - yosys contrast: defective file warns "implicitly declared" +
+    "Range select out of bounds"; corrected fork elaborates with NO such
+    warnings (the defect mechanism is removed at the elaborator level too).
+
+WHY TICK 1 IS EXCLUDED: first interval spans the Johnson fill-up from cold
+  start (64 cfgmclk edges), not the steady-state /256 period. Attempt-4 log
+  measured this directly (64 vs 256; intervals 2..8 all 256). TB now measures
+  ticks 2..9 and documents the exclusion.
+
+HONEST LIMITS:
+  - SIMULATION ONLY. No bitstream exists from this fork. Nothing on the FPGA
+    has been rebuilt or re-measured with the corrected RTL.
+  - The historical reconstruction evidence/clock_probe/clock_probe_r4t4.v is
+    intentionally UNCHANGED; the frozen-at-zero r4t4b.bit C6 failure record
+    stands as measured history.
+  - Rebuilding clock_probe_r4t4c for hardware requires the openXC7 flow
+    (nextpnr-xilinx, fasm2frames.py, xc7frames2bit), NOT installed on this
+    host; gated on explicit owner approval.
+  - The R4/T4 frequency numbers (~397.6 MHz pooled) remain PROVISIONAL,
+    EXPLAINED=NO, and are not design inputs; this fork says nothing new
+    about the oscillator frequency itself.

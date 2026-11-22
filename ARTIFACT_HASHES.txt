@@ -1,0 +1,5 @@
+== corrected_fork_2026-11-23 ARTIFACT_HASHES (sha256, repo-relative) ==
+    evidence/clock_probe/corrected_fork_2026-11-23/clock_probe_r4t4c_sim.v
+    evidence/clock_probe/corrected_fork_2026-11-23/clock_probe_r4t4c_tb.v
+    evidence/clock_probe/corrected_fork_2026-11-23/r4t4c_sim_2026-11-23_053815.log
+    evidence/clock_probe/corrected_fork_2026-11-23/verdict.txt

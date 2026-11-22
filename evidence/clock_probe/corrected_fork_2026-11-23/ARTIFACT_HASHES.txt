@@ -1,0 +1,5 @@
+== corrected_fork_2026-11-23 ARTIFACT_HASHES (sha256, repo-relative) ==
+359f26dbd4876a6e1dcddb448806c5f3235baaec87a23f5dd93027c5a8b0407f  evidence/clock_probe/corrected_fork_2026-11-23/clock_probe_r4t4c_sim.v
+188264e9cc2701e0436a031fafff688884bff9fe40fd2c0202a6782991b87015  evidence/clock_probe/corrected_fork_2026-11-23/clock_probe_r4t4c_tb.v
+bad21caaaf2944e541bd6e74ce9c3ac9fa1ab593b146ceee083fb11e0a5a9a12  evidence/clock_probe/corrected_fork_2026-11-23/r4t4c_sim_2026-11-23_053815.log
+1f22f1d5ab6a0615d3f4d81775335015186e3e161461d43e781f91363ba1481b  evidence/clock_probe/corrected_fork_2026-11-23/verdict.txt
