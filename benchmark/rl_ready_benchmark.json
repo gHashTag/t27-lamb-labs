@@ -639,8 +639,20 @@
       "reference_nominal_mhz": 66
     },
     "board_oscillator_r4_t4_mhz": {
-      "value": 200,
-      "status": "SPECIFIED by the board, NOT MEASURED - needs a pin-bearing probe"
+      "value": null,
+      "status": "NOT PUBLISHED - a consistent reading whose divide ratio is not yet validated",
+      "reading": {
+        "mean_mhz": 398.6926,
+        "median_mhz": 399.0965,
+        "stdev_mhz": 7.5735,
+        "n": 9,
+        "spread_pct": 1.9,
+        "bitstream_md5": "56a2e4482c855a1be68bb9daeef837a4"
+      },
+      "what_it_establishes": "R4/T4 carries a RUNNING, STABLE clock: the counter advances monotonically with a 1.9% spread and a valid magic on every read. A dead or floating pin cannot do that. Unlike the fabric ring oscillator, the board's clock is usable for a real design.",
+      "why_not_published": "the number assumes the two-stage Johnson prescaler divides by 256, and that assumption is the whole measurement. If it divides by 512 the same reading is 199.3 MHz, which would match the documented 200 MHz exactly. The CFGMCLK+Johnson control - which would settle the factor - would not route in 40 seeds.",
+      "next_step": "get the CFGMCLK+Johnson control to route (netlist at /tmp/clock_probe_johnson_cfg.json on the GPU box) and read it",
+      "log": "evidence/clock_probe/r4t4_measurement.log"
     },
     "fabric_ring_oscillator": {
       "estimated_mhz": 150,
