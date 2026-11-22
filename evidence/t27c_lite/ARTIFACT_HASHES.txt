@@ -1,4 +1,6 @@
-d4dadb429beefdc9a357886a5f7594b5d9f8a563fb10cf7a7f7e269143d743dc  evidence/t27c_lite/t27c_lite_run_2026-11-23.json
-97aef04ac6739a7de127fcd3dde3c1f7494b20570f2b764129201fd719b7ccf3  t27c_lite.py
+d4dadb429beefdc9a357886a5f7594b5d9f8a563fb10cf7a7f7e269143d743dc was pre-B3; superseded 2026-11-23 by the streaming on_clock tier (gates 5/6 added; dot27_top.v byte-identical, 4d8bb716...):
+94b03a14c28e9ae97c1beb99cfc3027b127edd4ad80fa90eba209f91f7ea52d3  evidence/t27c_lite/t27c_lite_run_2026-11-23.json
+d57fffb3683b2dddc98d2d343a7954db76d6e24e305fd199347fc9db864a7d3a  t27c_lite.py
 4d8bb716970fb9256dbc390b7a8402df8e5e1b891e2a0ee0e23d3275898bd95a  rtl/t27c_lite/dot27_top.v
+3c2a7707b95302df1db5cf90e60418acb8ccfd6bd2ef2fc9f74f83e9582afd4a  rtl/t27c_lite/stream_ternary_mac_top.v
 f46c60b0ba669110f8cf4a169987c7c2e794b317bd6889f0e90e40cfcb158632  specs/ternary/stream_ternary_mac.t27

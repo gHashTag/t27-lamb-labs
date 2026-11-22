@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """run_conformance.py — TNF/GF16 numeric-core conformance pack (issue #2 [R4]).
 
-One entrypoint. Two tiers, honestly labelled:
+One entrypoint. Tiers, honestly labelled:
   TIER A (RTL leg): committed rtl core `ternary_mac_top` (evidence/codesign/
     ternary_mac_synth.v == the byte-exact recovered synth source) simulated with
     iverilog; every measured acc_out compared bit-exact against an INDEPENDENT
@@ -12,6 +12,11 @@ One entrypoint. Two tiers, honestly labelled:
     the spec's own 4 embedded tests + enumerated edge vectors. No RTL leg for
     dot27 exists in this lab yet (t27c compiler = issue #3 [R3]) — the tier is
     labelled SPEC-VERIFIED, not RTL-verified.
+  TIER B2 (RTL leg): t27c_lite-emitted dot27_top.v vs the same independent
+    spec golden (spec tests + edges + 40 randomized, seed 424242).
+  TIER B3 (RTL leg, streaming): t27c_lite-emitted stream_ternary_mac_top.v
+    (the spec's on_clock/var-acc/en contract) vs independent spec golden over
+    16 randomized streams with en=0 hold cycles (seed 777).
 
 Exit code 0 = all vectors pass. Evidence JSON + sha256 written to
 evidence/conformance/ per ARTIFACT_HASHES convention.
@@ -222,6 +227,77 @@ def run_dot27_rtl_tier(log, spec_vectors):
     return {"tier": "B2", "label": "RTL-VERIFIED (dot27_top.v, t27c_lite-emitted, iverilog)",
             "vectors": rows, "npass": npass, "ntotal": len(rows)}
 
+def run_stream_rtl_tier(log):
+    """Tier B3: streaming on_clock leg — t27c_lite-emitted stream_ternary_mac_top.v
+    (spec-derived: var acc + on_clock body + en contract) simulated with iverilog
+    over 16 randomized streams (seed 777) vs the INDEPENDENT spec golden
+    (dot27 above + 32-bit wrap). en=0 cycles must hold acc."""
+    rtl = os.path.join(REPO, "rtl", "t27c_lite", "stream_ternary_mac_top.v")
+    dot = os.path.join(REPO, "rtl", "t27c_lite", "dot27_top.v")
+    if not os.path.exists(rtl):
+        log("B3 skipped: %s missing (run t27c_lite.py first)" % os.path.relpath(rtl, REPO))
+        return None
+    rng = random.Random(777)  # fixed seed, distinct from the compiler's own vectors
+    cyc, exp = [], []
+    acc = 0
+    for k in range(16):
+        L = rng.randint(1, 12)
+        for _ in range(rng.randint(1, 3)):          # en=0 hold cycles
+            cyc.append((0, 0, 0)); exp.append(acc)
+        for _ in range(L):
+            a = b = 0
+            for i in range(27):
+                a |= rng.choice((N, Z, P)) << (i << 1)
+                b |= rng.choice((N, Z, P)) << (i << 1)
+            acc = wrap32(acc + dot27(a, b))
+            cyc.append((a, b, 1)); exp.append(acc)
+        cyc.append((0, 0, 0)); exp.append(acc)      # tail hold: read time
+    rows, npass = [], 0
+    with tempfile.TemporaryDirectory() as tmp:
+        vf = os.path.join(tmp, "sv.txt")
+        with open(vf, "w") as f:
+            for s, (a, b, en) in enumerate(cyc):
+                f.write("%d %d %d %d\n" % (s, a, b, en))
+        tb = os.path.join(tmp, "tb_stream.v")
+        with open(tb, "w") as f:
+            f.write("`timescale 1ns/1ps\nmodule tb_stream;\n"
+                    "  reg clk = 0; reg en; reg [53:0] a, b;\n"
+                    "  wire signed [31:0] acc; integer fd, n, stepno;\n"
+                    "  stream_ternary_mac_top dut(.clk(clk), .en(en), .a(a), .b(b), .acc(acc));\n"
+                    "  always #5 clk = ~clk;\n"
+                    "  initial begin\n"
+                    "    fd = $fopen(\"sv.txt\", \"r\");\n"
+                    "    while (!$feof(fd)) begin\n"
+                    "      n = $fscanf(fd, \"%d %d %d %d\", stepno, a, b, en);\n"
+                    "      if (n == 4) begin @(posedge clk); #1;\n"
+                    "        $display(\"B3RESULT %0d %0d\", stepno, acc); end\n"
+                    "    end\n $display(\"B3DONE\"); $finish;\n end\nendmodule\n")
+        c = subprocess.run(["iverilog", "-g2012", "-o", os.path.join(tmp, "sim3"),
+                            tb, rtl, dot], capture_output=True, text=True, cwd=tmp)
+        if c.returncode != 0:
+            log("B3 iverilog compile FAILED:\n" + c.stderr)
+            return None
+        r = subprocess.run(["vvp", os.path.join(tmp, "sim3"), "-n"],
+                           capture_output=True, text=True, cwd=tmp)
+        got = {}
+        for line in r.stdout.splitlines():
+            if line.startswith("B3RESULT"):
+                _, st, val = line.split()
+                got[int(st)] = int(val)
+    if "B3DONE" not in r.stdout or len(got) != len(cyc):
+        log("B3 sim incomplete %d/%d" % (len(got), len(cyc)))
+        return None
+    for s, (a, b, en) in enumerate(cyc):
+        ok = got[s] == exp[s]
+        npass += ok
+        rows.append({"cycle": s, "a": a, "b": b, "en": en, "expected_acc": exp[s],
+                     "measured_rtl": got[s], "pass": ok})
+    n_hold = sum(1 for _, _, en in cyc if en == 0)
+    log("TIER B3 (stream on_clock RTL leg, %d cycles incl. %d en=0 holds): %d/%d pass"
+        % (len(cyc), n_hold, npass, len(rows)))
+    return {"tier": "B3", "label": "RTL-VERIFIED (stream_ternary_mac_top.v, on_clock leg)",
+            "vectors": rows, "npass": npass, "ntotal": len(rows)}
+
 def main():
     lines = []
     log = lines.append
@@ -229,17 +305,19 @@ def main():
         tier_a, _ = run_mac_tier(tmpdir, log)
     tier_b = run_dot27_tier(log)
     tier_b2 = run_dot27_rtl_tier(log, tier_b["vectors"])
+    tier_b3 = run_stream_rtl_tier(log)
 
     overall = bool(tier_a and tier_b["npass"] == tier_b["ntotal"]
                    and tier_a["npass"] == tier_a["ntotal"]
-                   and tier_b2 and tier_b2["npass"] == tier_b2["ntotal"])
+                   and tier_b2 and tier_b2["npass"] == tier_b2["ntotal"]
+                   and tier_b3 and tier_b3["npass"] == tier_b3["ntotal"])
     for l in lines: print(l)
     print("OVERALL: %s" % ("PASS" if overall else "FAIL"))
 
     vinfo = subprocess.run(["iverilog", "-V"], capture_output=True, text=True)
     vbanner = next((l for l in (vinfo.stderr + vinfo.stdout).splitlines() if "Icarus" in l), "unknown")
     result = {"date": "2026-11-23", "overall": "PASS" if overall else "FAIL",
-              "tiers": [tier_a, tier_b, tier_b2],
+              "tiers": [tier_a, tier_b, tier_b2, tier_b3],
               "log": lines,
               "sources": {
                   "mac_rtl": os.path.relpath(MAC_RTL, REPO),
