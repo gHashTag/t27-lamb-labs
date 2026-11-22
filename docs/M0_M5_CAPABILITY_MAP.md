@@ -61,7 +61,7 @@ This is the M0–M5 mapping required by `T27_LAMB_LABS_MILESTONES_V1` step 3. Ga
 |---|---|---|
 | Tagged milestone line with hashes | **SATISFIED** | 19 tags, root `ARTIFACT_MANIFEST.txt` + per-dir `ARTIFACT_HASHES.txt`; artifact identity re-verified live today (bitstream sha256 match) |
 | GitHub Release objects with rollback path | ~~GAP → R7~~ **SATISFIED-DRAFT (2026-11-23, owner verification pending)** | 19/19 v0.1.x releases created as DRAFTS (`e18549d`): notes = tag subject + message + full ARTIFACT_MANIFEST@tag (sha256 list) + commit sha + rollback pointer + provenance caveats; zero assets (no secret-bearing assets possible); remote tags untouched; publishing = owner one-click |
-| Regression suite | **PARTIAL** | `benchmark/validate_benchmark.py` + published reproduce commands; no single entrypoint that runs spec checks + benchmarks + evidence-hash verification in one command |
+| Regression suite | ~~PARTIAL~~ **SATISFIED-LITE (2026-11-23, owner verification pending)** | `scripts/regress_all.sh`: one command → G1 portfolio acceptance / G2 t27c_lite compiler (117/117 bit-exact + byte-identical regen) / G3 conformance pack (29+10+50) / G4 manifest hash sweep (231 rows, 0 mismatch) / G5 tree-drift (regenerated artifacts byte-identical). ALL GATES PASS ×2, exit 0 ×2 (`evidence/regression/`, hashed). Caught and fixed a real nondeterminism (yosys wall-clock tail in t27c_lite evidence). Full fuzz/assertion suite remains future M2 work |
 | Portfolio narrative | **SATISFIED** | `README.md` ("Scope, stated honestly") + `target/lamb_labs_evidence.md` dashboard |
 
 ---
