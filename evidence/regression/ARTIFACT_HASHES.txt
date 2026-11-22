@@ -13,3 +13,8 @@ dfc81f62f4dba3004cf45b5bd4ba50aed56a27155c1ef0ad1a321e638cac9961  evidence/regre
 22ad34a96d0b9b7300e12b68f79051c9deab81cb139d15d5bdc2dfc16248f521  evidence/regression/regress_2026-11-23_050758.log  # superseded: captured pre-manifest-regen (G4 1 mismatch); see correction addendum inside
 b377132641fa36a6996b44f8a24d7d3d6ee6daea63b11c187668c56e6d8efe4f  evidence/regression/regress_2026-11-23_050841.log  # final verification rerun at round-10 closure HEAD (duplicate check, exit 0)
 aa5a13c299e5ca96f26541d6e64661d20d098a2f3bcf539375d00a0820ba26f8  evidence/regression/regress_2026-11-23_r11_comb.log  # ALL GATES PASS exit 0 at comb-pattern HEAD; G2 now gates 1-9 over both spec patterns
+
+== r12 clock-probe corrected-fork round (appended 2026-11-23) ==
+f9093712c2eed1019a09657842a0391b9ab384956555701f3ba96cde462b775f  evidence/regression/regress_2026-11-23_r12_r4t4c.log
+67754a4b0a2d0ef57fdad615104f8525535a82ecc03781580edba4f78472c274  evidence/regression/regress_2026-11-23_r12_r4t4c_fixed.log
+c2ffb4b6be098fc507c9c54c7bd7e82a27b979531a0fd1c13e1b5cedd8f45b59  evidence/regression/regress_2026-11-23_r12_pass.log
