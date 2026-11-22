@@ -1,0 +1,37 @@
+=== JOHNSON DIVIDE /256 — SIMULATION leg (round-10 Job A, 2026-11-23) ===
+
+Purpose: the /256 divide ratio was silicon-confirmed via the cell-identical
+CFGMCLK control (divide_ratio_control.log, ratios 5.965/5.953/5.939 -> 256).
+This log adds the missing independent leg: the prescaler source
+(clock_probe_ctrl.v lines 50-66, copied verbatim into johnson_divide_tb.v)
+simulated edge-exactly with iverilog — no host counter window, no wrap
+assumptions. Complements, does not replace, the silicon evidence.
+
+Method note: two earlier TB drafts were discarded WITHOUT publication:
+(1) fork/wait reader raced the design (all-zero reads);
+(2) edges-since-rise counter excluded the detection edge itself (read 255).
+Final TB increments before detection (interval = both detection edges
+inclusive) in one clocked process with NBA last-cycle semantics;
+first observed tick_rise only arms the recorder.
+
+$ iverilog -g2012 -o /tmp/johnson_divide_sim evidence/clock_probe/johnson_divide_tb.v
+COMPILE_EXIT=0
+
+$ vvp /tmp/johnson_divide_sim -n
+JOHNSON_TICK 0 edges=256 OK
+JOHNSON_TICK 1 edges=256 OK
+JOHNSON_TICK 2 edges=256 OK
+JOHNSON_TICK 3 edges=256 OK
+JOHNSON_TICK 4 edges=256 OK
+JOHNSON_TICK 5 edges=256 OK
+JOHNSON_TICK 6 edges=256 OK
+JOHNSON_TICK 7 edges=256 OK
+JOHNSON_DIVIDE_SIM: 8/8 tick intervals = 256 cfgmclk edges
+JOHNSON_DIVIDE_RATIO = 256
+evidence/clock_probe/johnson_divide_tb.v:74: $finish called at 10842500 (1ps)
+SIM_EXIT=0
+
+--- verdict ---
+JOHNSON_DIVIDE_RATIO = 256  [SIM-CONFIRMED, complements silicon leg in divide_ratio_control.log]
+provenance: TB = verbatim copy of the shipped probe prescaler stages; sim-only,
+no hardware claim beyond what divide_ratio_control.log already establishes.
