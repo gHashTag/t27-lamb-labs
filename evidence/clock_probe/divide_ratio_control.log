@@ -1,0 +1,89 @@
+=== THE JOHNSON DIVIDE RATIO, ESTABLISHED EXPERIMENTALLY ===
+Date: 2026-11-22 ~15:35-15:45 UTC+7
+Host: macOS, Digilent HS2 (FT232H 0x0403:0x6014), busdev 1:3
+
+THE QUESTION. The R4/T4 reading of ~398.7 MHz assumed the two-stage Johnson prescaler divides
+by 256. If it divides by 512, the same reading is 199.3 MHz - which would match the parent
+repository's documented "200 MHz oscillator on R4/T4" EXACTLY. That factor of two had to be
+settled on silicon before any clock number could be published.
+
+THE CONTROL. The control is the MEASURED R4/T4 design with ONE thing changed: the clock comes
+from STARTUPE2.CFGMCLK instead of the R4/T4 oscillator. The netlists are cell-identical apart
+from the clock primitive and one output buffer:
+
+  measured R4/T4 netlist : BSCANE2 1, BUFG 3, FDRE 63, FDSE 6, INV 2, LUT2 21, LUT3 21,
+                           LUT4 19, IBUFDS 1
+  control netlist        : BSCANE2 1, BUFG 3, FDRE 63, FDSE 6, INV 2, LUT2 21, LUT3 21,
+                           LUT4 19, STARTUPE2 1, OBUF 1
+
+  => the divide chain, the counter and the readback are the SAME in both. Only the clock source
+     differs, plus one OBUF: the control's LED on B13, which is a TAP of an existing counter
+     bit (no extra flip-flop). That package pin exists only to anchor the placer; without any
+     package pin nextpnr's placer scatters the BSCANE2 shift register and the design does not
+     route (verified: the port-free control failed in 40 seeds).
+
+  The synthesis flow that reproduces the measured netlist exactly:
+    synth_xilinx -family xc7 -nodsp -nosrl -nolutram -nocarry ... abc -lut 2 ...
+  The -nocarry is what turns the counter's increment into LUT logic instead of a CARRY4 chain,
+  which is what the measured netlist contains (CARRY4 count 0, LUT4 count 19).
+
+--- CONTROL MEASUREMENT 1 (bitstream md5 d047e96522f789092c842874f5b4bf1d, seed 3) ---
+  read  1: raw=0xA5A1FACD magic=OK count=129741
+  read  2: raw=0xA5A3496B magic=OK count=215403
+  read  3: raw=0xA5A4A94A magic=OK count=305482
+  read  4: raw=0xA5A60BB1 magic=OK count=396209
+  read  5: raw=0xA5A765AA magic=OK count=484778
+  read  6: raw=0xA5A8C6F6 magic=OK count=575222
+  read  7: raw=0xA5AA23AA magic=OK count=664490
+  read  8: raw=0xA5AB7FC1 magic=OK count=753601
+  read  9: raw=0xA5ACDFC9 magic=OK count=843721
+  read 10: raw=0xA5AE3B18 magic=OK count=932632
+  --- 10/10 reads carried the magic ---
+    delta: 85662 counts in 348.3 ms -> 62.9694 MHz
+    delta: 90079 counts in 337.9 ms -> 68.2435 MHz
+    delta: 90727 counts in 348.2 ms -> 66.6965 MHz
+    delta: 88569 counts in 337.1 ms -> 67.2685 MHz
+    delta: 90444 counts in 339.8 ms -> 68.1319 MHz
+    delta: 89268 counts in 340.5 ms -> 67.1099 MHz
+    delta: 89111 counts in 344.7 ms -> 66.1778 MHz
+    delta: 90120 counts in 336.1 ms -> 68.6385 MHz
+    delta: 88911 counts in 342.3 ms -> 66.4996 MHz
+  --- SUMMARY ---
+    mean 66.8595 MHz, median 67.1099 MHz, stdev 1.6838 MHz, n=9
+
+--- CONTROL MEASUREMENT 2, same session, immediately after ---
+  mean 66.8154 MHz, median 67.0433 MHz, stdev 1.0871 MHz, n=9
+
+--- R4/T4 MEASUREMENT, same session, same chain ---
+  run 1: mean 398.6926 MHz, median 399.0965 MHz, stdev 7.5735 MHz, n=9
+  run 2: mean 397.9325 MHz, median 400.8073 MHz, stdev 13.5241 MHz, n=9
+
+--- THE VERDICT ---
+  The control reads 66.86 and 66.82 MHz. CFGMCLK is independently measured at 67.16 MHz
+  (the ripple prescaler probe, whose /256 is the textbook period of a binary counter's MSB)
+  and at 66.85 MHz on a second run. The control agrees with both.
+
+  => JOHNSON_DIVIDE_RATIO = 256. CONFIRMED.
+
+  => R4/T4 CLOCK = 398.69 MHz and 397.93 MHz -> PUBLISHED VALUE 398.3 MHz (mean of two runs).
+
+THE RATIO ARGUMENT, which does not depend on any divide ratio at all:
+  R4/T4 / CFGMCLK = 398.69 / 66.86 = 5.965   and   397.93 / 66.82 = 5.953
+  The two probes use the SAME chain, so the ratio of their readings IS the ratio of their
+  clocks, whatever that chain's divide ratio is.
+
+CONSEQUENCE, recorded plainly: the AX7203's R4/T4 oscillator measures ~398 MHz, about TWICE the
+"200 MHz" recorded in the parent repository's HARDWARE_SSOT.md and docs/fpga/clocking.md. The
+measurement is repeatable (two independent runs, two independent control runs, all in one
+session) and the ratio argument is independent of the instrument's calibration. What this
+portfolio does NOT know is WHY the documentation says 200 MHz: the board may run a ~400 MHz
+oscillator, the SSOT's pin assignment may refer to a different board revision, or the documented
+value may be a nominal the board does not run at. The measurement stands; the explanation is
+recorded as unknown.
+
+MACHINE READINGS SUMMARY
+  probe            source          mean MHz   median   stdev   n    magic
+  control run 1   CFGMCLK          66.8595    67.1099  1.6838  9    10/10
+  control run 2   CFGMCLK          66.8154    67.0433  1.0871  9    10/10
+  R4/T4 run 1     R4/T4            398.6926   399.0965  7.5735  9    10/10
+  R4/T4 run 2     R4/T4            397.9325   400.8073 13.5241  9    10/10

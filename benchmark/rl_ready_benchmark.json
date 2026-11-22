@@ -639,20 +639,55 @@
       "reference_nominal_mhz": 66
     },
     "board_oscillator_r4_t4_mhz": {
-      "value": null,
-      "status": "NOT PUBLISHED - a consistent reading whose divide ratio is not yet validated",
-      "reading": {
-        "mean_mhz": 398.6926,
-        "median_mhz": 399.0965,
-        "stdev_mhz": 7.5735,
-        "n": 9,
-        "spread_pct": 1.9,
-        "bitstream_md5": "56a2e4482c855a1be68bb9daeef837a4"
+      "value": 398.3,
+      "status": "MEASURED - the divide ratio was established experimentally before publication",
+      "runs": [
+        {
+          "run": 1,
+          "mean": 398.6926,
+          "median": 399.0965,
+          "stdev": 7.5735,
+          "n": 9,
+          "magic": "10/10"
+        },
+        {
+          "run": 2,
+          "mean": 397.9325,
+          "median": 400.8073,
+          "stdev": 13.5241,
+          "n": 9,
+          "magic": "10/10"
+        }
+      ],
+      "control": {
+        "purpose": "the same design with CFGMCLK in place of the R4/T4 oscillator; the netlists are cell-identical apart from the clock primitive and one output buffer",
+        "runs": [
+          {
+            "mean": 66.8595,
+            "median": 67.1099,
+            "stdev": 1.6838,
+            "n": 9
+          },
+          {
+            "mean": 66.8154,
+            "median": 67.0433,
+            "stdev": 1.0871,
+            "n": 9
+          }
+        ],
+        "conclusion": "the control agrees with the independently measured CFGMCLK (67.16 MHz, ripple prescaler), so JOHNSON_DIVIDE_RATIO = 256 is CONFIRMED"
       },
-      "what_it_establishes": "R4/T4 carries a RUNNING, STABLE clock: the counter advances monotonically with a 1.9% spread and a valid magic on every read. A dead or floating pin cannot do that. Unlike the fabric ring oscillator, the board's clock is usable for a real design.",
-      "why_not_published": "the number assumes the two-stage Johnson prescaler divides by 256, and that assumption is the whole measurement. If it divides by 512 the same reading is 199.3 MHz, which would match the documented 200 MHz exactly. The CFGMCLK+Johnson control - which would settle the factor - would not route in 40 seeds.",
-      "next_step": "get the CFGMCLK+Johnson control to route (netlist at /tmp/clock_probe_johnson_cfg.json on the GPU box) and read it",
-      "log": "evidence/clock_probe/r4t4_measurement.log"
+      "ratio_argument": {
+        "r4t4_over_cfgmclk": [
+          5.965,
+          5.953
+        ],
+        "note": "both probes use the SAME chain, so the ratio of their readings IS the ratio of their clocks, independent of the chain's divide ratio"
+      },
+      "documentation_discrepancy": "the parent repository's HARDWARE_SSOT.md and docs/fpga/clocking.md record a '200 MHz oscillator on R4/T4'. The measurement says ~398 MHz, about twice that. The measurement is repeatable and the ratio argument is independent of the instrument. WHY the documentation says 200 MHz is recorded as UNKNOWN: the board may run a ~400 MHz oscillator, the SSOT's pin assignment may refer to a different board revision, or the documented value may be a nominal the board does not run at.",
+      "bitstream_md5": "56a2e4482c855a1be68bb9daeef837a4",
+      "control_bitstream_md5": "d047e96522f789092c842874f5b4bf1d",
+      "log": "evidence/clock_probe/divide_ratio_control.log"
     },
     "fabric_ring_oscillator": {
       "estimated_mhz": 150,

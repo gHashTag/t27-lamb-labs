@@ -95,7 +95,7 @@
   "consequences_for_the_portfolio": [
     {
       "claim_affected": "the ~150 MHz ring-oscillator clock in every derived throughput figure",
-      "status": "WITHDRAWN AND CONFIRMED: the fabric ring oscillator does not oscillate on this AX7203 (30 reads, 15 s, identical counter, CFGMCLK control counting correctly in the same session).",
+      "status": "RESOLVED - the fabric ring oscillator does not oscillate (confirmed), and the board's two real clocks are now MEASURED: CFGMCLK 67.16 MHz and R4/T4 398.3 MHz. The R4/T4 number was published only after its divide ratio was established experimentally.",
       "action": "every tok/s or J/token figure in this portfolio is re-derived against a MEASURED clock or withdrawn"
     },
     {
@@ -130,10 +130,72 @@
     "The honest state is written down rather than smoothed over: the confirmation run is outstanding because the cable dropped, not because the evidence is inconvenient."
   ],
   "still_open": [
+    "Publish the first throughput number on a design with a running clock. The clock is now measured (67.16 MHz CFGMCLK, 398.3 MHz R4/T4), so the remaining work is a design that routes in openXC7 and counts tokens.",
     "Measure the R4/T4 200 MHz differential oscillator with a pin-bearing probe - it is the clock an AX7203 design should actually use.",
-    "Re-establish a throughput number on a design whose clock runs: the AX7203's 200 MHz differential oscillator on R4/T4 (needs a pin-bearing probe) or CFGMCLK at ~67 MHz measured.",
     "Reopen and redo the variance gate: the previous cycle-1 run data has unexplained provenance, and the bitstream it came from has a dead clock and a pruned accumulator.",
-    "The sequential attention design still does not route in openXC7; the LUT2 mapping found here may also serve it."
+    "The sequential attention design still does not route in openXC7; the LUT2 mapping found here may also serve it.",
+    "The AX7203's R4/T4 oscillator measures ~398 MHz while the parent repository documents 200 MHz. The discrepancy is recorded; its cause is unknown."
   ],
-  "method_note": "Two bugs of my own were found and fixed by measurement during this iteration: the hand-rolled Gray counter (wrong update, produced a non-monotonic readback) and the host-side Gray decoder (tracked the gray bit instead of the binary bit). Both are recorded because both produced plausible-looking numbers that were wrong."
+  "method_note": "Two bugs of my own were found and fixed by measurement during this iteration: the hand-rolled Gray counter (wrong update, produced a non-monotonic readback) and the host-side Gray decoder (tracked the gray bit instead of the binary bit). Both are recorded because both produced plausible-looking numbers that were wrong.",
+  "measurement_4": {
+    "id": "JOHNSON_DIVIDE_RATIO",
+    "status": "MEASURED - the ratio was established before any clock number was published",
+    "question": "the R4/T4 reading of ~398.7 MHz assumed the two-stage Johnson prescaler divides by 256. If it divides by 512, the same reading is 199.3 MHz, matching the documented 200 MHz exactly.",
+    "method": "the control is the MEASURED R4/T4 design with one change: CFGMCLK in place of the R4/T4 oscillator. The netlists are cell-identical apart from the clock primitive and one output buffer (an LED tap of an existing counter bit, which gives the placer a package pin to anchor on - without any package pin the port-free control failed to route in 40 seeds). The synthesis flow that reproduces the measured netlist exactly needs -nocarry.",
+    "control_runs": [
+      {
+        "run": 1,
+        "mean": 66.8595,
+        "median": 67.1099,
+        "stdev": 1.6838,
+        "n": 9,
+        "magic": "10/10"
+      },
+      {
+        "run": 2,
+        "mean": 66.8154,
+        "median": 67.0433,
+        "stdev": 1.0871,
+        "n": 9,
+        "magic": "10/10"
+      }
+    ],
+    "reference": "CFGMCLK is independently measured at 67.16 MHz (ripple prescaler) and 66.85 MHz on a second run; the control agrees with both",
+    "verdict": "JOHNSON_DIVIDE_RATIO = 256 - CONFIRMED",
+    "ratio_argument": {
+      "r4t4_over_cfgmclk": [
+        5.965,
+        5.953
+      ],
+      "note": "both probes use the same chain, so the ratio of their readings IS the ratio of their clocks, independent of the chain's divide ratio"
+    },
+    "r4t4_runs": [
+      {
+        "run": 1,
+        "mean": 398.6926,
+        "median": 399.0965,
+        "stdev": 7.5735,
+        "n": 9,
+        "magic": "10/10"
+      },
+      {
+        "run": 2,
+        "mean": 397.9325,
+        "median": 400.8073,
+        "stdev": 13.5241,
+        "n": 9,
+        "magic": "10/10"
+      }
+    ],
+    "published_clock_mhz": 398.3,
+    "documentation_discrepancy": "the parent repository records a 200 MHz oscillator on R4/T4; the measurement says ~398 MHz, about twice that. The measurement is repeatable and the ratio argument is independent of the instrument. WHY the documentation says 200 MHz is recorded as UNKNOWN.",
+    "log": "evidence/clock_probe/divide_ratio_control.log",
+    "artifacts": [
+      "evidence/clock_probe/clock_probe_ctrl.v",
+      "evidence/clock_probe/clock_probe_ctrl.xdc",
+      "evidence/clock_probe/clock_probe_ctrl.netlist.json.gz",
+      "evidence/clock_probe/clock_probe_ctrl.bit",
+      "evidence/clock_probe/synth_ctrl.ys"
+    ]
+  }
 }

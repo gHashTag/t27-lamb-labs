@@ -35,6 +35,7 @@ workload; external weight reads per generated token: measured value.**
 | Result | Value | Evidence |
 |---|---|---|
 | **Board clock (CFGMCLK)** | **67.16 MHz** mean, 67.39 median, σ 1.33, n=9 - and a second independent run at **66.85 MHz**, agreeing to 0.5% | `evidence/clock_probe/cfgmclk_measurement.log` |
+| **Board clock (R4/T4 oscillator)** | **398.3 MHz** - two runs at 398.69 (σ 7.57) and 397.93 (σ 13.52), n=9 each. The Johnson prescaler's divide ratio was **experimentally confirmed** first, with a cell-identical CFGMCLK control reading 66.86 / 66.82 MHz. The ratio R4/T4 ÷ CFGMCLK = **5.95–5.97** holds independently of any divide ratio. | `evidence/clock_probe/divide_ratio_control.log` |
 | **Die temperature** | 44.681 °C idle → **45.271 °C** with the design loaded (+0.590 °C) | `evidence/clock_probe/xadc_measurement.log` |
 | Rail voltages | VCCINT 0.99926 V, VCCAUX 1.80532 V | `evidence/clock_probe/xadc_measurement.log` |
 | **External DRAM reads / token** | **0** | `evidence/` (DRAM reads report) |
@@ -76,6 +77,7 @@ workload; external weight reads per generated token: measured value.**
 
 | Claim | Why withdrawn |
 |---|---|
+| The documented "200 MHz oscillator on R4/T4" | **The measurement says ~398 MHz, about twice the documented value.** The measurement is repeatable (two runs) and the ratio argument is independent of the instrument. *Why* the documentation says 200 MHz is recorded as **unknown**: the board may run a ~400 MHz oscillator, the pin assignment may refer to a different board revision, or the documented value may be a nominal the board does not run at. The measurement stands; the explanation does not. |
 | A ~150 MHz fabric ring-oscillator clock | **CONFIRMED withdrawn.** The controlled pair was run back-to-back in one session: the ring-oscillator probe's counter **never moved** over 30 reads / 15 s, while the CFGMCLK probe - the same design with one differing line - counted correctly at **66.85 MHz**. Two independent CFGMCLK runs agree to within 0.5% (67.16 and 66.85 MHz). The parent repo's `docs/fpga/clocking.md` says the same: *"Ring Oscillator (DOES NOT WORK)"*. |
 | A "3× clock shortfall" against the board's 200 MHz | The same byte-identical netlist measured **45.13 – 73.15 MHz** across five seed/router combinations (a 62% spread). nextpnr's reported Fmax is **placement noise** on this design, not a measure of logic depth. |
 | "The KV read mux is the critical path" | Inferred by exclusion, then contradicted: deleting the mux made the reported number **worse** (55.03 MHz), and the BRAM version was **identical** (71.86 MHz). |

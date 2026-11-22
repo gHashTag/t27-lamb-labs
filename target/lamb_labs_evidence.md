@@ -884,7 +884,7 @@ order of magnitude.
 | RL_BENCHMARK_STATUS | ✅ contract + **19** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |
-| BLOCKERS | - | **No throughput number can be published until a design with a running clock is measured**: CFGMCLK at 67.16 MHz measured is available now; R4/T4 runs but its frequency is **not published** until the Johnson divide ratio is controlled. **FPGA power still ESTIMATED** (needs a current meter); **the variance gate is REOPENED**; the CFGMCLK+Johnson control must route to settle the factor; openXC7 cannot route the attention design (LUT6 packing + carry-chain splitting) |
+| BLOCKERS | - | **No throughput number yet** - the board's clock is now MEASURED (67.16 MHz CFGMCLK, 398.3 MHz R4/T4), so the next step is a design with a running clock. **FPGA power still ESTIMATED** (needs a current meter); **the variance gate is REOPENED**; the documented 200 MHz for R4/T4 does not match the measured 398.3 MHz (discrepancy recorded, cause unknown); openXC7 cannot route the attention design (LUT6 packing + carry-chain splitting) |
 
 ---
 
