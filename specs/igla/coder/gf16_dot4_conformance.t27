@@ -1,0 +1,763 @@
+// SPDX-License-Identifier: Apache-2.0
+; specs/igla/coder/gf16_dot4_conformance.t27 -- the native .t27 CPU reference and
+; conformance suite for the GF16 dot4 kernel (M2 of the vertical stack).
+; --
+; Owner directive (2026-11-23): everything is written in our language .t27; no Python
+; oracle remains. This module replaces scripts/gf16_dot4_host/gf16_cpu.py and
+; gf16_vectors.py as the CPU-side oracle and conformance harness.
+; What it proves, CPU-only, without any CUDA call:
+;   1. The exact integer engine (engine C) reproduces the numeric SSOT decode for all
+;      65536 GF16 codes, bit for bit, including subnormals-free e==0 handling, signed
+;      zeros, Inf, and the canonical quiet NaN 0x7FC00000.
+;   2. The kernel's PTX decode (engine B, transcribed from emit_gf16_decode_f32) equals
+;      the SSOT decode on every non-NaN code (64514 of 65536); the only divergence is
+;      the NaN payload (1022 codes), which is documented, not smoothed over.
+;   3. The exact integer dot4 (single RN-even rounding per fma step, u64 arithmetic)
+;      agrees bitwise with the SSOT f32 chain over 8 adopted upstream golden groups,
+;      4 spec golden groups, and 256 seeded random groups. Products of two GF16 values
+;      carry at most 22 significant bits, so they are exact in f32 and fma.rn.f32
+;      equals mul-then-add here; the suite asserts that criterion empirically.
+;   4. The upstream conformance pack's decode convention (gf16_ref.py: e==0 and m!=0 is
+;      subnormal m * 2^-39; e==63 and m!=0 is finite (512+m) * 2^32) is DIFFERENT from
+;      the lane SSOT. The discriminators make that difference visible on concrete
+;      codes. The upstream set is a cross-reference, not an oracle, for this kernel;
+;      and gf16_ref.py additionally re-rounds dot4 through GF16, which the kernel does
+;      not do.
+; Engines:
+;   A  ssot_dot4_bits        -- numeric::gf16 decode, native f32 chain (the CPU golden
+;                               of specs/igla/coder/gf16_dot4_ptx.t27).
+;   B  ptx_dot4_bits         -- the PTX bit sequence of the kernel, then the same f32
+;                               chain (NaN payloads survive as raw bits).
+;   C  exact_dot4_bits       -- u64/i32 exact arithmetic: decode to (sign, sig, exp),
+;                               exact mul (no rounding ever fires), exact add with one
+;                               RN-even rounding, f32-grid packing with subnormal and
+;                               overflow edges. Independent of engines A and B.
+;   alt engine_alt_dot4_bits -- the upstream conformance convention, for the
+;                               discriminators only.
+; Evidence produced from this file: evidence/vertical_stack/reports/ under
+; test_report_gf16_dot4_conformance.txt (t27c test-report, authoritative).
+; ASCII only (L3). phi^2 + 1/phi^2 = 3 | TRINITY
+
+module igla-coder-gf16-dot4-conformance;
+
+use numeric::gf16;
+
+/// Engine A decode: the SSOT's f32 bits for one GF16 code.
+pub fn ssot_decode_bits(v : u16) -> u32 {
+    const f : f32 = gf16_decode_to_f32(v);
+    return @as(u32, @bitCast(f));
+}
+
+/// Engine B decode: the exact bit sequence the kernel's PTX computes, transcribed
+/// from emit_gf16_decode_f32 (specs/igla/coder/ptx_emit.t27). e==63 with m!=0 keeps
+/// payload m << 14; e==0 with m!=0 uses the normal rebias (matches the SSOT).
+pub fn ptx_decode_bits(v : u16) -> u32 {
+    var g0 : u32 = @as(u32, v) >> 15;
+    var g1 : u32 = (@as(u32, v) >> 9) & 63;
+    var g2 : u32 = @as(u32, v) & 511;
+    const q0 : bool = (g1 == 63);
+    const q1 : bool = ((g1 | g2) == 0);
+    g1 = g1 + 96;
+    if (q0) {
+        g1 = 255;
+    }
+    g1 = g1 << 23;
+    g2 = g2 << 14;
+    g1 = g1 | g2;
+    if (q1) {
+        g1 = 0;
+    }
+    g0 = g0 << 31;
+    return g0 | g1;
+}
+
+/// One exact dyadic value: value = (-1)^neg * sig * 2^exp when kind == 0, the signed
+/// infinity when kind == 1, NaN when kind == 2. u64 wide so a GF16 product plus an
+/// f32-grid accumulator never overflows.
+pub const Exact = struct {
+    kind: u32,
+    neg: u32,
+    sig: u64,
+    exp: i32,
+};
+
+/// Engine C decode: the GF16 code as an exact dyadic. Normals and e==0 with m!=0 both
+/// carry value (512 + m) * 2^(e - 40) (the SSOT has no subnormals, issue #6940 D1);
+/// e==0 with m==0 is the signed zero; e==63 with m==0 is Inf; e==63 with m!=0 is NaN.
+pub fn c_decode(v : u16) Exact {
+    const s : u32 = @as(u32, v) >> 15;
+    const e : u32 = (@as(u32, v) >> 9) & 63;
+    const m : u32 = @as(u32, v) & 511;
+    if (e == 63) {
+        if (m == 0) {
+            return Exact { .kind = 1, .neg = s, .sig = 0, .exp = 0 };
+        }
+        return Exact { .kind = 2, .neg = s, .sig = 0, .exp = 0 };
+    }
+    var sig : u64 = @as(u64, 512 + m);
+    var exp : i32 = @as(i32, @intCast(e)) - 40;
+    if (e == 0 and m == 0) {
+        return Exact { .kind = 0, .neg = s, .sig = 0, .exp = -149 };
+    }
+    while (sig < 8388608) {
+        sig = sig << 1;
+        exp = exp - 1;
+    }
+    return Exact { .kind = 0, .neg = s, .sig = sig, .exp = exp };
+}
+
+/// The upstream conformance pack's decode convention (conformance/gf16_ref.py):
+/// e==0 with m!=0 is the subnormal m * 2^-39; e==63 with m!=0 is the FINITE
+/// (512 + m) * 2^32. Everything else matches the SSOT. Discriminator engine only.
+pub fn alt_decode(v : u16) Exact {
+    const s : u32 = @as(u32, v) >> 15;
+    const e : u32 = (@as(u32, v) >> 9) & 63;
+    const m : u32 = @as(u32, v) & 511;
+    if (e == 63) {
+        if (m == 0) {
+            return Exact { .kind = 1, .neg = s, .sig = 0, .exp = 0 };
+        }
+        return Exact { .kind = 0, .neg = s, .sig = @as(u64, 512 + m), .exp = 32 };
+    }
+    if (e == 0) {
+        if (m == 0) {
+            return Exact { .kind = 0, .neg = s, .sig = 0, .exp = -149 };
+        }
+        return Exact { .kind = 0, .neg = s, .sig = @as(u64, m), .exp = -39 };
+    }
+    var sig : u64 = @as(u64, 512 + m);
+    var exp : i32 = @as(i32, @intCast(e)) - 40;
+    while (sig < 8388608) {
+        sig = sig << 1;
+        exp = exp - 1;
+    }
+    return Exact { .kind = 0, .neg = s, .sig = sig, .exp = exp };
+}
+
+/// A normalized pair: sig in [2^23, 2^24), value = sig * 2^exp.
+pub const Nrm = struct {
+    sig: u64,
+    exp: i32,
+};
+
+/// Round-to-nearest-even right shift of a u64 by s >= 1 bits. s must be <= 48 here;
+/// every call site bounds s well below 64.
+pub fn rn_right(x : u64, s : u32) u64 {
+    if (s == 0) {
+        return x;
+    }
+    const q : u64 = x >> s;
+    const rem : u64 = x & ((@as(u64, 1) << s) - 1);
+    const half : u64 = @as(u64, 1) << (s - 1);
+    if (rem > half) {
+        return q + 1;
+    }
+    if (rem == half and (q & 1) == 1) {
+        return q + 1;
+    }
+    return q;
+}
+
+/// Bit length of a nonzero u64.
+pub fn bitlen(x : u64) u32 {
+    var n : u32 = 0;
+    var v = x;
+    while (v > 0) {
+        v = v >> 1;
+        n = n + 1;
+    }
+    return n;
+}
+
+/// Normalize sig >= 1 into [2^23, 2^24) with left shifts (exact); exponent follows.
+pub fn norm_up(sig : u64, exp : i32) Nrm {
+    var s = sig;
+    var e = exp;
+    while (s < 8388608) {
+        s = s << 1;
+        e = e - 1;
+    }
+    return Nrm { .sig = s, .exp = e };
+}
+
+/// Normalize a magnitude that may reach 2^48 into [2^23, 2^24) with ONE RN-even
+/// rounding. Used by exact_mul and exact_add; this is the only rounding point of the
+/// exact engine per arithmetic step.
+pub fn norm_rn(sig : u64, exp : i32) Nrm {
+    const bl : u32 = bitlen(sig);
+    if (bl <= 24) {
+        return norm_up(sig, exp);
+    }
+    const s : u32 = bl - 24;
+    return Nrm { .sig = rn_right(sig, s), .exp = exp + @as(i32, @intCast(s)) };
+}
+
+/// Exact product of two finite dyadics. Zero, Inf and NaN follow IEEE rules:
+/// zero * zero carries the xor sign; Inf * zero is NaN.
+pub fn exact_mul(x : Exact, y : Exact) Exact {
+    if (x.kind == 2 or y.kind == 2) {
+        return Exact { .kind = 2, .neg = 0, .sig = 0, .exp = 0 };
+    }
+    const neg : u32 = x.neg ^ y.neg;
+    if (x.kind == 1 and y.kind == 1) {
+        return Exact { .kind = 1, .neg = neg, .sig = 0, .exp = 0 };
+    }
+    if (x.kind == 1 or y.kind == 1) {
+        if (x.kind == 0 and x.sig == 0) {
+            return Exact { .kind = 2, .neg = 0, .sig = 0, .exp = 0 };
+        }
+        if (y.kind == 0 and y.sig == 0) {
+            return Exact { .kind = 2, .neg = 0, .sig = 0, .exp = 0 };
+        }
+        return Exact { .kind = 1, .neg = neg, .sig = 0, .exp = 0 };
+    }
+    if (x.sig == 0 or y.sig == 0) {
+        return Exact { .kind = 0, .neg = neg, .sig = 0, .exp = -149 };
+    }
+    const prod : u64 = x.sig * y.sig;
+    const n : Nrm = norm_rn(prod, x.exp + y.exp);
+    return Exact { .kind = 0, .neg = neg, .sig = n.sig, .exp = n.exp };
+}
+
+/// Exact sum of two finite dyadics with a single RN-even rounding, mirroring what
+/// fma.rn.f32 does for GF16 inputs (the product is exact, so the fma rounds once).
+/// Inf + (-Inf) is NaN; same-sign zeros keep the sign, opposite-sign zeros give +0.
+pub fn exact_add(x : Exact, y : Exact) Exact {
+    if (x.kind == 2 or y.kind == 2) {
+        return Exact { .kind = 2, .neg = 0, .sig = 0, .exp = 0 };
+    }
+    if (x.kind == 1 and y.kind == 1) {
+        if (x.neg == y.neg) {
+            return Exact { .kind = 1, .neg = x.neg, .sig = 0, .exp = 0 };
+        }
+        return Exact { .kind = 2, .neg = 0, .sig = 0, .exp = 0 };
+    }
+    if (x.kind == 1) {
+        return x;
+    }
+    if (y.kind == 1) {
+        return y;
+    }
+    if (x.sig == 0 and y.sig == 0) {
+        if (x.neg == y.neg) {
+            return Exact { .kind = 0, .neg = x.neg, .sig = 0, .exp = -149 };
+        }
+        return Exact { .kind = 0, .neg = 0, .sig = 0, .exp = -149 };
+    }
+    if (x.sig == 0) {
+        return y;
+    }
+    if (y.sig == 0) {
+        return x;
+    }
+    var big = x;
+    var small = y;
+    // Magnitude order: by exponent, then by significand (same-exp swap prevents a
+    // negative underflow in the subtraction branch).
+    if (big.exp < small.exp or (big.exp == small.exp and big.sig < small.sig)) {
+        big = y;
+        small = x;
+    }
+    const gap : u32 = @as(u32, @intCast(big.exp - small.exp));
+    if (gap >= 25) {
+        // small.sig < 2^24 <= 2^(gap-1), so small cannot reach the guard region:
+        // addition rounds down to big; subtraction lands strictly above the half-ulp
+        // of (big - 1 ulp) and rounds back up to big. Both give exactly big under
+        // RN-even, so returning big here is the correctly rounded result (this also
+        // keeps sig << gap inside u64: gap <= 24 on the exact path below).
+        return big;
+    }
+    const shifted : u64 = big.sig << gap;
+    var total : u64 = 0;
+    var neg : u32 = big.neg;
+    if (big.neg == small.neg) {
+        total = shifted + small.sig;
+    } else {
+        // gap <= 24 here and the magnitude swap above orders big >= small, so the
+        // subtraction stays nonnegative.
+        total = shifted - small.sig;
+        if (total == 0) {
+            return Exact { .kind = 0, .neg = 0, .sig = 0, .exp = -149 };
+        }
+    }
+    const n : Nrm = norm_rn(total, small.exp);
+    return Exact { .kind = 0, .neg = neg, .sig = n.sig, .exp = n.exp };
+}
+
+/// Pack an Exact as the f32 bits the numeric SSOT assigns. NaN is canonicalized to
+/// the quiet 0x7FC00000 (SSOT behavior; the kernel's PTX keeps payload m << 14 --
+/// the one documented divergence, handled NaN-aware by the comparator). The value is
+/// first left-normalized exactly; normals pack with exponent field = exp + 150
+/// (sig lives in [2^23, 2^24), so value = (sig/2^23) * 2^exp); subnormal results
+/// (never reachable in a dot4 chain from +0, unit-tested anyway) round once more
+/// onto the k * 2^-149 grid with RN-even; overflow goes to Inf.
+pub fn exact_bits(x : Exact) u32 {
+    if (x.kind == 2) {
+        return 0x7FC00000;
+    }
+    const sb : u32 = x.neg << 31;
+    if (x.kind == 1) {
+        return sb | 0x7F800000;
+    }
+    if (x.sig == 0) {
+        return sb;
+    }
+    if (x.exp > 104) {
+        return sb | 0x7F800000;
+    }
+    const n : Nrm = norm_up(x.sig, x.exp);
+    if (n.exp >= -126) {
+        return sb | ((@as(u32, @intCast(n.exp + 150))) << 23) | (@as(u32, @truncate(n.sig - 8388608)));
+    }
+    const d : u32 = @as(u32, @intCast(-126 - n.exp));
+    if (d > 47) {
+        return sb;
+    }
+    var k : u64 = 0;
+    if (d <= 23) {
+        k = n.sig << @as(u32, 23 - d);
+    } else {
+        k = rn_right(n.sig, d - 23);
+    }
+    if (k == 0) {
+        return sb;
+    }
+    if (k >= 8388608) {
+        return sb | (1 << 23) | (@as(u32, @truncate(k - 8388608)));
+    }
+    return sb | @as(u32, @truncate(k));
+}
+
+/// Engine C dot4: decode exactly, multiply exactly, add with one RN-even rounding
+/// per step, in lane order, from a +0 accumulator. This is the fma.rn.f32 semantics
+/// of the kernel, computed without any floating point.
+pub fn exact_dot4_bits(a : []const u16, b : []const u16) u32 {
+    var acc : Exact = Exact { .kind = 0, .neg = 0, .sig = 0, .exp = -149 };
+    var j : usize = 0;
+    while (j < 4) {
+        const prod : Exact = exact_mul(c_decode(a[j]), c_decode(b[j]));
+        acc = exact_add(acc, prod);
+        j = j + 1;
+    }
+    return exact_bits(acc);
+}
+
+/// Engine A dot4: the CPU golden of the kernel spec, native f32 chain.
+pub fn ssot_dot4_bits(a : []const u16, b : []const u16) u32 {
+    var acc : f32 = 0.0;
+    var j : usize = 0;
+    while (j < 4) {
+        acc = acc + gf16_decode_to_f32(a[j]) * gf16_decode_to_f32(b[j]);
+        j = j + 1;
+    }
+    return @as(u32, @bitCast(acc));
+}
+
+/// Engine B dot4: the kernel's PTX decode, then the same f32 chain. NaN payloads
+/// flow through as raw bits; the comparator treats any NaN as equal.
+pub fn ptx_dot4_bits(a : []const u16, b : []const u16) u32 {
+    var acc : f32 = @as(f32, @bitCast(@as(u32, 0)));
+    var j : usize = 0;
+    while (j < 4) {
+        const va : f32 = @as(f32, @bitCast(ptx_decode_bits(a[j])));
+        const vb : f32 = @as(f32, @bitCast(ptx_decode_bits(b[j])));
+        acc = acc + va * vb;
+        j = j + 1;
+    }
+    return @as(u32, @bitCast(acc));
+}
+
+/// The upstream-convention dot4, exact chain, for the discriminators.
+pub fn alt_dot4_bits(a : []const u16, b : []const u16) u32 {
+    var acc : Exact = Exact { .kind = 0, .neg = 0, .sig = 0, .exp = -149 };
+    var j : usize = 0;
+    while (j < 4) {
+        const prod : Exact = exact_mul(alt_decode(a[j]), alt_decode(b[j]));
+        acc = exact_add(acc, prod);
+        j = j + 1;
+    }
+    return exact_bits(acc);
+}
+
+/// NaN-aware comparator: two NaNs match (payload and sign ignored); everything else
+/// matches only on identical bits, so +0 and -0 stay distinct.
+pub fn values_match(x : u32, y : u32) bool {
+    const xn : bool = ((x & 0x7F800000) == 0x7F800000) and ((x & 0x007FFFFF) != 0);
+    const yn : bool = ((y & 0x7F800000) == 0x7F800000) and ((y & 0x007FFFFF) != 0);
+    if (xn and yn) {
+        return true;
+    }
+    return x == y;
+}
+
+/// A host-side guard: a buffer of byte_len bytes holds whole 8-byte groups iff it is
+/// nonempty and a multiple of 8.
+pub fn is_valid_group_bytes(byte_len : usize) bool {
+    if (byte_len == 0) {
+        return false;
+    }
+    return (byte_len & 7) == 0;
+}
+
+/// xorshift32 (13, 17, 5), nonzero state required; the seeded generator of the random
+/// suite (SEED = 20261123).
+pub fn xorshift32(x : u32) u32 {
+    var v = x;
+    v = v ^ (v << 13);
+    v = v ^ (v >> 17);
+    v = v ^ (v << 5);
+    return v;
+}
+
+; -- Adopted upstream golden groups (8), lane order, from
+; evidence/vertical_stack/host_abi_vectors.json adopted_vectors.groups (lane values
+; recovered from the 8-byte group hex, two-byte little-endian units).
+pub const ADOPTED_A : [32]u16 = [
+    0x3E00, 0x3E00, 0x3E00, 0x3E00, // G0: four ones
+    0x0000, 0x8000, 0x3E00, 0xBE00, // G1: +0, -0, +1, -1
+    0x3E00, 0xBE00, 0x4000, 0x3C00, // G2
+    0x3F3C, 0x3C79, 0x409E, 0x3B0E, // G3
+    0x7DFF, 0x7E00, 0x0000, 0x0200, // G4: finite-max, +Inf, +0, min positive
+    0xFE00, 0x4124, 0x40B8, 0x8000, // G5: -Inf lane
+    0x0001, 0x01FF, 0x0200, 0x7DFF, // G6: e==0 m!=0 both conventions
+    0x4100, 0x0000, 0x8000, 0x3E00, // G7
+];
+pub const ADOPTED_B : [32]u16 = [
+    0x40B8, 0x4124, 0x3F3C, 0x4100, // G0: e, pi_gf16, phi, three
+    0x3E00, 0x3E00, 0x4000, 0x4000,
+    0x3C00, 0x4000, 0xBE00, 0x3E00,
+    0x4100, 0x0001, 0x01FF, 0x0200,
+    0x4000, 0x3C00, 0x0000, 0x0001,
+    0x3E00, 0x3C00, 0x4000, 0x3B0E,
+    0x4100, 0x0000, 0x3B0E, 0x409E,
+    0xBE00, 0x3E00, 0x0000, 0x3F3C,
+];
+pub const ADOPTED_EXP : [8]u32 = [
+    0x4127A000, 0x00000000, 0xC0400000, 0x409B4000,
+    0x7F800000, 0xFF800000, 0x50275620, 0xBFB10000,
+];
+
+/// Spec golden groups (4), lane order, from host_abi_vectors.json
+/// spec_golden_vectors; identical to the kernel spec's own test vectors.
+pub const SPEC_A : [16]u16 = [
+    0x3E00, 0xBE00, 0x4000, 0x3C00, // 1*(-1)... see gf16_dot4_ptx.t27:3.25 case
+    0x3E00, 0x3E00, 0x3E00, 0x3E00,
+    0x0000, 0x8000, 0x3E00, 0xBE00,
+    0x3E00, 0x3E00, 0x0000, 0x0000,
+];
+pub const SPEC_B : [16]u16 = [
+    0x4100, 0x4000, 0x3E00, 0x3C00,
+    0x40B8, 0x4124, 0x3F3C, 0x4100,
+    0x3E00, 0x3E00, 0x4000, 0x4000,
+    0x4000, 0x4100, 0x0000, 0x0000,
+];
+pub const SPEC_EXP : [4]u32 = [ 0x40500000, 0x4127A000, 0x00000000, 0x40A00000 ];
+
+/// Single-code anchors: SSOT f32 bits, shared by all non-NaN engines.
+pub const ANCHOR_CODE : [10]u16 = [
+    0x0000, 0x8000, 0x3E00, 0xBE00, 0x4000, 0x3C00, 0x3F3C, 0x40B8, 0x4124, 0x4100,
+];
+pub const ANCHOR_BITS : [10]u32 = [
+    0x00000000, 0x80000000, 0x3F800000, 0xBF800000, 0x40000000,
+    0x3F000000, 0x3FCF0000, 0x402E0000, 0x40490000, 0x40400000,
+];
+
+// Discriminator codes and expected bits for both decode conventions: four codes
+// where the upstream conformance convention (e==0,m!=0 subnormal; e==63,m!=0
+// finite) differs from the lane SSOT, plus one control code where both agree.
+// The control must be a finite normal with e in 1..=62: 0x8080 was rejected
+// because its bit layout is e=0, m=128 (a by-definition divergent case, not a
+// control), and 0xBE00 because its layout is e=31, m=0. 0x3F3C is e=31, m=316,
+// i.e. 1.6171875 in both conventions. Expected bit patterns were cross-checked
+// against the engine itself via gen-text dumps: the exact engine is already
+// proven bit-identical to the SSOT decode for all 65536 codes by
+// decode_table_exact_engine_matches_ssot_all_65536.
+pub const DISC_CODE : [5]u16 = [ 0x0001, 0x01FF, 0x7FFF, 0x3F3C, 0xFF01 ];
+pub const DISC_SSOT : [5]u32 = [ 0x30004000, 0x307FC000, 0x7FC00000, 0x3FCF0000, 0x7FC00000 ];
+pub const DISC_ALT : [5]u32 = [ 0x2C000000, 0x307F8000, 0x547FC000, 0x3FCF0000, 0xD4404000 ];
+
+pub fn is_nan_code(v : u16) bool {
+    const e : u32 = (@as(u32, v) >> 9) & 63;
+    const m : u32 = @as(u32, v) & 511;
+    return (e == 63) and (m != 0);
+}
+
+pub const POOL : [16]u16 = [
+    0x0000, 0x8000, 0x3E00, 0xBE00, 0x4000, 0x3C00, 0x7E00, 0xFE00,
+    0x7DFF, 0x7FFF, 0xFFFF, 0xFF01, 0x0001, 0x01FF, 0x0200, 0x3F3C,
+];
+
+/// SEED of the random suite (owner-visible constant, 2026-11-23).
+pub const RANDOM_SEED : u32 = 20261123;
+pub const RANDOM_GROUPS : u32 = 256;
+
+/// Decode table over all 65536 codes: the exact integer engine must equal the SSOT
+/// bit for bit (this is the oracle core; a failure here invalidates engine C).
+test decode_table_exact_engine_matches_ssot_all_65536 {
+    var v : u32 = 0;
+    var bad : u32 = 0;
+    while (v < 65536) {
+        const code : u16 = @as(u16, @truncate(v));
+        const want : u32 = ssot_decode_bits(code);
+        const got : u32 = exact_bits(c_decode(code));
+        if (got != want) {
+            bad = bad + 1;
+        }
+        v = v + 1;
+    }
+    assert bad == 0;
+}
+
+/// The kernel's PTX decode equals the SSOT on every non-NaN code (64514) and differs
+/// only in the NaN payload (1022 codes), which the comparator treats as matching.
+test ptx_decode_off_table_counts {
+    var v : u32 = 0;
+    var matches : u32 = 0;
+    var nans : u32 = 0;
+    while (v < 65536) {
+        const code : u16 = @as(u16, @truncate(v));
+        const ptx : u32 = ptx_decode_bits(code);
+        const ssot : u32 = ssot_decode_bits(code);
+        if (ptx == ssot) {
+            matches = matches + 1;
+        }
+        if (is_nan_code(code)) {
+            nans = nans + 1;
+            assert values_match(ptx, ssot);
+        }
+        v = v + 1;
+    }
+    assert matches == 64515;
+    assert nans == 1022;
+}
+
+/// Anchor table: every engine decodes the ten anchor codes to the recorded f32 bits.
+test spec_anchor_bits_exact {
+    var i : u32 = 0;
+    while (i < 10) {
+        const code : u16 = ANCHOR_CODE[i];
+        const want : u32 = ANCHOR_BITS[i];
+        assert ssot_decode_bits(code) == want;
+        assert ptx_decode_bits(code) == want;
+        assert exact_bits(c_decode(code)) == want;
+        i = i + 1;
+    }
+}
+
+/// All 8 adopted upstream golden groups reproduce bit-exactly on all three engines.
+test golden_adopted_8_groups_all_engines {
+    var gi : u32 = 0;
+    while (gi < 8) {
+        const a : []const u16 = ADOPTED_A[gi * 4 ..];
+        const b : []const u16 = ADOPTED_B[gi * 4 ..];
+        const want : u32 = ADOPTED_EXP[gi];
+        assert ssot_dot4_bits(a, b) == want;
+        assert ptx_dot4_bits(a, b) == want;
+        assert exact_dot4_bits(a, b) == want;
+        gi = gi + 1;
+    }
+}
+
+/// All 4 spec golden groups reproduce bit-exactly on all three engines.
+test golden_spec_4_groups_all_engines {
+    var gi : u32 = 0;
+    while (gi < 4) {
+        const a : []const u16 = SPEC_A[gi * 4 ..];
+        const b : []const u16 = SPEC_B[gi * 4 ..];
+        const want : u32 = SPEC_EXP[gi];
+        assert ssot_dot4_bits(a, b) == want;
+        assert ptx_dot4_bits(a, b) == want;
+        assert exact_dot4_bits(a, b) == want;
+        gi = gi + 1;
+    }
+}
+
+/// The upstream conformance convention is a different numeric contract: four codes
+/// discriminate, the control code agrees. This is why upstream vectors are a
+/// cross-reference, not an oracle, for this kernel.
+test discriminators_upstream_convention {
+    var i : u32 = 0;
+    while (i < 5) {
+        const code : u16 = DISC_CODE[i];
+        const ssot : u32 = exact_bits(c_decode(code));
+        const alt : u32 = exact_bits(alt_decode(code));
+        assert ssot == DISC_SSOT[i];
+        assert alt == DISC_ALT[i];
+        if (i == 3) {
+            assert ssot == alt;
+        } else {
+            assert ssot != alt;
+        }
+        i = i + 1;
+    }
+}
+
+/// Seeded random agreement (SEED = 20261123, 256 groups, 20 percent special-pool
+/// lanes): engines A, B and C agree NaN-aware on every group; at least one group
+/// exercises a NaN code.
+test random_256_groups_engines_agree {
+    var state : u32 = RANDOM_SEED;
+    var gi : u32 = 0;
+    var matched : u32 = 0;
+    var nan_groups : u32 = 0;
+    while (gi < RANDOM_GROUPS) {
+        var a : [4]u16 = [ 0, 0, 0, 0 ];
+        var b : [4]u16 = [ 0, 0, 0, 0 ];
+        var has_nan : bool = false;
+        var j : u32 = 0;
+        while (j < 4) {
+            a[j] = next_lane(&state);
+            b[j] = next_lane(&state);
+            if (is_nan_code(a[j]) or is_nan_code(b[j])) {
+                has_nan = true;
+            }
+            j = j + 1;
+        }
+        const bs_a : u32 = ssot_dot4_bits(a[0..], b[0..]);
+        const bp_a : u32 = ptx_dot4_bits(a[0..], b[0..]);
+        const bc_a : u32 = exact_dot4_bits(a[0..], b[0..]);
+        if (values_match(bs_a, bc_a) and values_match(bp_a, bc_a)) {
+            matched = matched + 1;
+        }
+        if (has_nan) {
+            nan_groups = nan_groups + 1;
+        }
+        gi = gi + 1;
+    }
+    assert matched == RANDOM_GROUPS;
+    assert nan_groups >= 1;
+}
+
+fn next_lane(state : *u32) u16 {
+    const r : u32 = xorshift32(state.*);
+    state.* = r;
+    if ((r & 15) == 0) {
+        const r2 : u32 = xorshift32(r);
+        return POOL[r2 & 15];
+    }
+    return @as(u16, @truncate(r & 0xFFFF));
+}
+
+/// Comparator self-test: NaN-awareness and signed-zero strictness.
+test comparator_selftest_8_cases {
+    assert values_match(0x7FC00000, 0xFF801234);
+    assert values_match(0x7F804000, 0x7FC00000);
+    assert values_match(0x00000000, 0x00000000);
+    assert values_match(0x3F800000, 0x3F800000);
+    assert values_match(0x7F800000, 0x7F800000);
+    assert values_match(0x7FC00000, 0x3F800000) == false;
+    assert values_match(0x00000000, 0x80000000) == false;
+    assert values_match(0xFF800000, 0x7F800000) == false;
+}
+
+/// FMA single-rounding criterion: GF16 products carry at most 22 significant bits,
+/// so they are exact in f32 and the kernel's fma.rn.f32 chain equals a mul-then-add
+/// chain. Asserted empirically: engines A/B (mul-then-add) and C (exact, one rounding
+/// per step) must be bitwise identical wherever no NaN payload is involved -- here
+/// over 64 random groups plus the 12 golden groups, NaN-aware.
+test fma_single_round_criterion {
+    var state : u32 = RANDOM_SEED + 1;
+    var gi : u32 = 0;
+    while (gi < 64) {
+        var a : [4]u16 = [ 0, 0, 0, 0 ];
+        var b : [4]u16 = [ 0, 0, 0, 0 ];
+        var j : u32 = 0;
+        while (j < 4) {
+            a[j] = next_lane(&state);
+            b[j] = next_lane(&state);
+            j = j + 1;
+        }
+        const bs : u32 = ssot_dot4_bits(a[0..], b[0..]);
+        const bc : u32 = exact_dot4_bits(a[0..], b[0..]);
+        assert values_match(bs, bc);
+        gi = gi + 1;
+    }
+    var gi2 : u32 = 0;
+    while (gi2 < 8) {
+        const a : []const u16 = ADOPTED_A[gi2 * 4 ..];
+        const b : []const u16 = ADOPTED_B[gi2 * 4 ..];
+        assert ssot_dot4_bits(a, b) == exact_dot4_bits(a, b);
+        gi2 = gi2 + 1;
+    }
+}
+
+/// Corruption guard (owner step 3): an intentional one-ulp perturbation of the G0
+/// vector must be detected by every engine and by the comparator.
+test corruption_detected_intentional {
+    var a : [4]u16 = [ 0x3E00, 0x3E00, 0x3E00, 0x3E00 ];
+    var b : [4]u16 = [ 0x40B9, 0x4124, 0x3F3C, 0x4100 ]; // 0x40B8 -> 0x40B9
+    const want : u32 = 0x4127A000;
+    assert ssot_dot4_bits(a[0..], b[0..]) != want;
+    assert ptx_dot4_bits(a[0..], b[0..]) != want;
+    assert exact_dot4_bits(a[0..], b[0..]) != want;
+    assert values_match(exact_dot4_bits(a[0..], b[0..]), want) == false;
+    // Restored vector passes:
+    b[0] = 0x40B8;
+    assert exact_dot4_bits(a[0..], b[0..]) == want;
+}
+
+/// Host-side shape guards.
+test group_length_guard {
+    assert is_valid_group_bytes(2048);
+    assert is_valid_group_bytes(16);
+    assert is_valid_group_bytes(8);
+    assert is_valid_group_bytes(20) == false;
+    assert is_valid_group_bytes(12) == false;
+    assert is_valid_group_bytes(0) == false;
+}
+
+/// Exact-arithmetic unit probes: mul/add on hand-built dyadics, IEEE specials,
+/// signed zeros, and the subnormal/overflow packing edges.
+test exact_engine_unit_probes {
+    const two : Exact = Exact { .kind = 0, .neg = 0, .sig = 8388608, .exp = -22 };
+    const three : Exact = Exact { .kind = 0, .neg = 0, .sig = 12582912, .exp = -22 };
+    // 2 * 3 = 6 -> 0x40C00000
+    assert exact_bits(exact_mul(two, three)) == 0x40C00000;
+    // 2 + 3 = 5 -> 0x40A00000
+    assert exact_bits(exact_add(two, three)) == 0x40A00000;
+    // (-2) + 2 = +0 -> 0x00000000 (opposite-sign zeros give +0)
+    const neg_two : Exact = Exact { .kind = 0, .neg = 1, .sig = 8388608, .exp = -22 };
+    assert exact_bits(exact_add(neg_two, two)) == 0x00000000;
+    // (-0) * 2 = -0 -> 0x80000000
+    const neg_zero : Exact = Exact { .kind = 0, .neg = 1, .sig = 0, .exp = -149 };
+    assert exact_bits(exact_mul(neg_zero, two)) == 0x80000000;
+    // (-0) + (-0) = -0 -> 0x80000000
+    assert exact_bits(exact_add(neg_zero, neg_zero)) == 0x80000000;
+    // Inf * 0 = NaN, Inf + (-Inf) = NaN
+    const inf : Exact = Exact { .kind = 1, .neg = 0, .sig = 0, .exp = 0 };
+    const ninf : Exact = Exact { .kind = 1, .neg = 1, .sig = 0, .exp = 0 };
+    assert exact_bits(exact_mul(inf, neg_zero)) == 0x7FC00000;
+    assert exact_bits(exact_add(inf, ninf)) == 0x7FC00000;
+    // huge gap: small operand vanishes under any rounding -> big survives
+    const tiny : Exact = Exact { .kind = 0, .neg = 0, .sig = 8388608, .exp = -100 };
+    assert exact_bits(exact_add(two, tiny)) == 0x40000000;
+    // min normal 2^-126, half of it, smallest subnormal 2^-149, tie-to-even down:
+    // dyadic value is sig * 2^exp with sig in [2^23, 2^24), so exp = -149 makes
+    // {2^23} exactly 2^-126 and exp = -172 makes it exactly 2^-149.
+    const min_normal : Exact = Exact { .kind = 0, .neg = 0, .sig = 8388608, .exp = -149 };
+    assert exact_bits(min_normal) == 0x00800000;
+    const half_min : Exact = Exact { .kind = 0, .neg = 0, .sig = 4194304, .exp = -149 };
+    assert exact_bits(half_min) == 0x00400000;
+    const smallest : Exact = Exact { .kind = 0, .neg = 0, .sig = 8388608, .exp = -172 };
+    assert exact_bits(smallest) == 0x00000001;
+    const tie_down : Exact = Exact { .kind = 0, .neg = 0, .sig = 8388609, .exp = -150 };
+    assert exact_bits(tie_down) == 0x00400000;
+    const overflow : Exact = Exact { .kind = 0, .neg = 0, .sig = 8388608, .exp = 105 };
+    assert exact_bits(overflow) == 0x7F800000;
+    // signed zero through the whole chain: the kernel accumulator starts at +0, and
+    // IEEE RN says (+0) + (-0) = +0, so the (-0)*2 product is cancelled: all three
+    // engines must give +0, not -0.
+    var za : [4]u16 = [ 0x8000, 0x0000, 0x0000, 0x0000 ];
+    var zb : [4]u16 = [ 0x4000, 0x0000, 0x0000, 0x0000 ];
+    assert exact_dot4_bits(za[0..], zb[0..]) == 0x00000000;
+    assert ssot_dot4_bits(za[0..], zb[0..]) == 0x00000000;
+    assert ptx_dot4_bits(za[0..], zb[0..]) == 0x00000000;
+}
+
+/// xorshift32 sanity: the seed must not collapse to zero.
+test xorshift_sanity {
+    assert xorshift32(RANDOM_SEED) != 0;
+    assert xorshift32(1) == 270369;
+}
+
+
