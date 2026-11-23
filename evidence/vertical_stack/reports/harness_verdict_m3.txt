@@ -1,0 +1,10 @@
+GF16 DOT4 HARNESS (CPU-only mock stage, no CUDA)
+G1 hash_identity: ok
+G1 corruption_detected: ok
+G2 packing_bins: ok
+G3 byte_order_le: ok
+G4 grid_bounds: ok
+G5 alignment: ok
+G6 mock_exec_oob: ok
+G7 comparator_negative: ok
+HARNESS VERDICT: PASS
