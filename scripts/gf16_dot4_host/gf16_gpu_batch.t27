@@ -1,0 +1,311 @@
+// M4 stage 2 vector generator: predefined edge cases + seeded randomized
+// groups for the GPU batch run. Contract declared BEFORE the GPU run:
+//   * finite expected -> GPU output must match bit-for-bit;
+//   * expected NaN (Inf*0 product, or Inf + (-Inf) in the accumulator chain,
+//     or a NaN input lane) -> GPU output must be a NaN (exponent all ones,
+//     mantissa nonzero); payload may differ (documented M2 divergence:
+//     kernel PTX keeps the NaN payload, SSOT canonicalizes).
+// Expected values come from the exact integer engine C (exact_dot4_bits) of
+// igla::coder::gf16_dot4_conformance, the same engine that passed 13/13 in
+// M2. Engine A (SSOT f32 chain) and engine B (PTX decode + f32 chain) must
+// agree with C on every non-NaN group of this batch before the GPU run.
+module gf16-dot4-gpu-batch;
+
+use igla::coder::gf16_dot4_conformance;
+
+pub const BATCH_SEED : u32 = 20261124;
+pub const EDGE_GROUPS : u32 = 32;
+pub const RANDOM_GROUPS : u32 = 256;
+pub const TOTAL_GROUPS : u32 = 288;
+
+/// Edge-class lane codes: signed zeros, SSOT-subnormal decodes, min-normal
+/// region, large finite, unit/negative unit, pi/phi, max finite, +/-Inf,
+/// NaN-payload inputs.
+pub const EDGE_CODES : [18]u16 = [
+    0x0000, 0x8000, 0x0001, 0x8001, 0x01FF, 0x81FF,
+    0x0200, 0x0201, 0x7C00, 0x3F3C, 0x40B8, 0x4000,
+    0x7DFF, 0xFDFF, 0x7E00, 0xFE00, 0x7FFF, 0xFFFF,
+];
+
+pub fn edge_a_lane(g : u32, k : u32) -> u16 {
+    return EDGE_CODES[((g * 7 + k * 5 + 3) % 18) as usize];
+}
+
+pub fn edge_b_lane(g : u32, k : u32) -> u16 {
+    return EDGE_CODES[((g * 11 + k * 7 + 9) % 18) as usize];
+}
+
+/// xorshift32 over a derived seed; full-range GF16 code: sign, 6-bit exponent,
+/// 9-bit mantissa. Covers normals across all exponents, zeros, Inf and rare
+/// NaN-payload inputs.
+pub fn rand_code(g : u32, k : u32) -> u16 {
+    // Small multipliers only: g*7919 + k*40503 stays far below 2^32, so the
+    // seed derivation cannot overflow (learned from try1 all-FAIL trap).
+    const t : u32 = g * 7919 + k * 40503 + 1;
+    var x : u32 = BATCH_SEED ^ t;
+    x = x ^ (x << 13);
+    x = x ^ (x >> 17);
+    x = x ^ (x << 5);
+    x = x ^ (x << 13);
+    x = x ^ (x >> 17);
+    x = x ^ (x << 5);
+    const s : u32 = (x >> 15) & 1;
+    const e : u32 = (x >> 6) & 63;
+    const m : u32 = x & 511;
+    return @as(u16, @truncate((s << 15) | (e << 9) | m));
+}
+
+pub fn batch_a_lane(g : u32, k : u32) -> u16 {
+    if (g < EDGE_GROUPS) {
+        return edge_a_lane(g, k);
+    }
+    return rand_code(g, k);
+}
+
+pub fn batch_b_lane(g : u32, k : u32) -> u16 {
+    if (g < EDGE_GROUPS) {
+        return edge_b_lane(g, k);
+    }
+    return rand_code(g, k);
+}
+
+/// Exact engine C expected bits for batch group g.
+pub fn expected_bits(g : u32) -> u32 {
+    var a : [4]u16 = undefined;
+    var b : [4]u16 = undefined;
+    var k : u32 = 0;
+    while (k < 4) {
+        a[k] = batch_a_lane(g, k);
+        b[k] = batch_b_lane(g, k);
+        k += 1;
+    }
+    const av : []const u16 = a[0..];
+    const bv : []const u16 = b[0..];
+    return exact_dot4_bits(av, bv);
+}
+
+/// True iff the exact chain produced a NaN (kind 2 anywhere in mul/add).
+pub fn expected_is_nan(g : u32) -> bool {
+    var k : u32 = 0;
+    while (k < 4) {
+        const prod : Exact = exact_mul(c_decode(batch_a_lane(g, k)), c_decode(batch_b_lane(g, k)));
+        if (prod.kind == 2) {
+            return true;
+        }
+        k += 1;
+    }
+    // Accumulator chain: recompute adds exactly.
+    var acc : Exact = Exact { .kind = 0, .neg = 0, .sig = 0, .exp = -149 };
+    k = 0;
+    while (k < 4) {
+        const prod : Exact = exact_mul(c_decode(batch_a_lane(g, k)), c_decode(batch_b_lane(g, k)));
+        acc = exact_add(acc, prod);
+        if (acc.kind == 2) {
+            return true;
+        }
+        k += 1;
+    }
+    return false;
+}
+
+pub fn batch_nan_groups() -> u32 {
+    var nan_cnt : u32 = 0;
+    var g : u32 = 0;
+    while (g < TOTAL_GROUPS) {
+        if (expected_is_nan(g)) {
+            nan_cnt += 1;
+        }
+        g += 1;
+    }
+    return nan_cnt;
+}
+
+fn hex4(out : []u8, cap : usize, w : usize, v : u16) usize {
+    const digits : []const u8 = "0123456789abcdef";
+    if (w + 4 > cap) {
+        return w;
+    }
+    out[w] = digits[((v >> 12) & 15) as usize];
+    out[w + 1] = digits[((v >> 8) & 15) as usize];
+    out[w + 2] = digits[((v >> 4) & 15) as usize];
+    out[w + 3] = digits[(v & 15) as usize];
+    return w + 4;
+}
+
+/// ASCII dump of all 288 group A lanes, 4 hex chars per code, group order.
+pub fn batch_a_dump(out : []u8, cap : usize) -> usize {
+    var w : usize = 0;
+    var g : u32 = 0;
+    while (g < TOTAL_GROUPS) {
+        var k : u32 = 0;
+        while (k < 4) {
+            w = hex4(out, cap, w, batch_a_lane(g, k));
+            k += 1;
+        }
+        g += 1;
+    }
+    return w;
+}
+
+/// ASCII dump of all 288 group B lanes.
+pub fn batch_b_dump(out : []u8, cap : usize) -> usize {
+    var w : usize = 0;
+    var g : u32 = 0;
+    while (g < TOTAL_GROUPS) {
+        var k : u32 = 0;
+        while (k < 4) {
+            w = hex4(out, cap, w, batch_b_lane(g, k));
+            k += 1;
+        }
+        g += 1;
+    }
+    return w;
+}
+
+// --- self-tests: the batch is internally consistent BEFORE any GPU run ---
+
+test batch_shape_and_determinism {
+    assert(TOTAL_GROUPS == 288);
+    assert(EDGE_GROUPS == 32);
+    assert(RANDOM_GROUPS == 256);
+    var g : u32 = 0;
+    while (g < TOTAL_GROUPS) {
+        const e1 : u32 = expected_bits(g);
+        const e2 : u32 = expected_bits(g);
+        assert(e1 == e2);
+        g += 1;
+    }
+}
+
+test batch_engines_agree_on_non_nan_groups {
+    var g : u32 = 0;
+    while (g < TOTAL_GROUPS) {
+        var a : [4]u16 = undefined;
+        var b : [4]u16 = undefined;
+        var k : u32 = 0;
+        while (k < 4) {
+            a[k] = batch_a_lane(g, k);
+            b[k] = batch_b_lane(g, k);
+            k += 1;
+        }
+        const av : []const u16 = a[0..];
+        const bv : []const u16 = b[0..];
+        if (expected_is_nan(g) == false) {
+            const c : u32 = exact_dot4_bits(av, bv);
+            const as_bits : u32 = ssot_dot4_bits(av, bv);
+            const bs_bits : u32 = ptx_dot4_bits(av, bv);
+            assert(c == as_bits);
+            assert(c == bs_bits);
+        }
+        g += 1;
+    }
+}
+
+test batch_dump_lengths {
+    var buf : [9216]u8 = undefined;
+    const wa : usize = batch_a_dump(buf[0..], 9216);
+    const wb : usize = batch_b_dump(buf[0..], 9216);
+    assert(wa == 288 * 16);
+    assert(wb == 288 * 16);
+}
+
+test batch_contains_nan_cases {
+    // Inf*0 and Inf+(-Inf) class combos must be present in the edge half;
+    // the exact count is measured, not asserted to a hand-picked number.
+    assert(batch_nan_groups() > 0);
+    assert(batch_nan_groups() < TOTAL_GROUPS);
+}
+
+// --- M4 stage 2 GPU verdict (same module: cross-scripts use does not
+// resolve; single-module pattern matches M2 conformance) ---
+// Evidence: .scratch/gf16/m4/batch_run2.log, 288 words, hash gate re-passed
+// before launch, grid corrected to ceil(n/256) blocks. The first batch
+// attempt (grid 1x1x1) was discarded BEFORE any oracle comparison: groups
+// 256..287 were never computed, so it could not and did not tune anything.
+// NaN contract (declared before the run): a group whose exact expected
+// value is NaN passes iff the GPU word is a NaN (exponent all ones,
+// mantissa nonzero); every finite expected group must match bit-for-bit.
+pub const GPU_C : [288]u32 = [ 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7F800000, 0x7FFFFFFF, 0x7FFFFFFF, 0xCFFFC000, 0x7F800000, 0x7FFFFFFF, 0x7FFFFFFF, 0x7F800000, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7F800000, 0x7FFFFFFF, 0x7FFFFFFF, 0xCFFFC000, 0x7F800000, 0x7FFFFFFF, 0x5D24CA8A, 0x7FFFFFFF, 0x5AE87880, 0x5F591A1A, 0x55235C47, 0x51AC4880, 0x7FFFFFFF, 0x5E3D1000, 0x5F47F512, 0x58854AE8, 0x47591A10, 0x59AB2000, 0x4E313900, 0x59C12F20, 0x7FFFFFFF, 0x4ACB234A, 0x4BF4C200, 0x4AE8A020, 0x53F2B02B, 0x5E3C438A, 0x4D12DC64, 0x42EACBEA, 0x3532DAC0, 0x5AD7EE20, 0x5AE07C94, 0x5630E257, 0x52EB2D65, 0x488EE920, 0x5749490B, 0x55248FB2, 0x542012D5, 0x508B3C80, 0x7FFFFFFF, 0x5C0BE790, 0x408F193A, 0x5AE92520, 0x552BF12D, 0x58B4932A, 0x5C0E6C24, 0x5407DE40, 0x475CE5CE, 0x5D1C4000, 0x506DEEFF, 0x4D16D442, 0x3D209390, 0x4AC8F999, 0x59BCE880, 0x54095440, 0x5D202E40, 0x589BD564, 0x3871B580, 0x5D14755C, 0x5C25B118, 0x5634FC90, 0x51C44481, 0x49EC2AE8, 0x5E356840, 0x52EFF127, 0x5E3B5C45, 0x5C0E2190, 0x52E9DFD0, 0x3D401FA7, 0x56401510, 0x4C005390, 0x7FFFFFFF, 0x4751CC10, 0x5E3FFC64, 0x4E64BC54, 0x486B9CE2, 0x58A2C93B, 0x7FFFFFFF, 0x589B5201, 0x50978AF3, 0x5BFBB883, 0x463AEB90, 0x7FFFFFFF, 0x3752BD0F, 0x5D33F404, 0x57471310, 0x58769692, 0x58838620, 0x5AF0A080, 0x5511E190, 0x5FCE51ED, 0x4E3F27C2, 0x589D8800, 0x5AF18AD2, 0x5D1CA411, 0x59B9FFA1, 0x3887D951, 0x59B5B08D, 0x53FC6C20, 0x48751E40, 0x5C049C10, 0x5E384DF1, 0x55209390, 0x4C15E689, 0x5D1E9A40, 0x59BE2FA5, 0x7FFFFFFF, 0x53FE8880, 0x5E69F50C, 0x54044954, 0x5D1171A6, 0x5781720A, 0x7FFFFFFF, 0x48840800, 0x5872AD90, 0x56401510, 0x4C86F58A, 0x4D10C040, 0x5E34FC90, 0x42EA7F20, 0x5E33BAF2, 0x5AF15020, 0x563DEC40, 0x5C232614, 0x5F47F510, 0x5AE5C880, 0x509D881A, 0x5748DA7C, 0x58788E10, 0x43FF4CF2, 0x587A0900, 0x3ADA8920, 0x5C158394, 0x51D17008, 0x46408400, 0x5AEFF20A, 0x4E2D7F90, 0x7FFFFFFF, 0x4D250397, 0x42CB26F3, 0x54083B90, 0x5E3A7E40, 0x7FFFFFFF, 0x50808025, 0x5F44E040, 0x40AD94B4, 0x5C078110, 0x58672290, 0x5E2E62B2, 0x52DE7958, 0x3C0CA790, 0x55154C40, 0x58879C21, 0x562CAD19, 0x588241C8, 0x4748D16E, 0x59A68800, 0x362E6102, 0x587A8792, 0x50882000, 0x5AD76048, 0x5D1B1538, 0x4F4D4B90, 0x7FFFFFFF, 0x4757CF7D, 0x59B6E5C0, 0x57515840, 0x4C0275AC, 0x41BBB200, 0x59ABB421, 0x588A57C0, 0x5AF60D6B, 0x564D6810, 0x5F4EB840, 0x5756E3DC, 0x5D20311E, 0x5AE1C800, 0x5E5227E4, 0x48732A40, 0x31C91001, 0x489C93CA, 0x5063D240, 0x4D19EAD5, 0x3ADA894A, 0x5FD3E532, 0x4E2B0990, 0x586A37A3, 0x440ACC41, 0x5E371840, 0x5C0B0D02, 0x5C7E9A80, 0x5516AEFA, 0x55248FB0, 0x48698554, 0x5E3E5A90, 0x49C91DA0, 0x3F44701A, 0x7FFFFFFF, 0x5E42B090, 0x5AFDF1B1, 0x508BC220, 0x5D289810, 0x4F524000, 0x49B2B9E9, 0x5AE36E50, 0x5E432048, 0x59A3B120, 0x48A50E32, 0x5E2B7240, 0x44055490, 0x55103A24, 0x3D1AF606, 0x5D173691, 0x38992000, 0x5EB9C4A1, 0x58769690, 0x5D13C641, 0x5C0AA250, 0x5F591A10, 0x5D142790, 0x5ACFA69F, 0x48A18682, 0x53FB4754, 0x49012654, 0x3636AC10, 0x50F94F7A, 0x4E393710, 0x52CB2320, 0x56364000, 0x5D4CB310, 0x52C94080, 0x540E918A, 0x57882682, 0x506C6991, 0x49B05E20, 0x5641D190, 0x4AEA218B, 0x5E349100, 0x4ACBC4AC, 0x48FCD808, 0x49B51820, 0x589F3320, 0x51BC811A, 0x5F49BA90, 0x5C08F691, 0x4F4A2C4A, 0x58681610, 0x59AE9C80, 0x4F07B958, 0x5E30D1BC, 0x52D9E232, 0x5896F3C8, 0x59BBB200, 0x5512424E, 0x5F4B8210, 0x55235C40, 0x5AE3C720, 0x5751CC10, 0x4E2DE900, 0x5E416248, 0x59A9F880, 0x42E89C40, 0x3F47F53A, ];
+
+pub fn is_nan_word(w : u32) -> bool {
+    return ((w & 0x7F800000) == 0x7F800000) and ((w & 0x007FFFFF) != 0);
+}
+
+pub fn finite_mismatch_count() -> u32 {
+    var bad : u32 = 0;
+    var g : u32 = 0;
+    while (g < TOTAL_GROUPS) {
+        if (expected_is_nan(g) == false) {
+            if (expected_bits(g) != GPU_C[g]) {
+                bad += 1;
+            }
+        }
+        g += 1;
+    }
+    return bad;
+}
+
+pub fn nan_contract_violations() -> u32 {
+    var bad : u32 = 0;
+    var g : u32 = 0;
+    while (g < TOTAL_GROUPS) {
+        if (expected_is_nan(g)) {
+            if (is_nan_word(GPU_C[g]) == false) {
+                bad += 1;
+            }
+        }
+        g += 1;
+    }
+    return bad;
+}
+
+pub fn nan_groups_expected() -> u32 {
+    return batch_nan_groups();
+}
+
+test gpu_batch_finite_groups_bit_exact {
+    assert(finite_mismatch_count() == 0);
+    assert(TOTAL_GROUPS == 288);
+}
+
+test gpu_batch_nan_groups_are_nan {
+    assert(nan_contract_violations() == 0);
+    assert(nan_groups_expected() > 0);
+}
+
+/// Diagnostic: batch statistics as ASCII (gen-text channel).
+pub fn batch_stats_dump(out : []u8, cap : usize) -> usize {
+    var w : usize = 0;
+    const nan_n : u32 = nan_groups_expected();
+    const fm : u32 = finite_mismatch_count();
+    const nv : u32 = nan_contract_violations();
+    var i : usize = 0;
+    while (i < 3) {
+        var v : u32 = 0;
+        if (i == 0) { v = nan_n; } else if (i == 1) { v = fm; } else { v = nv; }
+        var tmp : [10]u8 = undefined;
+        var tlen : usize = 0;
+        if (v == 0) {
+            tmp[0] = '0';
+            tlen = 1;
+        } else {
+            var x : u32 = v;
+            while (x > 0) {
+                tmp[tlen] = '0' + ((x % 10) as u8);
+                tlen += 1;
+                x = x / 10;
+            }
+        }
+        if (i == 0) { if (w + 11 < cap) { out[w] = 'n'; out[w+1] = 'a'; out[w+2] = 'n'; out[w+3] = '_'; out[w+4] = 'g'; out[w+5] = 'r'; out[w+6] = 'p'; out[w+7] = 's'; out[w+8] = '='; w += 9; } }
+        if (i == 1) { if (w + 8 < cap) { out[w] = 'f'; out[w+1] = 'm'; out[w+2] = 'm'; out[w+3] = 'a'; out[w+4] = 't'; out[w+5] = 'c'; out[w+6] = 'h'; out[w+7] = '='; w += 8; } }
+        if (i == 2) { if (w + 8 < cap) { out[w] = 'n'; out[w+1] = 'a'; out[w+2] = 'n'; out[w+3] = 'v'; out[w+4] = 'i'; out[w+5] = 'o'; out[w+6] = 'l'; out[w+7] = '='; w += 8; } }
+        var j : usize = tlen;
+        while (j > 0) {
+            j -= 1;
+            if (w < cap) { out[w] = tmp[j]; w += 1; }
+        }
+        if (w < cap) { out[w] = '\n'; w += 1; }
+        i += 1;
+    }
+    return w;
+}

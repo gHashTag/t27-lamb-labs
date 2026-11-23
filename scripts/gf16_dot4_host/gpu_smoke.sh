@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
-# M4 stage: golden-vector smoke of the ACCEPTED GF16 dot4 cubin on GPU 1.
-# Owner-ordered gate chain: hash gate BEFORE launch; GPU 1 only; lane-scratch
-# writes only; no foreign processes touched.
+# M4 stage: golden-vector smoke of the ACCEPTED GF16 dot4 cubin.
+# Owner-ordered gate chain: hash gate BEFORE launch; lane-scratch writes
+# only; no foreign processes touched.
+# Device selection (MEASURED, device_probe.log): the CUDA driver inside this
+# WSL2 container exposes exactly ONE logical device (cuDeviceGetCount == 1),
+# which IS the free physical RTX 3070 Laptop (physical nvidia-smi index 1,
+# 15275 MiB free of 16384 MiB). Therefore the CUDA ordinal to use is 0;
+# ordinal 1 fails with CUDA_ERROR_INVALID_DEVICE (101) and launches nothing.
+# The physical GPU 0 (busy, ~14.5 GiB used) is not exposed to CUDA here and
+# is never touched by this script.
 set -u
 LANE=/home/t27ssh/t27os/lanes/gf16-dot4-ptx-20261123T071500Z
 M4="$LANE/m4_smoke"
@@ -28,7 +35,7 @@ if command -v sha256sum >/dev/null; then
 fi
 
 echo
-echo "=== 2. GPU 1 availability (inventory; do not touch GPU 0) ==="
+echo "=== 2. free-GPU inventory (physical index 1 == CUDA ordinal 0) ==="
 /usr/lib/wsl/lib/nvidia-smi --query-gpu=index,memory.used,memory.total --format=csv 2>&1
 FREE1=$(/usr/lib/wsl/lib/nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits -i 1 2>/dev/null || echo 0)
 echo "gpu1_free_mib=$FREE1"
@@ -50,8 +57,8 @@ else
 fi
 
 echo
-echo "=== 4. golden smoke: n=8 adopted groups, grid 1x1x1, block 256x1x1 ==="
-./cuda_smoke gf16_dot4_accepted.cubin gf16_dot4_a.bin gf16_dot4_b.bin 1 8 smoke
+echo "=== 4. golden smoke: n=8 adopted groups, grid ceil(n/256)=1, block 256x1x1 ==="
+./cuda_smoke gf16_dot4_accepted.cubin gf16_dot4_a.bin gf16_dot4_b.bin 0 8 smoke
 RUN_RC=$?
 echo "runner_exit=$RUN_RC"
 

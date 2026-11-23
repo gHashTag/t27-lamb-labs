@@ -108,8 +108,10 @@ int main(int argc, char **argv)
     CUDA_CHECK(cuMemcpyHtoD_v2(db, hb, B_BYTES));
     {
         unsigned nn = n_groups;
+        /* ABI: gid = ctaid.x*256 + tid.x must cover p_n; grid may exceed p_n. */
+        unsigned gx = (n_groups + 255u) / 256u;
         void *args[4] = { &da, &db, &dc, &nn };
-        CUDA_CHECK(cuLaunchKernel(fn, 1, 1, 1, 256, 1, 1, 0, NULL, args, NULL));
+        CUDA_CHECK(cuLaunchKernel(fn, gx, 1, 1, 256, 1, 1, 0, NULL, args, NULL));
     }
     CUDA_CHECK(cuCtxSynchronize());
     CUDA_CHECK(cuMemcpyDtoH_v2(hc, dc, C_BYTES));

@@ -1,0 +1,40 @@
+=== 0. context ===
+2026-11-23T22:15:56Z
+Linux win11-3070 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64 GNU/Linux
+
+=== 1. hash gate BEFORE launch (owner step 4) ===
+35e07b5f2413ccfb63b64572c3bd08c6587da8a288254b1ccfa2eb1f1ff987cc  gf16_dot4_accepted.cubin
+HASH_GATE: PASS (35e07b5f2413ccfb63b64572c3bd08c6587da8a288254b1ccfa2eb1f1ff987cc)
+
+=== 2. free-GPU inventory (physical index 1 == CUDA ordinal 0) ===
+index, memory.used [MiB], memory.total [MiB]
+0, 14482 MiB, 16384 MiB
+1, 42 MiB, 16384 MiB
+gpu1_free_mib=16138
+GPU_GATE: PASS
+
+=== 3. build runner (driver API only) ===
+BUILD: gcc ok
+
+=== 4. golden smoke: n=8 adopted groups, grid ceil(n/256)=1, block 256x1x1 ===
+GPU_RUN_OK cubin_bytes=4648 n=8 dev=0
+C0:7FFFFFFF
+C1:7FFFFFFF
+C2:7FFFFFFF
+C3:7FFFFFFF
+C4:7FFFFFFF
+C5:7FFFFFFF
+C6:7FFFFFFF
+C7:7FFFFFFF
+runner_exit=0
+
+=== 5. post-run GPU state ===
+index, memory.used [MiB], utilization.gpu [%]
+0, 14482 MiB, 0 %
+1, 42 MiB, 1 %
+
+=== 6. output completeness ===
+smoke_c.bin bytes: 32
+00000000: 7fffffff 7fffffff 7fffffff 7fffffff  ................
+00000010: 7fffffff 7fffffff 7fffffff 7fffffff  ................
+M4_SMOKE_DONE rc=0
