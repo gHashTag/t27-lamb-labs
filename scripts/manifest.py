@@ -11,9 +11,12 @@ import hashlib, os, sys, json, subprocess
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Directories whose contents are the portfolio's deliverable artifacts.
-INCLUDE_DIRS = ["target", "benchmark", "engagement", "evidence", "bitstream", "docs", "scripts"]
+INCLUDE_DIRS = ["target", "benchmark", "engagement", "evidence", "bitstream", "docs", "scripts",
+                "artifacts"]
 # Files at the repository root that are part of the deliverable.
-INCLUDE_ROOT_FILES = ["README.md"]
+INCLUDE_ROOT_FILES = ["README.md", "ARTIFACT_HASHES.txt"]
+# The root hash index cannot contain its own hash; the manifest (written after it) does.
+HASHES_SELF = "ARTIFACT_HASHES.txt"
 # Directories that are toolchain copies or scratch, not artifacts.
 EXCLUDE_DIRS = {".git", "toolchain", "specs", "fpga", "__pycache__", ".pytest_cache"}
 
@@ -46,8 +49,39 @@ def collect():
     return sorted(set(out))
 
 
+def write_hashes_index(files, dest):
+    """Write the repo-root hash index: one "<sha256>  <repo-relative path>" line per file.
+
+    The index excludes itself (a file cannot carry its own hash); ARTIFACT_MANIFEST.txt does
+    include it, so the pair is cross-checkable.
+    """
+    lines = [
+        "# t27-lamb-labs artifact hashes (sha256, repo-relative)",
+        "# Machine-readable twin of ARTIFACT_MANIFEST.txt; excludes itself by construction.",
+        "# Regenerate: python3 scripts/manifest.py",
+    ]
+    counted = 0
+    for rel in files:
+        if rel == HASHES_SELF:
+            continue
+        p = os.path.join(ROOT, rel)
+        if os.path.isfile(p):
+            lines.append(f"{sha256(p)}  {rel}")
+            counted += 1
+    lines.append(f"# {counted} files")
+    with open(dest, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    print(f"wrote {dest}: {counted} files")
+
+
 def main():
     dest = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "ARTIFACT_MANIFEST.txt")
+    hashes_dest = os.path.join(ROOT, HASHES_SELF)
+
+    # 1) hash index first, so that the manifest can hash it in turn
+    write_hashes_index(collect(), hashes_dest)
+
+    # 2) manifest over the same file set (now including the freshly written hash index)
     files = collect()
     lines = []
     lines.append("# t27-lamb-labs artifact manifest")

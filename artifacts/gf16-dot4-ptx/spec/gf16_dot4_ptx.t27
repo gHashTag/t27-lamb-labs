@@ -1,0 +1,279 @@
+// SPDX-License-Identifier: Apache-2.0
+; specs/igla/coder/gf16_dot4_ptx.t27 -- the PTX text of a GF16 dot4 kernel, written by t27, plus its CPU golden.
+; Owner order T27_NATIVE_NVIDIA_M6_KERNEL (2026-11-20). Emitter DRY: Trinity-S-AI-DNA/t27#10947.
+; --
+; The kernel `gf16_dot4`, target sm_86 (RTX 3070 Laptop), PTX 7.1.
+;   c[i] = sum over lane j = 0..3 of decode(a[4i + j]) * decode(b[4i + j]), i < n.
+;   a, b: GF16 (u16) arrays, 4 per group, 8-byte aligned groups; c: f32, n entries. One thread per group,
+;   grid ceil(n / 256), 256 threads. Per lane: both inputs are decoded with emit_gf16_decode_f32
+;   (ptx_emit.t27, the PTX of gf16_decode_to_f32) and accumulated with fma.rn.f32 in lane order.
+;   Product of two GF16 values has at most 22 significant bits, so it is exact in f32, and fma equals
+;   mul-then-add here: the CPU golden below (acc + a * b in lane order) gives the same bits.
+; Golden: gf16_decode_to_f32 of specs/numeric/gf16.t27 (the numeric SSOT). Vectors are copied from
+;   conformance/vectors/gf16_conformance_v0.json, "vectors"[].name -> gf16_bits_hex:
+;   pos_zero 0x0000, neg_zero 0x8000, pos_one 0x3E00, neg_one 0xBE00, pos_two 0x4000, pos_half 0x3C00,
+;   phi 0x3F3C, three 0x4100, e 0x40B8, pi 0x4124.
+; --
+; How to run it on the GPU. NOT POSSIBLE with the current `t27c ptx-run`: bootstrap/src/main.rs (PtxRun,
+; ~L1576, `--kernel` 0 = ternary_gemm_s8, 1 = hslm_dx_s8, 2 = hslm_dw_s8) only loads the PTX of
+; the three HSLM kernels, and `--backend ptx` of `t27c compile` (~L6209) only lowers
+; specs/igla/coder/ternary_gemm_gpu.t27. Neither knows this module, and there is no GF16 kernel id and no
+; GF16 host data / mismatch count in the driver. That is the M5 / #10933 / #10360 gap (a general
+; t27 -> PTX path and a driver that takes a module by name); it is not fixed here, and no Rust is changed.
+; Intended use once it is closed: lower this spec with `t27c gen-rust` (emit_ptx), load the text with
+; cuModuleLoadData, look up KERNEL_NAME, launch grid (grid_dim(n)), block 256 with
+; (p_a, p_b, p_c, p_n), and count mismatches of c against dot4_golden over the groups (bit-exact).
+; ASCII only (L3). phi^2 + 1/phi^2 = 3 | TRINITY
+
+module igla-coder-gf16-dot4-ptx;
+use igla::coder::ptx_emit;
+use numeric::gf16;
+
+/// The kernel's entry name, the one cuModuleGetFunction looks up.
+pub const KERNEL_NAME : str = "gf16_dot4";
+/// Threads per block.
+pub const THREADS : u32 = 256;
+/// Buffer the emitted text needs, with room to spare; emit_ptx returns the exact length.
+pub const PTX_CAP : usize = 8192;
+
+/// Set out[0..n] to v; returns n. Stands in for the [v; N] literal until t27#14155 lands.
+fn fill_u16(out : []u16, n : usize, v : u16) -> usize {
+    var i : usize = 0;
+    while (i < n) {
+        out[i] = v;
+        i += 1;
+    }
+    return n;
+}
+
+// ============================================================================
+// 1. The kernel
+// ============================================================================
+
+fn emit_header(out : []u8, cap : usize, w : usize) -> usize {
+    var x : usize = put_s(out, cap, w, "// gf16_dot4 -- emitted by t27c from specs/igla/coder/gf16_dot4_ptx.t27. Do not edit.\n");
+    x = put_s(out, cap, x, ".version 7.1\n.target sm_86\n.address_size 64\n\n");
+    x = put_s(out, cap, x, ".visible .entry gf16_dot4(\n");
+    x = put_s(out, cap, x, "    .param .u64 p_a,\n    .param .u64 p_b,\n    .param .u64 p_c,\n    .param .u32 p_n\n)\n");
+    x = put_s(out, cap, x, ".maxntid 256, 1, 1\n{\n");
+    x = ins(out, cap, x, ".reg .pred %p<2>;");
+    x = ins(out, cap, x, ".reg .pred %q<2>;");
+    x = ins(out, cap, x, ".reg .b32 %r<16>;");
+    x = ins(out, cap, x, ".reg .b32 %g<4>;");
+    x = ins(out, cap, x, ".reg .f32 %f<4>;");
+    x = ins(out, cap, x, ".reg .b64 %rd<8>;");
+    return x;
+}
+
+/// Group index r5 = ctaid * ntid + tid, guard against n, pointers to the 8-byte groups, both loads.
+fn emit_prologue(out : []u8, cap : usize, w : usize) -> usize {
+    var x : usize = ins(out, cap, w, "ld.param.u64 %rd1, [p_a];");
+    x = ins(out, cap, x, "ld.param.u64 %rd2, [p_b];");
+    x = ins(out, cap, x, "ld.param.u64 %rd3, [p_c];");
+    x = ins(out, cap, x, "ld.param.u32 %r1, [p_n];");
+    x = ins(out, cap, x, "cvta.to.global.u64 %rd1, %rd1;");
+    x = ins(out, cap, x, "cvta.to.global.u64 %rd2, %rd2;");
+    x = ins(out, cap, x, "cvta.to.global.u64 %rd3, %rd3;");
+    x = ins(out, cap, x, "mov.u32 %r2, %tid.x;");
+    x = ins(out, cap, x, "mov.u32 %r3, %ctaid.x;");
+    x = ins(out, cap, x, "mov.u32 %r4, %ntid.x;");
+    x = ins(out, cap, x, "mad.lo.u32 %r5, %r3, %r4, %r2;");
+    x = ins(out, cap, x, "setp.ge.u32 %p1, %r5, %r1;");
+    x = ins(out, cap, x, "@%p1 bra DONE;");
+    x = ins(out, cap, x, "mul.wide.u32 %rd4, %r5, 8;");
+    x = ins(out, cap, x, "add.u64 %rd5, %rd1, %rd4;");
+    x = ins(out, cap, x, "add.u64 %rd6, %rd2, %rd4;");
+    x = ins(out, cap, x, "ld.global.v2.u32 {%r6, %r7}, [%rd5];");
+    x = ins(out, cap, x, "ld.global.v2.u32 {%r8, %r9}, [%rd6];");
+    return ins(out, cap, x, "mov.b32 %f0, 0f00000000;");
+}
+
+/// One lane: take the low (hi = false) or high 16 bits of words wa and wb, decode both, fma into f0.
+fn emit_half(out : []u8, cap : usize, w : usize, wa : str, wb : str, hi : bool) -> usize {
+    var x : usize = w;
+    if (hi) {
+        x = emit_op3(out, cap, x, "shr.u32", "%r10", wa, "16");
+        x = emit_op3(out, cap, x, "shr.u32", "%r11", wb, "16");
+    } else {
+        x = emit_op3(out, cap, x, "and.b32", "%r10", wa, "0xFFFF");
+        x = emit_op3(out, cap, x, "and.b32", "%r11", wb, "0xFFFF");
+    }
+    x = emit_gf16_decode_f32(out, cap, x, "%r12", "%r10");
+    x = emit_gf16_decode_f32(out, cap, x, "%r13", "%r11");
+    x = emit_op2(out, cap, x, "mov.b32", "%f1", "%r12");
+    x = emit_op2(out, cap, x, "mov.b32", "%f2", "%r13");
+    return emit_fma_f32(out, cap, x, "%f0", "%f1", "%f2");
+}
+
+/// Lane j of the group: words (r6, r7) hold a, (r8, r9) hold b; lanes 0, 1 are word 0, lanes 2, 3 word 1.
+fn emit_lane(out : []u8, cap : usize, w : usize, j : u32) -> usize {
+    if (j == 0) { return emit_half(out, cap, w, "%r6", "%r8", false); }
+    if (j == 1) { return emit_half(out, cap, w, "%r6", "%r8", true); }
+    if (j == 2) { return emit_half(out, cap, w, "%r7", "%r9", false); }
+    return emit_half(out, cap, w, "%r7", "%r9", true);
+}
+
+/// The whole kernel into out[0..cap). Returns the bytes it needs; when that exceeds cap the buffer
+/// holds a clipped text the caller must not use.
+pub fn emit_ptx(out : []u8, cap : usize) -> usize {
+    var x : usize = emit_header(out, cap, 0);
+    x = emit_prologue(out, cap, x);
+    var j : u32 = 0;
+    while (j < 4) {
+        x = emit_lane(out, cap, x, j);
+        j += 1;
+    }
+    x = ins(out, cap, x, "mul.wide.u32 %rd7, %r5, 4;");
+    x = ins(out, cap, x, "add.u64 %rd7, %rd7, %rd3;");
+    x = ins(out, cap, x, "st.global.f32 [%rd7], %f0;");
+    x = put_s(out, cap, x, "DONE:\n");
+    x = ins(out, cap, x, "ret;");
+    return put_s(out, cap, x, "}\n");
+}
+
+/// Blocks for n groups: ceil(n / 256).
+pub fn grid_dim(n : usize) -> u32 {
+    return ((n + 255) / 256) as u32;
+}
+
+// ============================================================================
+// 2. The CPU golden (gf16_decode_to_f32 of numeric/gf16.t27, f32, lane order)
+// ============================================================================
+
+/// dot4 of a[off..off+4) and b[off..off+4): acc = acc + decode(a) * decode(b), lanes 0..3.
+pub fn dot4_golden(a : []const u16, b : []const u16, off : usize) -> f32 {
+    var acc : f32 = 0.0;
+    var j : usize = 0;
+    while (j < 4) {
+        acc = acc + gf16_decode_to_f32(a[off + j]) * gf16_decode_to_f32(b[off + j]);
+        j += 1;
+    }
+    return acc;
+}
+
+// ============================================================================
+// 3. Tests
+// ============================================================================
+
+test the_text_opens_with_the_ptx_header_for_sm_86 {
+    var out : [8192]u8 = undefined;
+    const m : usize = emit_ptx(&out, PTX_CAP);
+    assert m < PTX_CAP;
+    assert at_text(&out, m, 0, "// gf16_dot4 -- emitted by t27c from specs/igla/coder/gf16_dot4_ptx.t27");
+    assert count_text(&out, m, "\n.version 7.1\n.target sm_86\n.address_size 64\n\n") == 1;
+    assert count_text(&out, m, ".visible .entry gf16_dot4(\n    .param .u64 p_a,\n    .param .u64 p_b,\n    .param .u64 p_c,\n    .param .u32 p_n\n)\n.maxntid 256, 1, 1\n{\n") == 1;
+}
+
+test four_lanes_decode_eight_inputs_and_run_four_fma {
+    var out : [8192]u8 = undefined;
+    const m : usize = emit_ptx(&out, PTX_CAP);
+    assert count_text(&out, m, "    selp.b32 %g1, 255, %g1, %q0;\n") == 8;
+    assert count_text(&out, m, "    fma.rn.f32 %f0, %f1, %f2, %f0;\n") == 4;
+    assert count_text(&out, m, "    and.b32 %r10, %r6, 0xFFFF;\n") == 1;
+    assert count_text(&out, m, "    shr.u32 %r10, %r6, 16;\n") == 1;
+    assert count_text(&out, m, "    and.b32 %r11, %r9, 0xFFFF;\n") == 1;
+    assert count_text(&out, m, "    shr.u32 %r11, %r9, 16;\n") == 1;
+}
+
+test one_guarded_group_per_thread_and_one_f32_store {
+    var out : [8192]u8 = undefined;
+    const m : usize = emit_ptx(&out, PTX_CAP);
+    assert count_text(&out, m, "    ld.global.v2.u32 ") == 2;
+    assert count_text(&out, m, "    @%p1 bra DONE;\n") == 1;
+    assert count_text(&out, m, "    st.global.f32 [%rd7], %f0;\n") == 1;
+    assert count_text(&out, m, "\nDONE:\n    ret;\n}\n") == 1;
+    assert count_text(&out, m, "dp4a") == 0;
+}
+
+test the_text_is_ascii_and_the_same_every_time {
+    var a : [8192]u8 = undefined;
+    var b : [8192]u8 = undefined;
+    const m : usize = emit_ptx(&a, PTX_CAP);
+    const k : usize = emit_ptx(&b, PTX_CAP);
+    assert k == m;
+    var i : usize = 0;
+    while (i < m) {
+        assert a[i] == b[i];
+        assert a[i] == '\n' or (a[i] >= 32 and a[i] < 127);
+        i += 1;
+    }
+}
+
+test a_short_buffer_reports_the_full_length {
+    var out : [8192]u8 = undefined;
+    const m : usize = emit_ptx(&out, PTX_CAP);
+    var small : [64]u8 = undefined;
+    assert fill_u8(&small, 64, 7) == 64;
+    assert emit_ptx(&small, 32) == m;
+    assert small[32] == 7;
+}
+
+test the_grid_covers_every_group {
+    assert grid_dim(1) == 1;
+    assert grid_dim(256) == 1;
+    assert grid_dim(257) == 2;
+}
+
+test golden_vector_one_pos_one_neg_one_pos_two_pos_half_times_three_two_one_half {
+    // a = pos_one, neg_one, pos_two, pos_half; b = three, pos_two, pos_one, pos_half.
+    // 1*3 - 1*2 + 2*1 + 0.5*0.5 = 3.25
+    var a : [4]u16 = undefined;
+    assert fill_u16(&a, 4, 0) == 4;
+    var b : [4]u16 = undefined;
+    assert fill_u16(&b, 4, 0) == 4;
+    a[0] = 0x3E00;
+    a[1] = 0xBE00;
+    a[2] = 0x4000;
+    a[3] = 0x3C00;
+    b[0] = 0x4100;
+    b[1] = 0x4000;
+    b[2] = 0x3E00;
+    b[3] = 0x3C00;
+    assert dot4_golden(&a, &b, 0) == 3.25;
+}
+
+test golden_vector_two_ones_times_e_pi_phi_three {
+    // a = pos_one x4; b = e (0x40B8 = 2.71875), pi (0x4124 = 3.140625), phi (0x3F3C = 1.6171875),
+    // three (0x4100). Sum = 10.4765625, exact in f32.
+    var a : [4]u16 = undefined;
+    assert fill_u16(&a, 4, 0x3E00) == 4;
+    var b : [4]u16 = undefined;
+    assert fill_u16(&b, 4, 0) == 4;
+    b[0] = 0x40B8;
+    b[1] = 0x4124;
+    b[2] = 0x3F3C;
+    b[3] = 0x4100;
+    assert dot4_golden(&a, &b, 0) == 10.4765625;
+}
+
+test golden_vector_three_zeros_cancel_to_zero {
+    // a = pos_zero, neg_zero, pos_one, neg_one; b = pos_one, pos_one, pos_two, pos_two. 0 - 0 + 2 - 2 = 0.
+    var a : [4]u16 = undefined;
+    assert fill_u16(&a, 4, 0) == 4;
+    var b : [4]u16 = undefined;
+    assert fill_u16(&b, 4, 0) == 4;
+    a[1] = 0x8000;
+    a[2] = 0x3E00;
+    a[3] = 0xBE00;
+    b[0] = 0x3E00;
+    b[1] = 0x3E00;
+    b[2] = 0x4000;
+    b[3] = 0x4000;
+    assert dot4_golden(&a, &b, 0) == 0.0;
+}
+
+test golden_offset_selects_the_group {
+    // Two groups; the second is group vector one shifted by 4.
+    var a : [8]u16 = undefined;
+    assert fill_u16(&a, 8, 0) == 8;
+    var b : [8]u16 = undefined;
+    assert fill_u16(&b, 8, 0) == 8;
+    a[4] = 0x3E00;
+    a[5] = 0x3E00;
+    b[4] = 0x4000;
+    b[5] = 0x4100;
+    assert dot4_golden(&a, &b, 0) == 0.0;
+    assert dot4_golden(&a, &b, 4) == 5.0;
+}
+
+invariant block_is_eight_warps { THREADS == 256 and THREADS % 32 == 0 }

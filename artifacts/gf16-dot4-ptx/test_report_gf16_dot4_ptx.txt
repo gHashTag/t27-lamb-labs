@@ -1,0 +1,20 @@
+--- test report: specs/igla/coder/gf16_dot4_ptx.t27 ---
+
+  tests       10
+  pass        10
+  FAIL        0
+  invariants  1   proved -- comptime, so compiling IS the check
+  rate    100.0%
+
+  runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+       ?  the_text_opens_with_the_ptx_header_for_sm_86   (passed, not counted)
+       ?  four_lanes_decode_eight_inputs_and_run_four_fma   (passed, not counted)
+       ?  one_guarded_group_per_thread_and_one_f32_store   (passed, not counted)
+       ?  the_text_is_ascii_and_the_same_every_time   (passed, not counted)
+       ?  a_short_buffer_reports_the_full_length   (passed, not counted)
+       ?  the_grid_covers_every_group   (passed, not counted)
+       ?  golden_vector_one_pos_one_neg_one_pos_two_pos_half_times_three_two_one_half   (passed, not counted)
+       ?  golden_vector_two_ones_times_e_pi_phi_three   (passed, not counted)
+       ?  golden_vector_three_zeros_cancel_to_zero   (passed, not counted)
+       ?  golden_offset_selects_the_group   (passed, not counted)
+  vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)

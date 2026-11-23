@@ -1,0 +1,34 @@
+Module: igla-coder-gf16-dot4-ptx
+  Tests:      10
+  Invariants: 1
+  Benchmarks: 0
+
+  Total: 11 declarations
+/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/t27_test.zig:33:20: error: use of undeclared identifier 'put_s'
+    var x: usize = put_s(out, cap, w, "// gf16_dot4 -- emitted by t27c from specs/igla/coder/gf16_dot4_ptx.t27. Do not edit.\n");
+                   ^~~~~
+/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/t27_test.zig:48:20: error: use of undeclared identifier 'ins'
+    var x: usize = ins(out, cap, w, "ld.param.u64 %rd1, [p_a];");
+                   ^~~
+/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/t27_test.zig:73:13: error: use of undeclared identifier 'emit_op3'
+        x = emit_op3(out, cap, x, "shr.u32", "%r10", wa, "16");
+            ^~~~~~~~
+/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/t27_test.zig:107:9: error: use of undeclared identifier 'ins'
+    x = ins(out, cap, x, "mul.wide.u32 %rd7, %r5, 4;");
+        ^~~
+/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/t27_test.zig:123:22: error: use of undeclared identifier 'gf16_decode_to_f32'
+        acc = acc + (gf16_decode_to_f32(a[off + j]) * gf16_decode_to_f32(b[off + j]));
+                     ^~~~~~~~~~~~~~~~~~
+/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/t27_test.zig:133:11: error: use of undeclared identifier 'at_text'
+    if (!(at_text(&out, m, 0, "// gf16_dot4 -- emitted by t27c from specs/igla/coder/gf16_dot4_ptx.t27"))) @panic("assertion failed");
+          ^~~~~~~
+/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/t27_test.zig:141:11: error: use of undeclared identifier 'count_text'
+    if (!(count_text(&out, m, "    selp.b32 %g1, 255, %g1, %q0;\n") == 8)) __t27_assert_fail("\n  assertion failed:\n    count_text(&out, m, \"    selp.b32 %g1, 255, %g1, %q0;\\n\") = {any}\n", .{ count_text(&out, m, "    selp.b32 %g1, 255, %g1, %q0;\n") });
+          ^~~~~~~~~~
+/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/t27_test.zig:152:11: error: use of undeclared identifier 'count_text'
+    if (!(count_text(&out, m, "    ld.global.v2.u32 ") == 2)) __t27_assert_fail("\n  assertion failed:\n    count_text(&out, m, \"    ld.global.v2.u32 \") = {any}\n", .{ count_text(&out, m, "    ld.global.v2.u32 ") });
+          ^~~~~~~~~~
+/var/folders/cm/2n1qdh892xldd1rc2ly1jv8r0000gn/T/t27_test.zig:180:11: error: use of undeclared identifier 'fill_u8'
+    if (!(fill_u8(&small, 64, 7) == 64)) __t27_assert_fail("\n  assertion failed:\n    fill_u8(&small, 64, 7) = {any}\n", .{ fill_u8(&small, 64, 7) });
+          ^~~~~~~
+exit=0
