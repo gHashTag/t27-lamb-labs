@@ -1,0 +1,5 @@
+# evidence/vertical_stack artifact hashes (sha256, dir-relative)
+# Excludes itself by construction; cross-checked by the repo-root pair.
+# Regenerate: python3 scripts/manifest.py (root pair) after any change here.
+697227246e3f3de41afcee32cf32e85b786b9e703ed4a6778cc4f39b88f8fc57  READINESS_MATRIX.md
+# 1 files
