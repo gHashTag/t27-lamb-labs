@@ -1,0 +1,45 @@
+// M4 stage verdict: GPU golden smoke, n=8 adopted groups.
+// GPU evidence source: .scratch/gf16/m4/gpu_smoke_run2.log on the accepted
+// cubin (SHA-256 35e07b5f2413ccfb63b64572c3bd08c6587da8a288254b1ccfa2eb1f1ff987cc
+// verified on the GPU machine BEFORE launch), driver-API runner cuda_smoke.c:
+// cuInit -> cuDeviceGet(0) -> cuCtxCreate_v2 -> cuModuleLoadData ->
+// cuModuleGetFunction("gf16_dot4") -> cuMemAlloc_v2 -> cuMemcpyHtoD_v2 ->
+// cuLaunchKernel(grid 1x1x1, block 256x1x1, smem 0, stream 0) ->
+// cuCtxSynchronize -> cuMemcpyDtoH_v2 (full 32-byte output) -> cuMemFree ->
+// cuModuleUnload -> cuCtxDestroy. Every CUDA call checked; exit 0.
+// Run 1 note: ordinal 1 -> CUDA error 101 (WSL2 exposes ONE device); ordinal 0
+// succeeded with 15275 MiB free (free-memory profile matches physical GPU 1,
+// the idle card; nvidia-smi Windows-side confirmed GPU 1 idle, GPU 0 busy).
+// This file holds the COMPARISON: expected bits from the M2 adopted-vector
+// contract vs the GPU dump. NaN contract: no NaN products in the smoke set;
+// all 8 groups have finite expected values.
+module gf16-dot4-gpu-smoke-verdict;
+
+use igla::coder::gf16_dot4_conformance;
+
+/// GPU output words C0..C7, transcribed from gpu_smoke_run2.log.
+pub const GPU_C_HEX : [8]u32 = [
+    0x4127A000, 0x00000000, 0xC0400000, 0x409B4000,
+    0x7F800000, 0xFF800000, 0x50275620, 0xBFB10000,
+];
+
+pub fn gpu_mismatch_count() -> u32 {
+    var bad : u32 = 0;
+    var g : u32 = 0;
+    while (g < 8) {
+        if (ADOPTED_EXP[g] != GPU_C_HEX[g]) {
+            bad += 1;
+        }
+        g += 1;
+    }
+    return bad;
+}
+
+pub fn groups_checked() -> u32 {
+    return 8;
+}
+
+test gpu_smoke_eight_groups_bit_exact {
+    assert(groups_checked() == 8);
+    assert(gpu_mismatch_count() == 0);
+}

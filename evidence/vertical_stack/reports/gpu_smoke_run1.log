@@ -1,0 +1,30 @@
+=== 0. context ===
+2026-11-23T19:41:41Z
+Linux win11-3070 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct 27 00:24:11 UTC 2026 x86_64 GNU/Linux
+
+=== 1. hash gate BEFORE launch (owner step 4) ===
+35e07b5f2413ccfb63b64572c3bd08c6587da8a288254b1ccfa2eb1f1ff987cc  gf16_dot4_accepted.cubin
+HASH_GATE: PASS (35e07b5f2413ccfb63b64572c3bd08c6587da8a288254b1ccfa2eb1f1ff987cc)
+
+=== 2. GPU 1 availability (inventory; do not touch GPU 0) ===
+index, memory.used [MiB], memory.total [MiB]
+0, 14540 MiB, 16384 MiB
+1, 14 MiB, 16384 MiB
+gpu1_free_mib=16166
+GPU_GATE: PASS
+
+=== 3. build runner (driver API only) ===
+BUILD: gcc ok
+
+=== 4. golden smoke: n=8 adopted groups, grid 1x1x1, block 256x1x1 ===
+CUDA_ERR cuDeviceGet(&dev, dev_ordinal) -> 101 (invalid device ordinal)
+runner_exit=1
+
+=== 5. post-run GPU state ===
+index, memory.used [MiB], utilization.gpu [%]
+0, 14540 MiB, 0 %
+1, 14 MiB, 0 %
+
+=== 6. output completeness ===
+smoke_c.bin MISSING
+M4_SMOKE_DONE rc=1
