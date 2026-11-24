@@ -1,0 +1,148 @@
+Final regression run at HEAD 5131ad99e232b8ca6bc1d2a7186f35b29619e8d0 — 2026-11-24 (Asia/Bangkok)
+Command form: t27c test-report <spec>   (authoritative; plain 't27c test' is not)
+
+[scripts/gf16_dot4_host/gf16_harness.t27] --- test report: scripts/gf16_dot4_host/gf16_harness.t27 ---
+[scripts/gf16_dot4_host/gf16_harness.t27] 
+[scripts/gf16_dot4_host/gf16_harness.t27]   tests       9
+[scripts/gf16_dot4_host/gf16_harness.t27]   pass        9
+[scripts/gf16_dot4_host/gf16_harness.t27]   FAIL        0
+[scripts/gf16_dot4_host/gf16_harness.t27]   rate    100.0%
+[scripts/gf16_dot4_host/gf16_harness.t27] 
+[scripts/gf16_dot4_host/gf16_harness.t27]   runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+[scripts/gf16_dot4_host/gf16_harness.t27]        ?  g1_embedded_cubin_matches_manifest   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_harness.t27]        ?  g1_corrupt_digest_rejected   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_harness.t27]        ?  g2_packing_reproduces_bin_words   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_harness.t27]        ?  g3_memory_byte_order_is_little_endian   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_harness.t27]        ?  g4_grid_dim_and_bounds_semantics   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_harness.t27]        ?  g5_base_alignment_gates   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_harness.t27]        ?  g6_mock_run_matches_expected_and_respects_bounds   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_harness.t27]        ?  g7_comparator_catches_one_bit_flip   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_harness.t27]        ?  harness_verdict_pass_only_when_all_gates_ok   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_harness.t27]   vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+[scripts/gf16_dot4_host/gf16_harness.t27] exit_code=0
+
+[scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27] --- test report: scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27 ---
+[scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27] 
+[scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27]   tests       1
+[scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27]   pass        1
+[scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27]   FAIL        0
+[scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27]   rate    100.0%
+[scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27] 
+[scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27]   runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+[scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27]        ?  gpu_smoke_eight_groups_bit_exact   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27]   vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+[scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27] exit_code=0
+
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27] --- test report: scripts/gf16_dot4_host/gf16_gpu_batch.t27 ---
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27] 
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27]   tests       6
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27]   pass        6
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27]   FAIL        0
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27]   rate    100.0%
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27] 
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27]   runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27]        ?  batch_shape_and_determinism   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27]        ?  batch_engines_agree_on_non_nan_groups   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27]        ?  batch_dump_lengths   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27]        ?  batch_contains_nan_cases   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27]        ?  gpu_batch_finite_groups_bit_exact   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27]        ?  gpu_batch_nan_groups_are_nan   (passed, not counted)
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27]   vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+[scripts/gf16_dot4_host/gf16_gpu_batch.t27] exit_code=0
+
+[specs/igla/coder/gf16_dot4_conformance.t27] --- test report: specs/igla/coder/gf16_dot4_conformance.t27 ---
+[specs/igla/coder/gf16_dot4_conformance.t27] 
+[specs/igla/coder/gf16_dot4_conformance.t27]   tests       13
+[specs/igla/coder/gf16_dot4_conformance.t27]   pass        13
+[specs/igla/coder/gf16_dot4_conformance.t27]   FAIL        0
+[specs/igla/coder/gf16_dot4_conformance.t27]   rate    100.0%
+[specs/igla/coder/gf16_dot4_conformance.t27] 
+[specs/igla/coder/gf16_dot4_conformance.t27]   runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+[specs/igla/coder/gf16_dot4_conformance.t27]        ?  decode_table_exact_engine_matches_ssot_all_65536   (passed, not counted)
+[specs/igla/coder/gf16_dot4_conformance.t27]        ?  ptx_decode_off_table_counts   (passed, not counted)
+[specs/igla/coder/gf16_dot4_conformance.t27]        ?  spec_anchor_bits_exact   (passed, not counted)
+[specs/igla/coder/gf16_dot4_conformance.t27]        ?  golden_adopted_8_groups_all_engines   (passed, not counted)
+[specs/igla/coder/gf16_dot4_conformance.t27]        ?  golden_spec_4_groups_all_engines   (passed, not counted)
+[specs/igla/coder/gf16_dot4_conformance.t27]        ?  discriminators_upstream_convention   (passed, not counted)
+[specs/igla/coder/gf16_dot4_conformance.t27]        ?  random_256_groups_engines_agree   (passed, not counted)
+[specs/igla/coder/gf16_dot4_conformance.t27]        ?  comparator_selftest_8_cases   (passed, not counted)
+[specs/igla/coder/gf16_dot4_conformance.t27]        ?  fma_single_round_criterion   (passed, not counted)
+[specs/igla/coder/gf16_dot4_conformance.t27]        ?  corruption_detected_intentional   (passed, not counted)
+[specs/igla/coder/gf16_dot4_conformance.t27]        ?  group_length_guard   (passed, not counted)
+[specs/igla/coder/gf16_dot4_conformance.t27]        ?  exact_engine_unit_probes   (passed, not counted)
+[specs/igla/coder/gf16_dot4_conformance.t27]        ?  xorshift_sanity   (passed, not counted)
+[specs/igla/coder/gf16_dot4_conformance.t27]   vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+[specs/igla/coder/gf16_dot4_conformance.t27] exit_code=0
+
+[specs/numeric/sha256.t27] --- test report: specs/numeric/sha256.t27 ---
+[specs/numeric/sha256.t27] 
+[specs/numeric/sha256.t27]   tests       5
+[specs/numeric/sha256.t27]   pass        5
+[specs/numeric/sha256.t27]   FAIL        0
+[specs/numeric/sha256.t27]   rate    100.0%
+[specs/numeric/sha256.t27] 
+[specs/numeric/sha256.t27]   runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+[specs/numeric/sha256.t27]        ?  sha256_kat_empty   (passed, not counted)
+[specs/numeric/sha256.t27]        ?  sha256_kat_abc   (passed, not counted)
+[specs/numeric/sha256.t27]        ?  sha256_kat_56_bytes_two_block   (passed, not counted)
+[specs/numeric/sha256.t27]        ?  sha256_kat_112_bytes_fips   (passed, not counted)
+[specs/numeric/sha256.t27]        ?  sha256_kat_5000_byte_stream   (passed, not counted)
+[specs/numeric/sha256.t27]   vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+[specs/numeric/sha256.t27] exit_code=0
+
+[specs/igla/coder/gf16_dot4_ptx.t27] --- test report: specs/igla/coder/gf16_dot4_ptx.t27 ---
+[specs/igla/coder/gf16_dot4_ptx.t27] 
+[specs/igla/coder/gf16_dot4_ptx.t27]   tests       10
+[specs/igla/coder/gf16_dot4_ptx.t27]   pass        10
+[specs/igla/coder/gf16_dot4_ptx.t27]   FAIL        0
+[specs/igla/coder/gf16_dot4_ptx.t27]   invariants  1   proved -- comptime, so compiling IS the check
+[specs/igla/coder/gf16_dot4_ptx.t27]   rate    100.0%
+[specs/igla/coder/gf16_dot4_ptx.t27] 
+[specs/igla/coder/gf16_dot4_ptx.t27]   runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+[specs/igla/coder/gf16_dot4_ptx.t27]        ?  the_text_opens_with_the_ptx_header_for_sm_86   (passed, not counted)
+[specs/igla/coder/gf16_dot4_ptx.t27]        ?  four_lanes_decode_eight_inputs_and_run_four_fma   (passed, not counted)
+[specs/igla/coder/gf16_dot4_ptx.t27]        ?  one_guarded_group_per_thread_and_one_f32_store   (passed, not counted)
+[specs/igla/coder/gf16_dot4_ptx.t27]        ?  the_text_is_ascii_and_the_same_every_time   (passed, not counted)
+[specs/igla/coder/gf16_dot4_ptx.t27]        ?  a_short_buffer_reports_the_full_length   (passed, not counted)
+[specs/igla/coder/gf16_dot4_ptx.t27]        ?  the_grid_covers_every_group   (passed, not counted)
+[specs/igla/coder/gf16_dot4_ptx.t27]        ?  golden_vector_one_pos_one_neg_one_pos_two_pos_half_times_three_two_one_half   (passed, not counted)
+[specs/igla/coder/gf16_dot4_ptx.t27]        ?  golden_vector_two_ones_times_e_pi_phi_three   (passed, not counted)
+[specs/igla/coder/gf16_dot4_ptx.t27]        ?  golden_vector_three_zeros_cancel_to_zero   (passed, not counted)
+[specs/igla/coder/gf16_dot4_ptx.t27]        ?  golden_offset_selects_the_group   (passed, not counted)
+[specs/igla/coder/gf16_dot4_ptx.t27]   vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+[specs/igla/coder/gf16_dot4_ptx.t27] exit_code=0
+
+[specs/igla/coder/ptx_emit.t27] --- test report: specs/igla/coder/ptx_emit.t27 ---
+[specs/igla/coder/ptx_emit.t27] 
+[specs/igla/coder/ptx_emit.t27]   tests       14
+[specs/igla/coder/ptx_emit.t27]   pass        14
+[specs/igla/coder/ptx_emit.t27]   FAIL        0
+[specs/igla/coder/ptx_emit.t27]   rate    100.0%
+[specs/igla/coder/ptx_emit.t27] 
+[specs/igla/coder/ptx_emit.t27]   runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+[specs/igla/coder/ptx_emit.t27]        ?  put_s_counts_every_byte_but_writes_only_below_cap   (passed, not counted)
+[specs/igla/coder/ptx_emit.t27]        ?  put_u_writes_decimal   (passed, not counted)
+[specs/igla/coder/ptx_emit.t27]        ?  ins_indents_by_four_and_ends_the_line   (passed, not counted)
+[specs/igla/coder/ptx_emit.t27]        ?  put_quad_names_four_consecutive_registers   (passed, not counted)
+[specs/igla/coder/ptx_emit.t27]        ?  emit_lds_writes_one_shared_load   (passed, not counted)
+[specs/igla/coder/ptx_emit.t27]        ?  at_text_and_count_text_search_the_text   (passed, not counted)
+[specs/igla/coder/ptx_emit.t27]        ?  one_k_step_has_sixteen_mma_and_the_fragment_loads   (passed, not counted)
+[specs/igla/coder/ptx_emit.t27]        ?  the_epilogue_has_thirty_two_guarded_stores   (passed, not counted)
+[specs/igla/coder/ptx_emit.t27]        ?  the_decode_maps_codes_to_zero_plus_one_minus_one_zero   (passed, not counted)
+[specs/igla/coder/ptx_emit.t27]        ?  code_at_reads_lane_zero_from_the_low_bits   (passed, not counted)
+[specs/igla/coder/ptx_emit.t27]        ?  emit_op3_writes_one_three_operand_line   (passed, not counted)
+[specs/igla/coder/ptx_emit.t27]        ?  gf16_fields_split_sign_exponent_mantissa   (passed, not counted)
+[specs/igla/coder/ptx_emit.t27]        ?  gf16_decode_rebias_by_96_and_widen_mantissa_by_14   (passed, not counted)
+[specs/igla/coder/ptx_emit.t27]        ?  fma_f32_accumulates_in_place   (passed, not counted)
+[specs/igla/coder/ptx_emit.t27]   vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+[specs/igla/coder/ptx_emit.t27] exit_code=0
+
+manifest idempotence check:
+wrote /Users/playra/t27-lamb-labs/.agents/worktrees/dsh-5344b40f-4225/ARTIFACT_HASHES.txt: 239 files
+wrote /Users/playra/t27-lamb-labs/.agents/worktrees/dsh-5344b40f-4225/ARTIFACT_MANIFEST.txt: 240 files
+git HEAD: 5131ad99e232b8ca6bc1d2a7186f35b29619e8d0
+git status (only .scratch must remain untracked):
+ M ARTIFACT_HASHES.txt
+ M ARTIFACT_MANIFEST.txt
+?? .scratch/
+?? evidence/vertical_stack/reports/final_regression_20261124.txt

@@ -1,0 +1,332 @@
+// ============================================================================
+// specs/numeric/sha256.t27 — native SHA-256 (FIPS 180-4) for the vertical stack.
+//
+// Why this module exists: the GF16 dot4 GPU-correctness chain must verify the
+// full SHA-256 of the accepted cubin against the artifact manifest before any
+// launch (owner order, step 4). The .t27 runtime has no file reads, so the
+// harness embeds the bytes it hashes; this module provides the hash function
+// itself, plus known-answer tests pinned to digests measured with the system
+// `shasum -a 256` (see test comments; re-measurable by anyone with:
+//   printf '%s' "abc" | shasum -a 256   ->  ba7816bf8f01cfea414140de5dae2223...
+// ).
+//
+// Implementation notes:
+// - 32-bit wraparound uses the `+%` / `-%` operators (idiom from
+//   specs/fpga/tern9m_l0_k_weights.t27 folding code).
+// - Rotations are written as rotr(x, n) with n in 1..=31 only, which is true
+//   for every schedule/epsilon use in SHA-256, so `32 - n` never shifts by 32.
+// - One-shot API over a byte slice: sha256_of(msg) -> Digest (8 big-endian
+//   words). Padding is constructed into a local buffer; messages up to 119
+//   bytes are covered by the embedded PADMAX (largest KAT is 112 bytes), and
+//   the general two-block-pad path is exercised by the 56- and 64-byte cases.
+// ============================================================================
+
+module numeric-sha256;
+
+pub const Digest = struct {
+    h0 : u32,
+    h1 : u32,
+    h2 : u32,
+    h3 : u32,
+    h4 : u32,
+    h5 : u32,
+    h6 : u32,
+    h7 : u32,
+};
+
+const K : [64]u32 = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
+    0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
+    0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,
+    0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
+    0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+    0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3,
+    0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5,
+    0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+    0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+];
+
+fn rotr(x : u32, n : u32) -> u32 {
+    return ((x >> n) | (x << (32 - n)));
+}
+
+fn ch(x : u32, y : u32, z : u32) -> u32 {
+    return (x & y) ^ ((x ^ 0xFFFFFFFF) & z);
+}
+
+fn maj(x : u32, y : u32, z : u32) -> u32 {
+    return (x & y) ^ (x & z) ^ (y & z);
+}
+
+fn bsig0(x : u32) -> u32 {
+    return rotr(x, 2) ^ rotr(x, 13) ^ rotr(x, 22);
+}
+
+fn bsig1(x : u32) -> u32 {
+    return rotr(x, 6) ^ rotr(x, 11) ^ rotr(x, 25);
+}
+
+fn ssig0(x : u32) -> u32 {
+    return rotr(x, 7) ^ rotr(x, 18) ^ (x >> 3);
+}
+
+fn ssig1(x : u32) -> u32 {
+    return rotr(x, 17) ^ rotr(x, 19) ^ (x >> 10);
+}
+
+fn word_at(msg : []const u8, big_endian_word_index : u32) -> u32 {
+    const i : usize = (big_endian_word_index * 4) as usize;
+    const b0 : u32 = (msg[i] as u32) << 24;
+    const b1 : u32 = (msg[i + 1] as u32) << 16;
+    const b2 : u32 = (msg[i + 2] as u32) << 8;
+    const b3 : u32 = (msg[i + 3] as u32);
+    return b0 | b1 | b2 | b3;
+}
+
+/// Compress one 64-byte block (given as a big-endian word array of 16 words)
+/// into the 8-word chaining value.
+fn compress(h : *Digest, block : []const u32) void {
+    var w : [64]u32 = undefined;
+    var i : u32 = 0;
+    while (i < 16) {
+        w[i] = block[i];
+        i += 1;
+    }
+    while (i < 64) {
+        w[i] = w[i - 16] +% ssig0(w[i - 15]) +% w[i - 7] +% ssig1(w[i - 2]);
+        i += 1;
+    }
+    var a : u32 = h.h0;
+    var b : u32 = h.h1;
+    var c : u32 = h.h2;
+    var d : u32 = h.h3;
+    var e : u32 = h.h4;
+    var f : u32 = h.h5;
+    var g : u32 = h.h6;
+    var hh : u32 = h.h7;
+    i = 0;
+    while (i < 64) {
+        const t1 : u32 = hh +% bsig1(e) +% ch(e, f, g) +% K[i] +% w[i];
+        const t2 : u32 = bsig0(a) +% maj(a, b, c);
+        hh = g;
+        g = f;
+        f = e;
+        e = d +% t1;
+        d = c;
+        c = b;
+        b = a;
+        a = t1 +% t2;
+        i += 1;
+    }
+    h.h0 = h.h0 +% a;
+    h.h1 = h.h1 +% b;
+    h.h2 = h.h2 +% c;
+    h.h3 = h.h3 +% d;
+    h.h4 = h.h4 +% e;
+    h.h5 = h.h5 +% f;
+    h.h6 = h.h6 +% g;
+    h.h7 = h.h7 +% hh;
+}
+
+/// Streaming one-shot SHA-256: full 64-byte blocks are compressed directly
+/// from the message slice; only the final padded tail (at most two blocks,
+/// held in a local 128-byte buffer) is constructed separately. There is no
+/// message-size limit below 2^61 bits — the accepted cubin (4648 bytes) is
+/// hashed through this path by the GF16 dot4 harness.
+pub fn sha256_of(msg : []const u8) Digest {
+    var h : Digest = Digest {
+        .h0 = 0x6a09e667, .h1 = 0xbb67ae85, .h2 = 0x3c6ef372, .h3 = 0xa54ff53a,
+        .h4 = 0x510e527f, .h5 = 0x9b05688c, .h6 = 0x1f83d9ab, .h7 = 0x5be0cd19,
+    };
+    const n : usize = msg.len;
+    const bit_len : u64 = (n as u64) * 8;
+    // 1) compress every full 64-byte block straight from the message.
+    var full : usize = n / 64;
+    var off : usize = 0;
+    while (full > 0) {
+        var words : [16]u32 = undefined;
+        var k : u32 = 0;
+        while (k < 16) {
+            const p : usize = off + (k as usize) * 4;
+            words[k] = ((msg[p] as u32) << 24)
+                | ((msg[p + 1] as u32) << 16)
+                | ((msg[p + 2] as u32) << 8)
+                | (msg[p + 3] as u32);
+            k += 1;
+        }
+        compress(&h, words[0..]);
+        off += 64;
+        full -= 1;
+    }
+    // 2) padded tail: remaining bytes, 0x80, zeros, 8-byte big-endian length.
+    const rem : usize = n - off;
+    var tail : [128]u8 = undefined;
+    var fi : usize = 0;
+    while (fi < 128) {
+        tail[fi] = 0;
+        fi += 1;
+    }
+    var i : usize = 0;
+    while (i < rem) {
+        tail[i] = msg[off + i];
+        i += 1;
+    }
+    tail[rem] = 0x80;
+    var tail_len : usize = 64;
+    if (rem + 1 + 8 > 64) {
+        tail_len = 128;
+    }
+    var j : u32 = 0;
+    while (j < 8) {
+        tail[tail_len - 1 - j] = ((bit_len >> (8 * j)) & 255) as u8;
+        j += 1;
+    }
+    var tblocks : usize = tail_len / 64;
+    var t : usize = 0;
+    while (t < tblocks) {
+        var words : [16]u32 = undefined;
+        var k : u32 = 0;
+        while (k < 16) {
+            const p : usize = t * 64 + (k as usize) * 4;
+            words[k] = ((tail[p] as u32) << 24)
+                | ((tail[p + 1] as u32) << 16)
+                | ((tail[p + 2] as u32) << 8)
+                | (tail[p + 3] as u32);
+            k += 1;
+        }
+        compress(&h, words[0..]);
+        t += 1;
+    }
+    return h;
+}
+
+/// Big-endian u32 word from a message slice (kept public for the
+/// padding-boundary probe test).
+pub fn word_be(msg : []const u8, index : u32) -> u32 {
+    return word_at(msg, index);
+}
+
+fn hex_digit(v : u32) u8 {
+    if (v < 10) {
+        return ('0' + (v as u8));
+    }
+    return ('a' + ((v - 10) as u8));
+}
+
+/// Append the 64 lowercase hex chars of a digest at out[w..], bounded by cap.
+/// Returns the byte count that would be needed.
+pub fn digest_hex(out : []u8, cap : usize, w : usize, d : Digest) -> usize {
+    const words : [8]u32 = [ d.h0, d.h1, d.h2, d.h3, d.h4, d.h5, d.h6, d.h7 ];
+    var x : usize = w;
+    var i : u32 = 0;
+    while (i < 8) {
+        var nib : u32 = 0;
+        while (nib < 8) {
+            const v : u32 = (words[i] >> (28 - 4 * nib)) & 15;
+            if (x < cap) {
+                out[x] = hex_digit(v);
+            }
+            x += 1;
+            nib += 1;
+        }
+        i += 1;
+    }
+    if (x < cap) {
+        out[x] = '\n';
+    }
+    return x + 1;
+}
+
+// ----------------------------------------------------------------------------
+// Known-answer tests. Reference digests measured with system shasum -a 256
+// (see header comment); do not re-tune these to engine output — re-measure.
+// ----------------------------------------------------------------------------
+
+test sha256_kat_empty {
+    const d : Digest = sha256_of("");
+    assert d.h0 == 0xe3b0c442;
+    assert d.h1 == 0x98fc1c14;
+    assert d.h2 == 0x9afbf4c8;
+    assert d.h3 == 0x996fb924;
+    assert d.h4 == 0x27ae41e4;
+    assert d.h5 == 0x649b934c;
+    assert d.h6 == 0xa495991b;
+    assert d.h7 == 0x7852b855;
+}
+
+test sha256_kat_abc {
+    const d : Digest = sha256_of("abc");
+    assert d.h0 == 0xba7816bf;
+    assert d.h1 == 0x8f01cfea;
+    assert d.h2 == 0x414140de;
+    assert d.h3 == 0x5dae2223;
+    assert d.h4 == 0xb00361a3;
+    assert d.h5 == 0x96177a9c;
+    assert d.h6 == 0xb410ff61;
+    assert d.h7 == 0xf20015ad;
+}
+
+// 56 bytes: padding exactly fills one extra block (56 + 1 + 8 = 64).
+test sha256_kat_56_bytes_two_block {
+    const d : Digest = sha256_of("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq");
+    assert d.h0 == 0x248d6a61;
+    assert d.h1 == 0xd20638b8;
+    assert d.h2 == 0xe5c02693;
+    assert d.h3 == 0x0c3e6039;
+    assert d.h4 == 0xa33ce459;
+    assert d.h5 == 0x64ff2167;
+    assert d.h6 == 0xf6ecedd4;
+    assert d.h7 == 0x19db06c1;
+}
+
+// FIPS 180-4 896-bit message: 112 bytes, forces two full extra pad blocks.
+test sha256_kat_112_bytes_fips {
+    const d : Digest = sha256_of("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu");
+    assert d.h0 == 0xcf5b16a7;
+    assert d.h1 == 0x78af8380;
+    assert d.h2 == 0x036ce59e;
+    assert d.h3 == 0x7b049237;
+    assert d.h4 == 0x0b249b11;
+    assert d.h5 == 0xe8f07a51;
+    assert d.h6 == 0xafac4503;
+    assert d.h7 == 0x7afee9d1;
+}
+
+// 5000-byte streaming case (bigger than the accepted cubin): pattern
+// buf[i] = (i*7 + 13) & 0xFF, digest measured with python3 hashlib.sha256:
+// 4a4ca6d906fc5efbe6c597f266f832e978516fc31437dbdb742a7cc19e315ae1.
+// Exercises the >PADMAX block-stream path that the cubin hash gate uses.
+test sha256_kat_5000_byte_stream {
+    var big : [5000]u8 = undefined;
+    var i : usize = 0;
+    while (i < 5000) {
+        big[i] = ((i * 7 + 13) & 255) as u8;
+        i += 1;
+    }
+    const d : Digest = sha256_of(big[0..]);
+    assert d.h0 == 0x4a4ca6d9;
+    assert d.h1 == 0x06fc5efb;
+    assert d.h2 == 0xe6c597f2;
+    assert d.h3 == 0x66f832e9;
+    assert d.h4 == 0x78516fc3;
+    assert d.h5 == 0x1437dbdb;
+    assert d.h6 == 0x742a7cc1;
+    assert d.h7 == 0x9e315ae1;
+}
+
+// gen-text diagnostic: dump the four KAT digests as 64-hex lines for evidence.
+pub fn kat_dump(out : []u8, cap : usize) -> usize {
+    var x : usize = 0;
+    x = digest_hex(out, cap, x, sha256_of(""));
+    x = digest_hex(out, cap, x, sha256_of("abc"));
+    x = digest_hex(out, cap, x, sha256_of("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"));
+    x = digest_hex(out, cap, x, sha256_of("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu"));
+    return x;
+}

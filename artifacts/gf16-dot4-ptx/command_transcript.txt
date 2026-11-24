@@ -1,0 +1,213 @@
+GF16 dot4 PTX lane — command transcript
+=======================================
+Lane          : gf16-dot4-ptx-20261123T071500Z
+Local host    : macOS (arm64), worktree .agents/worktrees/dsh-5344b40f-4225
+Remote host   : win11-3070 (WSL2, Linux 6.18.58.1-microsoft-standard-WSL2), ssh alias "w3070"
+Remote scratch: /home/t27ssh/t27os/lanes/gf16-dot4-ptx-20261123T071500Z
+No GPU execution command was issued at any point (no ptx-run, no ptx-run-gf16, no kernel launch).
+
+SSH options used for every remote call:
+  -o BatchMode=yes -o ConnectTimeout=15 -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no
+
+--------------------------------------------------------------------------------
+SECTION A — local (macOS) verification and emission
+--------------------------------------------------------------------------------
+
+A1  $ git -C /Users/playra/t27-lamb-labs/.agents/worktrees/dsh-5344b40f-4225 status --porcelain
+    ?? .scratch/
+    ?? specs/igla/
+    ?? specs/numeric/
+    exit=0   (before this lane's edits: only "?? .scratch/"; .scratch is untracked and never committed)
+
+A2  $ git -C /Users/playra/t27 rev-parse 44c8c62a73d689f20c713a0e1da563825a0361ee
+    44c8c62a73d689f20c713a0e1da563825a0361ee
+    exit=0   (canonical lane source commit; branch claude/gpu-desktop-client-port-d4b13e)
+
+A3  $ git -C /Users/playra/t27 show 44c8c62a73:specs/igla/coder/gf16_dot4_ptx.t27 > /tmp/gf16lane/gf16_dot4_ptx.t27
+    $ git -C /Users/playra/t27 show 44c8c62a73:specs/igla/coder/ptx_emit.t27      > /tmp/gf16lane/ptx_emit.t27
+    $ git -C /Users/playra/t27 show 8c6395e9dc8f35fc4f5b622a86107bd65b8b703f:specs/numeric/gf16.t27 > /tmp/gf16lane/gf16.t27
+    exit=0
+    sha256:
+      dd74e62584a0aa8896eaf125a43828c593a4b11038b2445590d11df42e227914  gf16_dot4_ptx.t27
+      4e18124466c59291836dc1c48367f13a3b6ece913c5551f78cb182b93ce0eaf5  ptx_emit.t27
+      b6324424a887cd93b697732f90445861850fa8d36b38098eab2d578b2c26d532  gf16.t27
+
+A4  $ cp /tmp/gf16lane/gf16_dot4_ptx.t27 specs/igla/coder/gf16_dot4_ptx.t27
+    $ cp /tmp/gf16lane/ptx_emit.t27      specs/igla/coder/ptx_emit.t27
+    $ cp /tmp/gf16lane/gf16.t27          specs/numeric/gf16.t27
+    exit=0   (vendored byte-identical into this repo; cmp confirms identity)
+
+A5  $ t27c --version ; shasum -a 256 /Users/playra/.local/bin/t27c
+    t27c 0.5.2
+    build 0 commit unknown
+    5da927dffa5eeaad195243cd809e34d316279c614065c8af788c52a256c4ff40  /Users/playra/.local/bin/t27c
+    exit=0   (identical to /Users/playra/t27/target/release/t27c)
+
+A6  $ zig version
+    0.17.1
+    exit=0
+
+A7  $ t27c test specs/igla/coder/gf16_dot4_ptx.t27
+    exit=0   BUT the generated Zig fails to compile: cross-module `use` is NOT resolved in this
+             code path (undeclared identifiers put_s / ins / at_text / count_text / fill_u8 /
+             gf16_decode_to_f32 / emit_op3). Raw output: t27c_test_gf16_dot4_ptx.txt.
+             NOTE: the exit code is 0 even though the compile failed -> the output must be read.
+
+A8  $ t27c test specs/igla/coder/ptx_emit.t27
+    14/14 t27_test.test....OK ... All 14 tests passed.
+    exit=0   (self-contained module: no `use` needed)
+
+A9  $ t27c test-report specs/igla/coder/gf16_dot4_ptx.t27        # import-resolving path
+    tests 10 / pass 10 / FAIL 0 / invariants 1 proved -- comptime, so compiling IS the check / rate 100.0%
+    exit=0
+    (per-test lines are all "(passed, not counted)"; trailing note:
+     "vacuous passes unknown (the counting build did not compile: counting build: assert_eq not in
+      source .t27 spec)" — the counting build is a tool-side extra, not a spec failure.)
+
+A10 $ t27c test-report specs/igla/coder/ptx_emit.t27
+    tests 14 / pass 14 / FAIL 0 / invariants 0 / rate 100.0%
+    exit=0
+
+A11 $ t27c use-edges specs/igla/coder/gf16_dot4_ptx.t27
+    error: unexpected argument 'specs/igla/coder/gf16_dot4_ptx.t27' found
+    Usage: t27c use-edges [OPTIONS]
+    exit=2   (the subcommand takes no positional argument — recorded so it is not retried)
+
+A12 $ grep -n -E '3\.140625|10\.4765625|3\.12890625|10\.46484375|0x4124' specs/igla/coder/gf16_dot4_ptx.t27
+    15:;   phi 0x3F3C, three 0x4100, e 0x40B8, pi 0x4124.
+    236:    // a = pos_one x4; b = e (0x40B8 = 2.71875), pi (0x4124 = 3.140625), phi (0x3F3C = 1.6171875),
+    237:    // three (0x4100). Sum = 10.4765625, exact in f32.
+    243:    b[1] = 0x4124;
+    246:    assert dot4_golden(&a, &b, 0) == 10.4765625;
+    exit=0   (#14150 confirmed; no stale 3.12890625 / 10.46484375 present)
+
+A13 $ grep -n -E '#10947|#10930' specs/igla/coder/ptx_emit.t27
+    3:; Issue #10947 (duplicate-bodies, 12 helpers copied between ternary_gemm_ptx.t27 and hslm_bwd_ptx.t27).
+    exit=0   (#14149 confirmed; no stale #10930 citation present)
+
+A14 $ t27c gen-text specs/igla/coder/gf16_dot4_ptx.t27 --fn emit_ptx -o .scratch/gf16/gf16_dot4_local.ptx
+    gen-text: wrote .scratch/gf16/gf16_dot4_local.ptx
+    exit=0   bytes=4952
+    b9a79404bb5c06095fa1b831ad45f3bf1eef2378b74702bad1615237534d5e51  .scratch/gf16/gf16_dot4_local.ptx
+
+A15 $ cmp .scratch/gf16/gf16_dot4_local.ptx \
+        /Users/playra/t27/artifacts/golden-chain/2026-11-19-night/research_tools/gf16_dot4_emitted.ptx
+    exit=0   (byte-identical to the previously attested golden PTX)
+
+A16 $ ptxas --version            # local
+    ptxas: command not found    (no CUDA toolkit on macOS; exit=1)
+
+--------------------------------------------------------------------------------
+SECTION B — remote (win11-3070, WSL2): transfer, assemble, re-emit, isolate
+--------------------------------------------------------------------------------
+The full remote script is reproduced in .scratch/gf16/remote_assemble.sh; its raw combined
+output is .scratch/gf16/remote_assemble.log (107 lines). Condensed form:
+
+B1  $ scp <lane specs + local PTX> w3070:~/t27os/lanes/gf16-dot4-ptx-20261123T071500Z/
+    exit=0
+    Remote lane tree:
+      specs/igla/coder/gf16_dot4_ptx.t27   dd74e62584a0aa8896eaf125a43828c593a4b11038b2445590d11df42e227914
+      specs/igla/coder/ptx_emit.t27        4e18124466c59291836dc1c48367f13a3b6ece913c5551f78cb182b93ce0eaf5
+      specs/numeric/gf16.t27               b6324424a887cd93b697732f90445861850fa8d36b38098eab2d578b2c26d532
+      out/gf16_dot4_local.ptx              b9a79404bb5c06095fa1b831ad45f3bf1eef2378b74702bad1615237534d5e51
+
+B2  $ uname -a ; date -u ; zig version ; ptxas --version ; t27c --version ; sha256sum ~/t27os/bin/t27c
+    Linux win11-3070 6.18.58.1-microsoft-standard-WSL2 ... x86_64 GNU/Linux
+    2026-11-23T07:35:42Z
+    0.16.0
+    ptxas: NVIDIA (R) Ptx optimizing assembler ... Cuda compilation tools, release 12.4, V12.4.131
+    t27c 0.5.2
+    5785e3ca7b021fc51f1fed9f67dbe6a8ff8a6b99b2862ddf35838c9c44a91cce  /home/t27ssh/t27os/bin/t27c
+    exit=0
+
+B3  $ nvidia-smi -L                       # INVENTORY ONLY — no execution
+    GPU 0: NVIDIA GeForce RTX 3070 Laptop GPU (UUID: GPU-c63b9561-5d95-525e-8208-518c06d203e1)
+    GPU 1: NVIDIA GeForce RTX 3070 Laptop GPU (UUID: GPU-8313382c-f3f0-146a-5c16-187b502f526d)
+    exit=0   (no compute command was run)
+
+B4  $ ptxas -arch=sm_86 out/gf16_dot4_local.ptx -o out/gf16_dot4.cubin
+    ptxas_exit=0
+    cubin_bytes=4648
+    35e07b5f2413ccfb63b64572c3bd08c6587da8a288254b1ccfa2eb1f1ff987cc  out/gf16_dot4.cubin
+    out/gf16_dot4.cubin: ELF 64-bit LSB executable, NVIDIA CUDA architecture,, statically linked, not stripped
+
+B5  $ ptxas -arch=sm_86 -v out/gf16_dot4_local.ptx -o out/gf16_dot4_v.cubin
+    ptxas_verbose_exit=0
+    ptxas info    : 0 bytes gmem
+    ptxas info    : Compiling entry function 'gf16_dot4' for 'sm_86'
+    ptxas info    : 0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+    ptxas info    : Used 22 registers, 380 bytes cmem[0]
+    (full text: ptxas_verbose.log)
+
+B6  $ cuobjdump -sass out/gf16_dot4.cubin > logs/cuobjdump_sass.log
+    exit=0   279 lines; "code for sm_86"; "Function : gf16_dot4"; headerflags EF_CUDA_SM86
+
+B7  $ PATH=$HOME/t27os/bin:$PATH t27c gen-text specs/igla/coder/gf16_dot4_ptx.t27 --fn emit_ptx \
+        -o out/gf16_dot4_host.ptx
+    gen-text: wrote out/gf16_dot4_host.ptx
+    gen_text_exit=0
+    b9a79404bb5c06095fa1b831ad45f3bf1eef2378b74702bad1615237534d5e51  out/gf16_dot4_host.ptx
+    host_bytes=4952
+    HOST_REEMIT_MATCHES_LOCAL=YES
+
+B8  $ ptxas -arch=sm_86 out/gf16_dot4_host.ptx -o out/gf16_dot4_host.cubin
+    ptxas_host_exit=0
+    35e07b5f2413ccfb63b64572c3bd08c6587da8a288254b1ccfa2eb1f1ff987cc  out/gf16_dot4_host.cubin
+
+B9  isolation check (read-only)
+    $ git -C ~/t27os/src status --porcelain ; git -C ~/t27os/src rev-parse HEAD
+      M bootstrap/src/host/driver.rs
+      M bootstrap/src/main.rs
+      M specs/igla/coder/ptx_emit.t27
+      M specs/ml/train_hslm.t27
+      ?? specs/godmode/
+      ?? specs/igla/coder/gf16_dot4_ptx.t27
+      f1d68fb4af89ce5d46abbc0cf262d501a8d651d6
+    -> identical to the pre-run snapshot (pre-existing dirty files only, nothing added by this lane)
+
+B10 $ sha256sum ~/t27os/out/gf16_dot4.ptx ~/t27os/out/gf16_dot4.cubin     # read-only
+    b9a79404bb5c06095fa1b831ad45f3bf1eef2378b74702bad1615237534d5e51  /home/t27ssh/t27os/out/gf16_dot4.ptx
+    35e07b5f2413ccfb63b64572c3bd08c6587da8a288254b1ccfa2eb1f1ff987cc  /home/t27ssh/t27os/out/gf16_dot4.cubin
+    -> unchanged by this lane (not overwritten)
+
+B11 $ scp w3070:~/t27os/lanes/gf16-dot4-ptx-20261123T071500Z/{out/gf16_dot4.cubin,out/gf16_dot4_host.cubin,
+        out/gf16_dot4_host.ptx,logs/ptxas.log,logs/ptxas_verbose.log,logs/gen_text_host.log} \
+        .scratch/gf16/remote_out/
+    exit=0   (each scp exit 0)
+
+B12 $ scp w3070:~/t27os/lanes/gf16-dot4-ptx-20261123T071500Z/logs/cuobjdump_sass.log \
+        .scratch/gf16/remote_out/
+    exit=0   279 lines
+
+--------------------------------------------------------------------------------
+SECTION C — bundle construction and repository indexing (local)
+--------------------------------------------------------------------------------
+
+C1  $ mkdir -p artifacts/gf16-dot4-ptx/spec
+    $ cp .scratch/gf16/gf16_dot4_local.ptx        artifacts/gf16-dot4-ptx/gf16_dot4.ptx
+    $ cp .scratch/gf16/remote_out/gf16_dot4.cubin  artifacts/gf16-dot4-ptx/gf16_dot4.cubin
+    $ cp .scratch/gf16/remote_out/ptxas.log        artifacts/gf16-dot4-ptx/ptxas_stdout.log
+    $ cp .scratch/gf16/remote_out/ptxas_verbose.log artifacts/gf16-dot4-ptx/ptxas_verbose.log
+    $ cp .scratch/gf16/remote_out/cuobjdump_sass.log artifacts/gf16-dot4-ptx/cuobjdump_sass.log
+    $ cp .scratch/gf16/test_report_gf16.txt        artifacts/gf16-dot4-ptx/test_report_gf16_dot4_ptx.txt
+    $ cp .scratch/gf16/test_report_emit.txt        artifacts/gf16-dot4-ptx/test_report_ptx_emit.txt
+    $ cp .scratch/gf16/t27c_test_gf16.txt          artifacts/gf16-dot4-ptx/t27c_test_gf16_dot4_ptx.txt
+    $ cp .scratch/gf16/t27c_test_emit.txt          artifacts/gf16-dot4-ptx/t27c_test_ptx_emit.txt
+    $ cp specs/igla/coder/gf16_dot4_ptx.t27 specs/igla/coder/ptx_emit.t27 artifacts/gf16-dot4-ptx/spec/
+    $ cp specs/numeric/gf16.t27                   artifacts/gf16-dot4-ptx/spec/
+    exit=0   (cmp verified every copy identical to its source)
+
+C2  $ sha256sum artifacts/gf16-dot4-ptx/*  ->  artifacts/gf16-dot4-ptx/ARTIFACT_HASHES.txt
+    (self excluded: a file cannot contain its own hash)
+
+C3  $ python3 scripts/manifest.py
+    -> regenerates root ARTIFACT_MANIFEST.txt and root ARTIFACT_HASHES.txt
+    (scripts/manifest.py now also indexes the new artifacts/ tree)
+
+C4  $ git add <explicit lane pathspecs only>
+    $ git commit -m "..."
+    $ git status --porcelain
+    .scratch/ stays untracked and uncommitted.
+
+--------------------------------------------------------------------------------
+END OF TRANSCRIPT

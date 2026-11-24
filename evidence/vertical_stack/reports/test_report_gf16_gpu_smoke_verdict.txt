@@ -1,0 +1,27 @@
+M4 stage 1 evidence: .t27 verdict spec comparing GPU dump against the M2
+adopted expected table (ADOPTED_EXP). GPU runner checked every CUDA call,
+synchronized, and read the full 32-byte output. mismatch_count = 0.
+
+--- begin t27c test-report output ---
+--- test report: scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27 ---
+
+  tests       1
+  pass        1
+  FAIL        0
+  rate    100.0%
+
+  runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+       ?  gpu_smoke_eight_groups_bit_exact   (passed, not counted)
+  vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+--- end ---
+
+--- GPU run 2 output (remote, hash gate passed before launch) ---
+GPU_RUN_OK cubin_bytes=4648 n=8 dev=0
+C0:4127A000
+C1:00000000
+C2:C0400000
+C3:409B4000
+C4:7F800000
+C5:FF800000
+C6:50275620
+C7:BFB10000

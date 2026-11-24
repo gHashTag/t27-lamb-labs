@@ -1,0 +1,17 @@
+oracle=gf16_cpu.py (exact Fraction core, RN-even f32, chained fma)
+kernel entry=gf16_dot4 cubin=35e07b5f2413ccfb...
+adopted golden-chain groups: 8/8
+  g0: got 0x4127A000 want 0x4127A000 OK
+  g1: got 0x00000000 want 0x00000000 OK
+  g2: got 0xC0400000 want 0xC0400000 OK
+  g3: got 0x409B4000 want 0x409B4000 OK
+  g4: got 0x7F800000 want 0x7F800000 OK
+  g5: got 0xFF800000 want 0xFF800000 OK
+  g6: got 0x50275620 want 0x50275620 OK
+  g7: got 0xBFB10000 want 0xBFB10000 OK
+spec golden vectors: 4/4
+  vector_one_pos_one_neg_one_pos_two_pos_half: got 0x40500000 want 0x40500000 OK
+  vector_two_ones_times_e_pi_phi_three: got 0x4127A000 want 0x4127A000 OK
+  vector_three_zeros_cancel_to_zero: got 0x00000000 want 0x00000000 OK
+  offset_selects_group_second: got 0x40A00000 want 0x40A00000 OK
+VERDICT: PASS (12/12 bit-exact, CPU-only, no CUDA initialized)

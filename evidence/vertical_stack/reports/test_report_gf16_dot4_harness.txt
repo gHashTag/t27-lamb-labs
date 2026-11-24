@@ -1,0 +1,99 @@
+M3 evidence: native .t27 CPU-only launch harness for GF16 dot4 (owner-ordered gate chain).
+
+Scope and method
+- Harness spec: scripts/gf16_dot4_host/gf16_harness.t27 (9 tests, all PASS).
+- SHA-256 module: specs/numeric/sha256.t27 (5 tests, all PASS; FIPS 180-4 KATs
+  plus a 5000-byte streaming case larger than the accepted cubin).
+- The embedded cubin hex (9296 chars = 4648 bytes) was generated from the
+  ACCEPTED artifact artifacts/gf16-dot4-ptx/gf16_dot4.cubin with
+  `xxd -p -c 64 | tr -d '\n'` and is re-hashed inside .t27 through
+  numeric::sha256; the gate compares that digest against the manifest string
+  35e07b5f2413ccfb63b64572c3bd08c6587da8a288254b1ccfa2eb1f1ff987cc from
+  artifacts/gf16-dot4-ptx/ARTIFACT_HASHES.txt (baseline 71745d5 chain).
+- G1 hash identity: PASS (sha256 of embedded bytes == manifest digest;
+  recorded host-side string == manifest string).
+- G1 corruption negative test: PASS (flipped digest rejected).
+- G2 packing: lanes -> u32 words must reproduce the little-endian u32 words
+  actually stored in evidence/vertical_stack/vectors/gf16_dot4_{a,b}.bin.
+  Fix history: first run FAILed because the harness' hand-transcribed
+  A_BIN_WORDS were shifted by one word; replaced with words re-measured by
+  python3 struct.unpack('<16I') (transcription-lesson applies: never accept
+  hand-transcribed constants without a measured cross-check). After the fix
+  G2 PASSes, which also cross-checks the ADOPTED_A/B lane tables committed
+  in M2 against the real vector bins.
+- G3 byte order: word -> memory bytes little-endian, matching expected.bin /
+  c.bin f32 little-endian layout (M1 finding). PASS.
+- G4 grid/bounds: grid_dim(n) = ceil(n/256) for n = 0,1,256,257,1000,8192;
+  blockDim 256; PTX guard model gid >= n writes nothing. PASS.
+- G5 alignment: a/b bases 8-byte aligned, c base 4-byte aligned;
+  misaligned bases (off 4 for a/b, off 2 for c) rejected. PASS.
+- G6 mock execution: CPU model writes golden dot4 bits for gid < 6 only;
+  sentinel cells (gid 6..7) stay 0xDEADBEEF. This is a MODEL of the compiled
+  PTX semantics on CPU; it is NOT GPU evidence (M4 unrun).
+- G7 comparator negative test: comparator accepts golden bits and rejects a
+  1-bit-flipped expected value. PASS.
+- Verdict emitter: t27c gen-text --fn harness_report -> HARNESS VERDICT: PASS
+  (dump: reports/harness_verdict_m3.txt).
+
+GPU authorization note: no CUDA call, no context creation, no device memory,
+no kernel launch happened in M3. The GPU correctness run (M4) is a separate
+stage and stays gated on this harness' verdict plus the recorded host-side
+cubin digest on the GPU machine.
+
+--- begin t27c test-report output (harness) ---
+--- test report: scripts/gf16_dot4_host/gf16_harness.t27 ---
+
+  tests       9
+  pass        9
+  FAIL        0
+  rate    100.0%
+
+  runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+       ?  g1_embedded_cubin_matches_manifest   (passed, not counted)
+       ?  g1_corrupt_digest_rejected   (passed, not counted)
+       ?  g2_packing_reproduces_bin_words   (passed, not counted)
+       ?  g3_memory_byte_order_is_little_endian   (passed, not counted)
+       ?  g4_grid_dim_and_bounds_semantics   (passed, not counted)
+       ?  g5_base_alignment_gates   (passed, not counted)
+       ?  g6_mock_run_matches_expected_and_respects_bounds   (passed, not counted)
+       ?  g7_comparator_catches_one_bit_flip   (passed, not counted)
+       ?  harness_verdict_pass_only_when_all_gates_ok   (passed, not counted)
+  vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+
+--- begin t27c test-report output (sha256 module) ---
+--- test report: specs/numeric/sha256.t27 ---
+
+  tests       5
+  pass        5
+  FAIL        0
+  rate    100.0%
+
+  runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+       ?  sha256_kat_empty   (passed, not counted)
+       ?  sha256_kat_abc   (passed, not counted)
+       ?  sha256_kat_56_bytes_two_block   (passed, not counted)
+       ?  sha256_kat_112_bytes_fips   (passed, not counted)
+       ?  sha256_kat_5000_byte_stream   (passed, not counted)
+  vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+
+--- begin harness verdict dump (gen-text --fn harness_report) ---
+GF16 DOT4 HARNESS (CPU-only mock stage, no CUDA)
+G1 hash_identity: ok
+G1 corruption_detected: ok
+G2 packing_bins: ok
+G3 byte_order_le: ok
+G4 grid_bounds: ok
+G5 alignment: ok
+G6 mock_exec_oob: ok
+G7 comparator_negative: ok
+HARNESS VERDICT: PASS
+--- end ---
+
+SHA-256 KAT digests (specs/numeric/sha256.t27 --fn kat_dump, cross-checked
+against system shasum -a 256 / python3 hashlib):
+--- begin kat dump ---
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1
+cf5b16a778af8380036ce59e7b0492370b249b11e8f07a51afac45037afee9d1
+--- end ---

@@ -1,0 +1,6 @@
+$ ptxas -arch=sm_86 -v out/gf16_dot4_local.ptx -o out/gf16_dot4_v.cubin
+ptxas info    : 0 bytes gmem
+ptxas info    : Compiling entry function 'gf16_dot4' for 'sm_86'
+ptxas info    : Function properties for gf16_dot4
+    0 bytes stack frame, 0 bytes spill stores, 0 bytes spill loads
+ptxas info    : Used 22 registers, 380 bytes cmem[0]

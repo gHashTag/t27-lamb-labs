@@ -1,0 +1,22 @@
+Module: igla-coder-ptx-emit
+  Tests:      14
+  Invariants: 0
+  Benchmarks: 0
+
+  Total: 14 declarations
+1/14 t27_test.test.put_s_counts_every_byte_but_writes_only_below_cap...OK
+2/14 t27_test.test.put_u_writes_decimal...OK
+3/14 t27_test.test.ins_indents_by_four_and_ends_the_line...OK
+4/14 t27_test.test.put_quad_names_four_consecutive_registers...OK
+5/14 t27_test.test.emit_lds_writes_one_shared_load...OK
+6/14 t27_test.test.at_text_and_count_text_search_the_text...OK
+7/14 t27_test.test.one_k_step_has_sixteen_mma_and_the_fragment_loads...OK
+8/14 t27_test.test.the_epilogue_has_thirty_two_guarded_stores...OK
+9/14 t27_test.test.the_decode_maps_codes_to_zero_plus_one_minus_one_zero...OK
+10/14 t27_test.test.code_at_reads_lane_zero_from_the_low_bits...OK
+11/14 t27_test.test.emit_op3_writes_one_three_operand_line...OK
+12/14 t27_test.test.gf16_fields_split_sign_exponent_mantissa...OK
+13/14 t27_test.test.gf16_decode_rebias_by_96_and_widen_mantissa_by_14...OK
+14/14 t27_test.test.fma_f32_accumulates_in_place...OK
+All 14 tests passed.
+exit=0

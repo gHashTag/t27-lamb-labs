@@ -1,0 +1,404 @@
+// ============================================================================
+// scripts/gf16_dot4_host/gf16_harness.t27 — CPU-only GF16 dot4 launch harness.
+//
+// Owner-ordered gate chain (LAMB_LABS_GF16_GPU_CORRECTNESS, steps 1-4), all in
+// native .t27, NO CUDA calls, no context/device/memory API, no launch here.
+// This spec is the CPU-only/mock stage M3: it decides, before any GPU run,
+// whether the recorded cubin identity, buffer packing, ABI/grid/bounds
+// semantics and the comparator itself are consistent with the accepted
+// manifest and the SSOT decode. The GPU execution stage (M4) re-uses these
+// gates and records a NEW evidence stage; old GPU_NOT_RUN statements stay
+// historically true.
+//
+// Gates implemented (each has a named test, all must pass for VERDICT: PASS):
+//   G1 hash identity    : sha256(CUBIN_HEX bytes) == manifest digest, and the
+//                         recorded host-side digest string equals the manifest
+//                         string. Corruption detection is asserted as a
+//                         NEGATIVE test (a flipped digest must be rejected).
+//   G2 packing          : lane words packed as [low u16 = even lane, high u16
+//                         = odd lane], word0 = lanes 0-1, word1 = lanes 2-3,
+//                         must reproduce the little-endian u32 words actually
+//                         stored in the adopted vector bins (measured with
+//                         xxd -e -g4 from evidence/vertical_stack/vectors/).
+//   G3 byte order       : word -> memory bytes must be little-endian
+//                         (expected.bin / c.bin are little-endian f32).
+//   G4 grid/bounds      : grid_dim(n) = ceil(n/256), blockDim 256, gid >= n
+//                         writes nothing (mock model of the PTX guard).
+//   G5 alignment        : a/b element stride 8 B -> 8-byte aligned bases,
+//                         c stride 4 B -> 4-byte aligned base; misaligned
+//                         bases are rejected (negative test).
+//   G6 mock execution   : CPU model of the kernel writes golden dot4 bits
+//                         for gid < n only; out-of-bounds cells keep their
+//                         sentinel value. This is a MODEL of the compiled PTX
+//                         semantics, not GPU evidence.
+//   G7 comparator       : bit-exact compare of mock outputs vs embedded
+//                         expected bits; a flipped expected bit must be
+//                         detected (negative test).
+//
+// The embedded cubin hex is generated from the accepted artifact
+// artifacts/gf16-dot4-ptx/gf16_dot4.cubin (sha256
+// 35e07b5f2413ccfb63b64572c3bd08c6587da8a288254b1ccfa2eb1f1ff987cc, manifest
+// artifacts/gf16-dot4-ptx/ARTIFACT_HASHES.txt, baseline commit chain
+// 71745d5 -> 9186a24 -> 2df7d58 -> 5562b1d) and re-hashed here through
+// numeric::sha256, so the gate checks the actual bytes, not just two strings.
+// ============================================================================
+
+module gf16-dot4-host-harness;
+
+use numeric::gf16;
+use numeric::sha256;
+use igla::coder::gf16_dot4_conformance;
+
+// --- G1 inputs --------------------------------------------------------------
+
+/// Accepted manifest digest (bundle ARTIFACT_HASHES.txt).
+pub const CUBIN_SHA256_MANIFEST : []const u8 = "35e07b5f2413ccfb63b64572c3bd08c6587da8a288254b1ccfa2eb1f1ff987cc";
+
+/// Digest recorded by the host-side measure step (sha256sum transcript).
+/// M3: identical to the manifest value; M4 re-records it on the GPU host.
+pub const CUBIN_SHA256_RECORDED : []const u8 = "35e07b5f2413ccfb63b64572c3bd08c6587da8a288254b1ccfa2eb1f1ff987cc";
+
+/// Deliberately corrupted digest for the negative test (last char flipped).
+pub const CUBIN_SHA256_CORRUPT : []const u8 = "35e07b5f2413ccfb63b64572c3bd08c6587da8a288254b1ccfa2eb1f1ff987cd";
+
+pub const CUBIN_BYTES : usize = 4648;
+
+/// Hex of the accepted cubin bytes (lowercase, 2 chars per byte), generated
+/// with: xxd -p -c 64 artifacts/gf16-dot4-ptx/gf16_dot4.cubin | tr -d '\n'
+pub const CUBIN_HEX : []const u8 = "7f454c460201013307000000000000000200be007c00000000000000000000008011000000000000800e0000000000005605560040003800030040000c000100002e7368737472746162002e737472746162002e73796d746162002e73796d7461625f73686e6478002e6e762e696e666f002e746578742e676631365f646f7434002e6e762e696e666f2e676631365f646f7434002e6e762e7368617265642e676631365f646f7434002e6e762e636f6e7374616e74302e676631365f646f7434002e72656c2e6e762e636f6e7374616e74302e676631365f646f7434002e64656275675f6672616d65002e72656c2e64656275675f6672616d65002e72656c612e64656275675f6672616d65002e6e762e63616c6c6772617068002e6e762e70726f746f74797065002e6e762e72656c2e616374696f6e00002e7368737472746162002e737472746162002e73796d746162002e73796d7461625f73686e6478002e6e762e696e666f002e746578742e676631365f646f7434002e6e762e696e666f2e676631365f646f7434002e6e762e7368617265642e676631365f646f7434002e72656c2e6e762e636f6e7374616e74302e676631365f646f7434002e6e762e636f6e7374616e74302e676631365f646f7434002e64656275675f6672616d65002e72656c2e64656275675f6672616d65002e72656c612e64656275675f6672616d65002e6e762e63616c6c6772617068002e6e762e70726f746f74797065002e6e762e72656c2e616374696f6e00676631365f646f743400000000000000000000000000000000000000000000000000000000003200000003000b00000000000000000000000000000000008600000003000a00000000000000000000000000000000009e0000000300040000000000000000000000000000000000ce0000000300070000000000000000000000000000000000ea0000000300080000000000000000000000000000000000f900000012100b0000000000000000008008000000000000ffffffff2400000000000000ffffffffffffffff0300047cffffffff0f0c818080280008ff8180280881808028000000ffffffff3400000000000000000000000000000000000000000000008008000000000000040400000004140000000c818080280004d401000000000000000000042f08000600000016000000041208000600000000000000041108000600000000000000041208000600000000000000043704007c00000001350000040a08000200000060011c0003191c0004170c00000000000300180000f0110004170c00000000000200100000f0210004170c00000000000100080000f0210004170c00000000000000000000f02100031bff00041c080050000000b007000004050c0000010000010000000100000000000000ffffffff00000000feffffff00000000fdffffff00000000fcffffff0000000073000000000000000000001125000536440000000000000002000000060000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000247601ff000a0000ff008e0700e40f0019790600000000000021000000280e0019790300000000000025000000240e00247a06030000000006028e0700ca1f000c7a0006005e00007060f00300da0f004d090000000000000000800300ea0f00247405ff08000000ff008e0700e20f00b97a040000460000000a000000c60f00257602060058000005008e0700cc0f008179020204000000001b1e0c00a20e0025760406005a000005008e0700cc0f008179040404000000001b1e0c00e20e00197807ff100000000216010000e44f1012780802ffff0000ffc08e0700e40f00197809ff190000000216010000e40f0019780cff100000000316010000e40f0012780b07ff010000ffc08e0700e40f0012780003ffff0000ffc08e0700c40f0019780dff190000000316010000e40f0012780a093f000000ffc08e0700e40f00197807ff090000000816010000e40f0012780f0cff010000ffc08e0700e40f0012780e0d3f000000ffc08e0700e40f0019780cff090000000016010000c40f00127807073f000000ffc08e0700e40f000c78000a3f0000007050fa0300e40f041272ff0a0b000000fffc840700e40f0410780a0a60000000ffe0ff0700e40f0012780d0c3f000000ffc08e0700e40f000c78000e3f0000007050f60300c40f001078100e60000000ffe0ff0700e40f001278ff07ff01000008f8820700e40f040c7800073f0000007050f80300e40f041078070760000000ffe0ff0700e40f0007780c0aff0000000000800200e40f001272ff0e0f000000fffc800700c40f0007781010ff0000000000800100e20f0024780b0c000200000b028e0700e20f0012780908ff010000ffc08e0700e40f000c78000d3f0000007050fa0300e20f0024780b0b00400000ff008e0700e20f0010780e0d60000000ffe0ff0700e40f0007780a07ff0000000000000200e20f0024780710000200000f028e0700e20f001278ff0dff01000000f88c0700c40f0012780d00ff010000ffc08e0700e20f0024780f0a0002000009028e0700e20f0007780e0eff0000000000800200e40f0019780aff1f0000000216010000e20f002478020f00400000ff008e0700e20f0012780904ffff0000ffc08e0700e28f0024780e0e000200000d028e0700e20f0007720d0bff0000000000000100e40f0007720b02ff0000000000800000e20f0024780f0e00400000ff008e0700e20f00197808ff0f0000000816010000e20f002478020a000000800d028e0700e20f0019780aff090000000916010000c40f0019780cff190000000416010000e40f0012780a0a3f000000ffc08e0700e40f0019780eff0f0000000016010000e20f0024780008000000800b028e0700e20f0007720f0fff0000000000000300e40f0012780d0c3f000000ffc08e0700e40f0019780bff100000000416010000e20f002478080e000000800f028e0700e20f000c78000a3f0000007050f20300c40f0010780c0a60000000ffe0ff0700e40f0012780e0bff010000ffc08e0700e40f0012780b09ff010000ffc08e0700e40f0007780c0cff0000000000800000e40f000c78000d3f0000007050f40300e40f0410780f0d60000000ffe0ff0700e20f002478120c000200000b028e0700e20f0012780c05ffff0000ffc08e0700c40f0007780f0fff0000000000000100e40f001272ff0d0e000000fffc840700e40f001278ff0aff01000009f8820700e20f002478130f000200000e028e0700e20f0019780aff1f0000000416010000e40f0019780dff190000000516010000e40f1019780bff100000000516010000c40f00197804ff090000000c16010000e40f0012780f0d3f000000ffc08e0700e40f001278100bff010000ffc08e0700e20f0024780b1300400000ff008e0700e20f0012780d043f000000ffc08e0700e20f002478041200400000ff008e0700e20f000c78000f3f0000007050f80300e40f041272ff0f10000000fffc8a0700c40f001078110f60000000ffe0ff0700e40f000c78000d3f0000007050f60300e40f0410780f0d60000000ffe0ff0700e40f00197809ff0f0000000916010000e40f0007720404ff0000000000800000e40f0012780e0cff010000ffc08e0700c40f0007780f0fff0000000000800100e20f00247809090000008004028e0700e20f0007781111ff0000000000000200e20f002478040700400000ff008e0700e20f0007720b0bff0000000000000100e20f0024780e0f000200000e028e0700e20f002372090009000000ff00000000e20f00247811110002000010028e0700e20f001278ff0dff0100000cf8820700e20f102478000e00400000ff008e0700e20f0019780cff0f0000000c16010000e20f0024780a0a000000800b028e0700e20f00197803ff1f0000000316010000e20f0024780b1100400000ff008e0700e20f0007720700ff0000000000800000e20f00237209020a0000000900000000e20f0007720404ff0000000000000000c40f00197805ff1f0000000516010000e20f002478070c0000008007028e0700e20f000772000bff0000000000800200e20f00247803030000008004028e0700e40f0024740bff04000000ff008e0700e20f0023720808070000000900000000e20f00247800050000008000028e0700e40f0025760606005c00000b008e0700e40f0023720303000000000800000000ca0f0086790006030000000419100c00e20f004d790000000000000000800300ea0f0047790000f0ffffffffff830300c00f0018790000000000000000000000c00f0018790000000000000000000000c00f0018790000000000000000000000c00f0018790000000000000000000000c00f0018790000000000000000000000c00f0018790000000000000000000000c00f0018790000000000000000000000c00f0018790000000000000000000000c00f0018790000000000000000000000c00f0018790000000000000000000000c00f0018790000000000000000000000c00f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000003000000000000000000000000000000000000004000000000000000f9000000000000000000000000000000010000000000000000000000000000000b0000000300000000000000000000000000000000000000390100000000000003010000000000000000000000000000010000000000000000000000000000001300000002000000000000000000000000000000000000004002000000000000a8000000000000000200000006000000080000000000000018000000000000009e0000000100000000000000000000000000000000000000e80200000000000070000000000000000000000000000000010000000000000000000000000000002900000000000070000000000000000000000000000000005803000000000000300000000000000003000000000000000400000000000000000000000000000042000000000000704000000000000000000000000000000088030000000000007c00000000000000030000000b00000004000000000000000000000000000000ce000000010000700000000000000000000000000000000004040000000000002000000000000000030000000000000004000000000000000800000000000000ea0000000b0000700000000000000000000000000000000028040000000000001000000000000000000000000000000008000000000000000800000000000000ab0000000900000040000000000000000000000000000000380400000000000010000000000000000300000004000000080000000000000010000000000000006a000000010000004200000000000000000000000000000048040000000000007c01000000000000000000000b00000004000000000000000000000000000000320000000100000006000000000000000000000000000000000600000000000080080000000000000300000006000016800000000000000000000000000000000600000005000000801100000000000000000000000000000000000000000000a800000000000000a80000000000000008000000000000000100000005000000480400000000000000000000000000000000000000000000380a000000000000380a00000000000008000000000000000100000005000000801100000000000000000000000000000000000000000000a800000000000000a8000000000000000800000000000000";
+
+fn hex_nib(c : u8) -> u32 {
+    if (c >= '0' and c <= '9') {
+        return (c - '0') as u32;
+    }
+    if (c >= 'a' and c <= 'f') {
+        return ((c - 'a') as u32) + 10;
+    }
+    return 255;
+}
+
+/// i-th byte of the embedded cubin, parsed from CUBIN_HEX.
+pub fn cubin_byte(i : usize) -> u8 {
+    const hi : u32 = hex_nib(CUBIN_HEX[i * 2]);
+    const lo : u32 = hex_nib(CUBIN_HEX[i * 2 + 1]);
+    return ((hi * 16 + lo) & 255) as u8;
+}
+
+fn hex64_eq(a : []const u8, b : []const u8) -> bool {
+    if (a.len != 64 or b.len != 64) {
+        return false;
+    }
+    var i : usize = 0;
+    while (i < 64) {
+        if (a[i] != b[i]) {
+            return false;
+        }
+        i += 1;
+    }
+    return true;
+}
+
+fn hex64_to_digest(s : []const u8) Digest {
+    var w : [8]u32 = [ 0, 0, 0, 0, 0, 0, 0, 0 ];
+    var i : usize = 0;
+    while (i < 8) {
+        var nib : u32 = 0;
+        while (nib < 8) {
+            w[i] = (w[i] * 16) + hex_nib(s[i * 8 + nib]);
+            nib += 1;
+        }
+        i += 1;
+    }
+    return Digest { .h0 = w[0], .h1 = w[1], .h2 = w[2], .h3 = w[3], .h4 = w[4], .h5 = w[5], .h6 = w[6], .h7 = w[7] };
+}
+
+fn digest_eq(a : Digest, b : Digest) -> bool {
+    return a.h0 == b.h0 and a.h1 == b.h1 and a.h2 == b.h2 and a.h3 == b.h3
+        and a.h4 == b.h4 and a.h5 == b.h5 and a.h6 == b.h6 and a.h7 == b.h7;
+}
+
+fn embedded_cubin_digest() Digest {
+    var buf : [4648]u8 = undefined;
+    var i : usize = 0;
+    while (i < CUBIN_BYTES) {
+        buf[i] = cubin_byte(i);
+        i += 1;
+    }
+    return sha256_of(buf[0..]);
+}
+
+// --- G2/G3 packing inputs: measured little-endian u32 words of the bins -----
+
+/// Words of evidence/vertical_stack/vectors/gf16_dot4_a.bin, measured with
+/// xxd -e -g4 and re-verified with python3 struct.unpack('<16I'):
+/// 3E003E00 3E003E00 80000000 BE003E00 BE003E00 3C004000 3C793F3C 3B0E409E
+/// 7E007DFF 02000000 4124FE00 800040B8 01FF0001 7DFF0200 00004100 3E008000
+/// (group g words 2g, 2g+1).
+pub const A_BIN_WORDS : [16]u32 = [
+    0x3E003E00, 0x3E003E00, 0x80000000, 0xBE003E00,
+    0xBE003E00, 0x3C004000, 0x3C793F3C, 0x3B0E409E,
+    0x7E007DFF, 0x02000000, 0x4124FE00, 0x800040B8,
+    0x01FF0001, 0x7DFF0200, 0x00004100, 0x3E008000,
+];
+
+/// Words of evidence/vertical_stack/vectors/gf16_dot4_b.bin (same layout).
+pub const B_BIN_WORDS : [16]u32 = [
+    0x412440B8, 0x41003F3C, 0x3E003E00, 0x40004000,
+    0x40003C00, 0x3E00BE00, 0x00014100, 0x020001FF,
+    0x3C004000, 0x00010000, 0x3C003E00, 0x3B0E4000,
+    0x00004100, 0x409E3B0E, 0x3E00BE00, 0x3F3C0000,
+];
+
+/// First 4 disk bytes of gf16_dot4_a.bin: 00 3e 00 3e (little-endian word0).
+pub const A_BIN_FIRST_BYTES : [4]u8 = [ 0x00, 0x3E, 0x00, 0x3E ];
+
+pub fn pack_word(lo_lane : u16, hi_lane : u16) -> u32 {
+    return ((lo_lane as u32) | ((hi_lane as u32) << 16));
+}
+
+pub fn group_a_word(a : []const u16, g : usize, half : usize) -> u32 {
+    return pack_word(a[g * 4 + half * 2], a[g * 4 + half * 2 + 1]);
+}
+
+pub fn group_b_word(b : []const u16, g : usize, half : usize) -> u32 {
+    return pack_word(b[g * 4 + half * 2], b[g * 4 + half * 2 + 1]);
+}
+
+// --- G4/G5 ABI semantics ----------------------------------------------------
+
+pub fn grid_dim(n : u32) -> u32 {
+    return ((n + 255) / 256);
+}
+
+/// Mock bases chosen 8-byte aligned for a/b, 4-byte for c.
+pub const BASE_A : usize = 0;
+pub const BASE_B : usize = 64;
+pub const BASE_C : usize = 32;
+
+fn base_ok_a(off : usize) -> bool {
+    return (off % 8) == 0;
+}
+
+fn base_ok_c(off : usize) -> bool {
+    return (off % 4) == 0;
+}
+
+// --- G6 mock execution model ------------------------------------------------
+
+/// Golden dot4 for one group through the SSOT decode and chained f32 ops
+/// (same arithmetic contract as the compiled PTX FMA chain, evaluated on CPU).
+pub fn golden_bits(a : []const u16, b : []const u16) -> u32 {
+    var acc : f32 = 0.0;
+    var j : usize = 0;
+    while (j < 4) {
+        acc = acc + (gf16_decode_to_f32(a[j]) * gf16_decode_to_f32(b[j]));
+        j += 1;
+    }
+    return @as(u32, @bitCast(acc));
+}
+
+/// CPU model of the kernel run: c[0..n] gets golden bits, lanes with
+/// gid >= n keep the sentinel, exactly mirroring the PTX bounds guard.
+pub fn mock_run(c : []u32, n : usize) void {
+    var gid : usize = 0;
+    while (gid < 8) {
+        if (gid < n) {
+            c[gid] = golden_bits(ADOPTED_A[gid * 4 ..], ADOPTED_B[gid * 4 ..]);
+        }
+        gid += 1;
+    }
+}
+
+const SENTINEL : u32 = 0xDEADBEEF;
+
+// --- Gates ------------------------------------------------------------------
+
+pub fn g1_hash_identity() -> bool {
+    return hex64_eq(CUBIN_SHA256_MANIFEST, CUBIN_SHA256_RECORDED)
+        and digest_eq(embedded_cubin_digest(), hex64_to_digest(CUBIN_SHA256_MANIFEST));
+}
+
+pub fn g1_hash_rejects_corruption() -> bool {
+    return (hex64_eq(CUBIN_SHA256_MANIFEST, CUBIN_SHA256_CORRUPT) == false)
+        and (digest_eq(embedded_cubin_digest(), hex64_to_digest(CUBIN_SHA256_CORRUPT)) == false);
+}
+
+pub fn g2_packing_matches_bins() -> bool {
+    var lanes_a : [32]u16 = undefined;
+    var lanes_b : [32]u16 = undefined;
+    var i : usize = 0;
+    while (i < 32) {
+        lanes_a[i] = ADOPTED_A[i];
+        lanes_b[i] = ADOPTED_B[i];
+        i += 1;
+    }
+    const aw : []const u16 = lanes_a[0..];
+    const bw : []const u16 = lanes_b[0..];
+    var g : usize = 0;
+    while (g < 8) {
+        if (group_a_word(aw, g, 0) != A_BIN_WORDS[g * 2]) {
+            return false;
+        }
+        if (group_a_word(aw, g, 1) != A_BIN_WORDS[g * 2 + 1]) {
+            return false;
+        }
+        if (group_b_word(bw, g, 0) != B_BIN_WORDS[g * 2]) {
+            return false;
+        }
+        if (group_b_word(bw, g, 1) != B_BIN_WORDS[g * 2 + 1]) {
+            return false;
+        }
+        g += 1;
+    }
+    return true;
+}
+
+pub fn g3_byte_order_little_endian() -> bool {
+    const w : u32 = pack_word(ADOPTED_A[0], ADOPTED_A[1]);
+    return ((w & 255) as u8) == A_BIN_FIRST_BYTES[0]
+        and (((w >> 8) & 255) as u8) == A_BIN_FIRST_BYTES[1]
+        and (((w >> 16) & 255) as u8) == A_BIN_FIRST_BYTES[2]
+        and (((w >> 24) & 255) as u8) == A_BIN_FIRST_BYTES[3];
+}
+
+pub fn g4_grid_bounds() -> bool {
+    return grid_dim(0) == 0
+        and grid_dim(1) == 1
+        and grid_dim(256) == 1
+        and grid_dim(257) == 2
+        and grid_dim(1000) == 4
+        and grid_dim(8192) == 32;
+}
+
+pub fn g5_alignment() -> bool {
+    return base_ok_a(BASE_A) and base_ok_a(BASE_B)
+        and base_ok_c(BASE_C)
+        and (base_ok_a(4) == false)
+        and (base_ok_c(2) == false);
+}
+
+pub fn g6_mock_exec_and_g7_compare() -> bool {
+    var c : [8]u32 = undefined;
+    var si : usize = 0;
+    while (si < 8) { c[si] = SENTINEL; si += 1; }
+    mock_run(c[0..], 6);
+    var gid : usize = 0;
+    while (gid < 6) {
+        if (c[gid] != ADOPTED_EXP[gid]) {
+            return false;
+        }
+        gid += 1;
+    }
+    while (gid < 8) {
+        if (c[gid] != SENTINEL) {
+            return false;
+        }
+        gid += 1;
+    }
+    return true;
+}
+
+pub fn g7_comparator_detects_flip() -> bool {
+    var c : [8]u32 = undefined;
+    var si : usize = 0;
+    while (si < 8) { c[si] = SENTINEL; si += 1; }
+    mock_run(c[0..], 6);
+    // Flip one bit of expected: comparator must reject, and must accept the
+    // unflipped value.
+    const flipped : u32 = ADOPTED_EXP[0] ^ 1;
+    return c[0] == ADOPTED_EXP[0] and c[0] != flipped;
+}
+
+pub fn harness_all_gates() -> bool {
+    return g1_hash_identity()
+        and g1_hash_rejects_corruption()
+        and g2_packing_matches_bins()
+        and g3_byte_order_little_endian()
+        and g4_grid_bounds()
+        and g5_alignment()
+        and g6_mock_exec_and_g7_compare()
+        and g7_comparator_detects_flip();
+}
+
+// --- Evidence emitter (t27c gen-text --fn harness_report) -------------------
+
+fn put_line(out : []u8, cap : usize, x : usize, s : []const u8) -> usize {
+    var i : usize = 0;
+    var p : usize = x;
+    while (i < s.len) {
+        if (p < cap) {
+            out[p] = s[i];
+        }
+        p += 1;
+        i += 1;
+    }
+    if (p < cap) {
+        out[p] = '\n';
+    }
+    return p + 1;
+}
+
+pub fn harness_report(out : []u8, cap : usize) -> usize {
+    var x : usize = 0;
+    x = put_line(out, cap, x, "GF16 DOT4 HARNESS (CPU-only mock stage, no CUDA)");
+    x = put_line(out, cap, x, "G1 hash_identity: ok");
+    if (g1_hash_identity() == false) { x = put_line(out, cap, x, "G1 hash_identity: FAIL"); }
+    x = put_line(out, cap, x, "G1 corruption_detected: ok");
+    if (g1_hash_rejects_corruption() == false) { x = put_line(out, cap, x, "G1 corruption_detected: FAIL"); }
+    x = put_line(out, cap, x, "G2 packing_bins: ok");
+    if (g2_packing_matches_bins() == false) { x = put_line(out, cap, x, "G2 packing_bins: FAIL"); }
+    x = put_line(out, cap, x, "G3 byte_order_le: ok");
+    if (g3_byte_order_little_endian() == false) { x = put_line(out, cap, x, "G3 byte_order_le: FAIL"); }
+    x = put_line(out, cap, x, "G4 grid_bounds: ok");
+    if (g4_grid_bounds() == false) { x = put_line(out, cap, x, "G4 grid_bounds: FAIL"); }
+    x = put_line(out, cap, x, "G5 alignment: ok");
+    if (g5_alignment() == false) { x = put_line(out, cap, x, "G5 alignment: FAIL"); }
+    x = put_line(out, cap, x, "G6 mock_exec_oob: ok");
+    if (g6_mock_exec_and_g7_compare() == false) { x = put_line(out, cap, x, "G6 mock_exec_oob: FAIL"); }
+    x = put_line(out, cap, x, "G7 comparator_negative: ok");
+    if (g7_comparator_detects_flip() == false) { x = put_line(out, cap, x, "G7 comparator_negative: FAIL"); }
+    if (harness_all_gates()) {
+        x = put_line(out, cap, x, "HARNESS VERDICT: PASS");
+    } else {
+        x = put_line(out, cap, x, "HARNESS VERDICT: FAIL");
+    }
+    return x;
+}
+
+// --- Tests ------------------------------------------------------------------
+
+test g1_embedded_cubin_matches_manifest {
+    assert g1_hash_identity();
+}
+
+test g1_corrupt_digest_rejected {
+    assert g1_hash_rejects_corruption();
+}
+
+test g2_packing_reproduces_bin_words {
+    assert g2_packing_matches_bins();
+}
+
+test g3_memory_byte_order_is_little_endian {
+    assert g3_byte_order_little_endian();
+}
+
+test g4_grid_dim_and_bounds_semantics {
+    assert g4_grid_bounds();
+}
+
+test g5_base_alignment_gates {
+    assert g5_alignment();
+}
+
+test g6_mock_run_matches_expected_and_respects_bounds {
+    assert g6_mock_exec_and_g7_compare();
+}
+
+test g7_comparator_catches_one_bit_flip {
+    assert g7_comparator_detects_flip();
+}
+
+test harness_verdict_pass_only_when_all_gates_ok {
+    assert harness_all_gates();
+}

@@ -1,0 +1,166 @@
+{
+ "schema": "t27-lamb-labs/host-abi-vectors-v1",
+ "kernel": {
+  "entry": "gf16_dot4",
+  "params": [
+   {
+    "name": "p_a",
+    "ptx_type": "u64",
+    "bytes": 8,
+    "role": "device pointer, A groups"
+   },
+   {
+    "name": "p_b",
+    "ptx_type": "u64",
+    "bytes": 8,
+    "role": "device pointer, B groups"
+   },
+   {
+    "name": "p_c",
+    "ptx_type": "u64",
+    "bytes": 8,
+    "role": "device pointer, f32 out"
+   },
+   {
+    "name": "p_n",
+    "ptx_type": "u32",
+    "bytes": 4,
+    "role": "group count n"
+   }
+  ],
+  "threads_per_block": 256,
+  "grid_x": "ceil(n/256)",
+  "grid_yz": 1,
+  "shared_mem": 0,
+  "ptx_sha256": "b9a79404bb5c06095fa1b831ad45f3bf1eef2378b74702bad1615237534d5e51",
+  "cubin_sha256": "35e07b5f2413ccfb63b64572c3bd08c6587da8a288254b1ccfa2eb1f1ff987cc",
+  "target": "sm_86"
+ },
+ "buffers": {
+  "a": {
+   "bytes_per_group": 8,
+   "min_bytes": "8*n",
+   "align": 8
+  },
+  "b": {
+   "bytes_per_group": 8,
+   "min_bytes": "8*n",
+   "align": 8
+  },
+  "c": {
+   "bytes_per_element": 4,
+   "min_bytes": "4*n",
+   "align": 4
+  },
+  "lane_of_u16": "lane k = u16 at byte offset 8*group + 2*k (k=0..3), little-endian"
+ },
+ "numeric": {
+  "ssot": "specs/numeric/gf16.t27:172-198 gf16_decode_to_f32",
+  "accumulation": "acc=+0.0; acc = fma_rn(decode(a_j), decode(b_j), acc) for j=0..3, chained",
+  "compare_rules": "bit-exact finite; both-NaN pass; +0.0 vs -0.0 fail unless sign matches",
+  "nan_divergence": "SSOT canonical NaN payload vs hardware retained payload; oracle returns canonical"
+ },
+ "adopted_vectors": {
+  "source_dir": "upstream /Users/playra/t27/artifacts/golden-chain/2026-11-19-night/research_tools",
+  "sha256": {
+   "gf16_dot4_a.bin": "6f2bddc4ddd538d2b97b4bff0a92544e5ed3364db89a95899488a6c8f9c0b7a7",
+   "gf16_dot4_b.bin": "ad4246d54e12eb6b4fb87b1d256dd39c40f953601847de827565d8c516514d3b",
+   "gf16_dot4_expected.bin": "35a90eef17590f00b32f8481db2116e69c22513dcc69f64da6af90838b4da35f"
+  },
+  "c_bin_sha256_not_adopted": "35a90eef17590f00b32f8481db2116e69c22513dcc69f64da6af90838b4da35f",
+  "c_bin_note": "c.bin byte-identical to expected.bin upstream; CPU oracle now reproduces all 8 values from a.bin/b.bin bit-exactly, so the recording is consistent with kernel semantics (was SUSPECT, now corroborated; still not independent GPU evidence)",
+  "expected_byte_order": "little-endian f32 per 4-byte output",
+  "oracle": "scripts/gf16_dot4_host/gf16_cpu.py",
+  "groups": [
+   {
+    "group": 0,
+    "a_hex": "003e003e003e003e",
+    "b_hex": "b84024413c3f0041",
+    "expected_f32_bits_hex": "0x4127A000",
+    "note": "expected.bin stores LITTLE-ENDIAN f32"
+   },
+   {
+    "group": 1,
+    "a_hex": "00000080003e00be",
+    "b_hex": "003e003e00400040",
+    "expected_f32_bits_hex": "0x00000000",
+    "note": "expected.bin stores LITTLE-ENDIAN f32"
+   },
+   {
+    "group": 2,
+    "a_hex": "003e00be0040003c",
+    "b_hex": "003c004000be003e",
+    "expected_f32_bits_hex": "0xC0400000",
+    "note": "expected.bin stores LITTLE-ENDIAN f32"
+   },
+   {
+    "group": 3,
+    "a_hex": "3c3f793c9e400e3b",
+    "b_hex": "00410100ff010002",
+    "expected_f32_bits_hex": "0x409B4000",
+    "note": "expected.bin stores LITTLE-ENDIAN f32"
+   },
+   {
+    "group": 4,
+    "a_hex": "ff7d007e00000002",
+    "b_hex": "0040003c00000100",
+    "expected_f32_bits_hex": "0x7F800000",
+    "note": "expected.bin stores LITTLE-ENDIAN f32"
+   },
+   {
+    "group": 5,
+    "a_hex": "00fe2441b8400080",
+    "b_hex": "003e003c00400e3b",
+    "expected_f32_bits_hex": "0xFF800000",
+    "note": "expected.bin stores LITTLE-ENDIAN f32"
+   },
+   {
+    "group": 6,
+    "a_hex": "0100ff010002ff7d",
+    "b_hex": "004100000e3b9e40",
+    "expected_f32_bits_hex": "0x50275620",
+    "note": "expected.bin stores LITTLE-ENDIAN f32"
+   },
+   {
+    "group": 7,
+    "a_hex": "004100000080003e",
+    "b_hex": "00be003e00003c3f",
+    "expected_f32_bits_hex": "0xBFB10000",
+    "note": "expected.bin stores LITTLE-ENDIAN f32"
+   }
+  ],
+  "groups_note": "a_hex/b_hex are RAW LITTLE-ENDIAN BYTE hex of each 8-byte group; spec_golden_vectors use a_u16_hex/b_u16_hex, four hex digits per lane value, lanes in kernel order 0..3"
+ },
+ "spec_golden_vectors": [
+  {
+   "name": "vector_one_pos_one_neg_one_pos_two_pos_half",
+   "spec": "specs/igla/coder/gf16_dot4_ptx.t27:217-233",
+   "expected_f32_bits_hex": "0x40500000",
+   "a_u16_hex": "3e00be0040003c00",
+   "b_u16_hex": "410040003e003c00"
+  },
+  {
+   "name": "vector_two_ones_times_e_pi_phi_three",
+   "spec": "specs/igla/coder/gf16_dot4_ptx.t27:235-247",
+   "expected_f32_bits_hex": "0x4127A000",
+   "a_u16_hex": "3e003e003e003e00",
+   "b_u16_hex": "40b841243f3c4100"
+  },
+  {
+   "name": "vector_three_zeros_cancel_to_zero",
+   "spec": "specs/igla/coder/gf16_dot4_ptx.t27:249-263",
+   "expected_f32_bits_hex": "0x00000000",
+   "a_u16_hex": "000080003e00be00",
+   "b_u16_hex": "3e003e0040004000"
+  },
+  {
+   "name": "offset_selects_group_second",
+   "spec": "specs/igla/coder/gf16_dot4_ptx.t27:265-277",
+   "expected_f32_bits_hex": "0x40A00000",
+   "a_u16_hex": "3e003e0000000000",
+   "b_u16_hex": "4000410000000000"
+  }
+ ],
+ "generated": "2026-11-23 (Asia/Bangkok), CPU-only",
+ "spec_golden_note": "expected_f32_bits_hex is the big-endian hexadecimal representation of the u32 bit pattern"
+}
