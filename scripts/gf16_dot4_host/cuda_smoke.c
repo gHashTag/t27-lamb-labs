@@ -8,7 +8,7 @@
  * ABI (evidence/vertical_stack/HOST_ABI.md, verified):
  *   kernel  gf16_dot4
  *   params  (p_a u64, p_b u64, p_c u64, p_n u32)
- *   grid    1x1x1 (n=8 -> ceil(8/256)=1), block 256x1x1, smem 0, stream 0
+ *   grid_x = (n + 255) / 256, block 256x1x1, smem 0, stream 0
  *   A/B     8 bytes per group (two LE u32 lane words), C 4 bytes per group
  *
  * Every CUDA call is checked; any non-CUDA_SUCCESS aborts with a nonzero
@@ -108,7 +108,7 @@ int main(int argc, char **argv)
     CUDA_CHECK(cuMemcpyHtoD_v2(db, hb, B_BYTES));
     {
         unsigned nn = n_groups;
-        /* ABI: gid = ctaid.x*256 + tid.x must cover p_n; grid may exceed p_n. */
+        /* ABI: gid = ctaid.x*256 + tid.x must cover p_n; grid may exceed p_n. Derived from n_groups = p_n. */
         unsigned gx = (n_groups + 255u) / 256u;
         void *args[4] = { &da, &db, &dc, &nn };
         CUDA_CHECK(cuLaunchKernel(fn, gx, 1, 1, 256, 1, 1, 0, NULL, args, NULL));

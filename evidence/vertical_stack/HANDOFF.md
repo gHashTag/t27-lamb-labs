@@ -15,12 +15,16 @@ Baseline (preserved, never rewritten): `71745d5fa4cd6a17bc749a1108d6839fb80ed859
 | `e409323` | M4 stage 1 | GPU golden smoke 8/8 bit-exact, hash-gated, zero CUDA errors |
 | `d702b8f` | M4 stage 2 | GPU edge + seeded-random batch: 288 groups, 0 finite mismatches, 0 NaN-contract violations; host grid fix; ordinal fix |
 | `5974a91` | M5 | read-only inventory of the spec→RTL→simulation→FPGA chain (hardware branch) |
+| (this round) | acceptance audit | `gpu/GPU_ACCEPTANCE_M4.md`: PTX FMA chain vs oracle per-step rounding, GPU_C provenance, path corrections |
 
 ## Where the chain stands
 
 **GPU branch (A):** closed and reproducible from the baseline through bit-exact GPU correctness on
 288 groups. Every artifact is hashed; every CUDA call is checked; the oracle is native `.t27` and
-never derived from the GPU.
+never derived from the GPU. The arithmetic contract is pinned in `gpu/GPU_ACCEPTANCE_M4.md`:
+`s0 = +0; s(i+1) = RN_f32(a_i*b_i + s_i)`, i = 0..3 — FOUR `fma.rn.f32` roundings, one per step
+(`fma_single_round_criterion` asserts the exact oracle rounds identically per step; it is NOT one
+final rounding of the whole dot4 sum).
 
 **Hardware branch (B):** audited, not closed. The shipped `.bit`'s spec→RTL link is **broken**
 (absent `ternary_mac_demo_top.v`, no `.t27` for it), the GF16 testbenches produce **no outputs**,
@@ -54,6 +58,11 @@ remain ESTIMATED; the measured J/token gap stays open.
 * CUDA ordinal here is 0 even though the free physical GPU is nvidia-smi index 1.
 * The upstream conformance set uses a different E=0 convention and re-rounds through GF16 → it is a
   cross-reference, never an oracle for this kernel.
+* `specs/fpga/gf16_accel.*` is GF(2^4) FIELD arithmetic (`GF16_FIELD_POLY=19`, no float tokens in
+  the `.v`) — a DIFFERENT numeric domain from the binary-float lane GF16 of `specs/numeric/gf16.t27`;
+  same letters "GF16", different math. FPGA is NOT part of GPU acceptance; connecting it is a
+  separate owner decision (hardware chain currently GAP: broken spec→RTL for the shipped artefact,
+  no testbench outputs, no measured power).
 
 ## Open owner decisions
 
