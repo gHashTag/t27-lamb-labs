@@ -44,3 +44,28 @@ Precondition state, recorded honestly:
 No track is executed in this commit; execution starts only after the owner's explicit
 approval in chat.
 
+
+## T1 execution probe (2026-11-25, after owner approvals: install=yes, push=yes, local=no)
+
+Owner correction: Vivado must NOT be installed on the local Mac — GPU box (w3070) and
+VPS are for that. Probe results, recorded honestly:
+
+- **Push origin: DONE.** `a7ef751..dfbb5d7 master -> master` (origin/master = dfbb5d7).
+- **No routed checkpoint in the repo.** `find` finds only `.bit` files (shipped
+  `ternary_mac_demo_top_200t.bit` + 4 clock_probe bits); zero `.dcp`. EXECUTE_NOW.md
+  Option A (`open_checkpoint`) therefore has no input artifact. `report_power` on a
+  `.bit` alone is not possible (Vivado cannot reopen a bitstream into a netlist) —
+  the shipped-design tool number requires the ORIGINAL routed checkpoint from the
+  machine that built it (machine unknown), or a new build (gated: "no new FPGA runs"),
+  or a synthesized-only estimate (weaker, ESTIMATE-class, not a routed tool number).
+- **w3070 unreachable right now**: `ssh t27ssh@pangolin.reactotron.ru:22022` →
+  "Connection timed out during banner exchange". Disk/OS state unknown this session.
+- **givel-vps (root@130.17.9.230) reachable**: Ubuntu, kernel 6.8.0-147, x86_64,
+  `/` = 119G total, **19G free (84% used)** — smaller than the ~20–30 GB installer
+  alone; Vivado Artix-7-only install does not fit without cleanup. No Xilinx dirs,
+  no vivado in PATH.
+
+T1 status: SELECTED, approvals obtained (install yes / local no), execution NOT
+started — blocked on (a) routed checkpoint location and (b) a host that fits.
+Cheapest first slice when resumed: locate the original Vivado project/.dcp (likely
+on the machine that produced the shipped .bit), then install on w3070 or a cleaned VPS.
