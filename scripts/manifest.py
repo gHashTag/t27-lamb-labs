@@ -11,14 +11,19 @@ import hashlib, os, sys, json, subprocess
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Directories whose contents are the portfolio's deliverable artifacts.
+# conformance, releases, rtl, specs arrive with the hardware-lane merge; specs also
+# exists in this lane already (numeric + igla coder specs). Dry run 2026-11-25 showed
+# 292 tracked files outside the index without this extension.
 INCLUDE_DIRS = ["target", "benchmark", "engagement", "evidence", "bitstream", "docs", "scripts",
-                "artifacts"]
+                "artifacts", "conformance", "releases", "rtl", "specs"]
 # Files at the repository root that are part of the deliverable.
-INCLUDE_ROOT_FILES = ["README.md", "ARTIFACT_HASHES.txt"]
+INCLUDE_ROOT_FILES = ["README.md", "ARTIFACT_HASHES.txt", "EXECUTE_NOW.md", "t27c_lite.py"]
 # The root hash index cannot contain its own hash; the manifest (written after it) does.
 HASHES_SELF = "ARTIFACT_HASHES.txt"
 # Directories that are toolchain copies or scratch, not artifacts.
-EXCLUDE_DIRS = {".git", "toolchain", "specs", "fpga", "__pycache__", ".pytest_cache"}
+# (specs/fpga was previously excluded by name; removed 2026-11-25 so specs/fpga/*.t27
+# land in the index — no nested specs|fpga dirs exist under the include trees.)
+EXCLUDE_DIRS = {".git", "toolchain", "__pycache__", ".pytest_cache"}
 
 
 def sha256(path):
