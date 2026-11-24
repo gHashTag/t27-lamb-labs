@@ -37,6 +37,12 @@ unauthorized.
 ## Reproduce the GPU correctness verdict
 
 ```sh
+# 0) toolchain: verified-good build is the w3070 one:
+#      /home/t27ssh/t27os/bin/t27c  sha256 5785e3ca7b02… + zig 0.16.0 on PATH
+#    The only Mac-side binary (2026-11-24) is a Nov-13 stock build that BLOCKS
+#    specs/igla/coder/gf16_dot4_conformance.t27 (slice-coercion defect class).
+#    Full 7-suite transcript: reports/final_regression_head570bd19.txt
+
 # 1) native .t27 oracle + batch self-tests + merged GPU verdict
 t27c test-report scripts/gf16_dot4_host/gf16_gpu_batch.t27
 #    -> exit 0, tests 6, pass 6, FAIL 0

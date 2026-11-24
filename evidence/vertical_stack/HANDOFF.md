@@ -15,7 +15,11 @@ Baseline (preserved, never rewritten): `71745d5fa4cd6a17bc749a1108d6839fb80ed859
 | `e409323` | M4 stage 1 | GPU golden smoke 8/8 bit-exact, hash-gated, zero CUDA errors |
 | `d702b8f` | M4 stage 2 | GPU edge + seeded-random batch: 288 groups, 0 finite mismatches, 0 NaN-contract violations; host grid fix; ordinal fix |
 | `5974a91` | M5 | read-only inventory of the spec→RTL→simulation→FPGA chain (hardware branch) |
-| (this round) | acceptance audit | `gpu/GPU_ACCEPTANCE_M4.md`: PTX FMA chain vs oracle per-step rounding, GPU_C provenance, path corrections |
+| `5131ad9` | M7 | vertical-stack review docs: HANDOFF, bundle README, readiness updates |
+| `002139f` | acceptance audit | `gpu/GPU_ACCEPTANCE_M4.md`: PTX FMA chain vs oracle per-step rounding, GPU_C provenance, path corrections |
+| `5cdf614` | regression | 7 native suites re-run at HEAD, all exit 0 (`reports/final_regression_20261124.txt`) |
+| `570bd19` | readiness | A7 cites the acceptance audit (per-step FMA contract, owner acceptance pending); B1 records GF(2^4) vs float-GF16 domain boundary |
+| `af8991d` | regression | 7 suites re-verified on w3070 at HEAD `570bd19` (`reports/final_regression_head570bd19.txt`); Mac stock t27c blocks the conformance spec — toolchain trap recorded |
 
 ## Where the chain stands
 
@@ -58,6 +62,12 @@ remain ESTIMATED; the measured J/token gap stays open.
 * CUDA ordinal here is 0 even though the free physical GPU is nvidia-smi index 1.
 * The upstream conformance set uses a different E=0 convention and re-rounds through GF16 → it is a
   cross-reference, never an oracle for this kernel.
+* The local `t27c` binary can disappear or regress: the lane build (`/Users/playra/.local/bin/t27c`,
+  sha `5da927df…`) was removed and the remaining Mac binary (`~/.cargo/bin/t27c`, Nov 13,
+  sha `1f5728a1…`) is a stock build that BLOCKS the conformance spec
+  (`spec.zig:539:30`, slice-coercion defect class). Check the toolchain sha BEFORE reruns;
+  verified-good: w3070 `/home/t27ssh/t27os/bin/t27c` sha `5785e3ca…` + zig 0.16.0 on PATH.
+  Never edit a passing spec to satisfy a stale compiler.
 * `specs/fpga/gf16_accel.*` is GF(2^4) FIELD arithmetic (`GF16_FIELD_POLY=19`, no float tokens in
   the `.v`) — a DIFFERENT numeric domain from the binary-float lane GF16 of `specs/numeric/gf16.t27`;
   same letters "GF16", different math. FPGA is NOT part of GPU acceptance; connecting it is a
@@ -70,3 +80,5 @@ remain ESTIMATED; the measured J/token gap stays open.
 2. Whether to fund the hardware branch: spec→RTL for the shipped artefact, a real testbench run
    with waveforms, and a rebuilt bitstream — or to formally withdraw the silicon claims.
 3. Whether the GPU branch should continue with additional kernels (out of scope without a new task).
+4. Which `t27c` build is canonical for future reruns (w3070 `5785e3ca…` verified 2026-11-24; the
+   Mac stock build blocks the conformance suite).
