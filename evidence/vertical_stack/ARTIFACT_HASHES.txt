@@ -1,10 +1,10 @@
 # Vertical-stack evidence hash index (sha256).
-# Generated: 2026-11-24T07:31:34Z. Files sorted; this file excludes itself.
+# Generated: 2026-11-24T08:00:36Z. Files sorted; this file excludes itself.
 # Format: <sha256>  <relpath>
 ec20f6b9b69328f17124f8d3e206bc8b1ff6c35f87cc7a7ef9444bdea2ea1fd2  HANDOFF.md
 2ef1d5a9e9ef711a0f10548d50ac3f22063dfff7a5a93cf251aca686e63c591a  HOST_ABI.md
 c3aa132eb2a53f20751b9692059a652cc0decfa284143c4025ea1aa78e5a676e  PROVENANCE.md
-48b813ceb3b8747b36b0ffd62cb674ac4dbc9bde6fb2802323014625a0988e71  READINESS_MATRIX.md
+c200fa8fe65d06b4449be599e10a1c45c68852d9336eb35ff9392c6a7a97a94c  READINESS_MATRIX.md
 57ac706eae9a02c767e95e2942889b6d5e3741fc345b9aa0e3d5aa57bbe7f972  README.md
 5b5f56e00abf2fde9ebc9122814e67e12cbf9feac00792aa1a9d414de8b29a86  gpu/GPU_ACCEPTANCE_M4.md
 a9cb29bb72656433f6e0bf4fac67e4c323380584a97be6bc3054a9fd2b2dd65d  gpu/GPU_RUN_M4_STAGE1.md
