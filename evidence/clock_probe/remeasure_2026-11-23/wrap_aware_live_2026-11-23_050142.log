@@ -1,0 +1,38 @@
+=== WRAP-AWARE LIVE RUN, FIXED READER (round-10 Job E, 2026-11-23) ===
+
+Bitstream: clock_probe_r4t4.bit (sha256 92e120b3...), loaded this session,
+done=1, same load as the failed first live run (see *_045701.log).
+
+Defect found by the first live run and fixed before this one:
+  prev_counts_per_s was taken from freqs[-1], but the first window is
+  excluded from freqs by design -> the continuity chain broke at every
+  window, every delta was mislabelled first-window-prior-guessed, and the
+  run exited NO USABLE DELTAS despite plausible per-window rates.
+  Fix: chain prev independently of summary exclusion. Selftest re-run:
+  11/11 within 5% (selftest unchanged, exit 0).
+
+$ python3 measure_clock_wrap.py 10 0.2
+  read 1: raw=0xA5A2EF1D magic=OK count=192285
+  read 2: raw=0xA5AB7910 magic=OK count=751888
+  read 3: raw=0xA5A43B22 magic=OK count=277282
+  read 4: raw=0xA5AD31B7 magic=OK count=864695
+  read 5: raw=0xA5A64B4B magic=OK count=412491
+  read 6: raw=0xA5AF6F89 magic=OK count=1011593
+  read 7: raw=0xA5A88F47 magic=OK count=560967
+  read 8: raw=0xA5A1BD55 magic=OK count=114005
+  read 9: raw=0xA5AB0378 magic=OK count=721784
+  read 10: raw=0xA5A405F6 magic=OK count=263670
+--- 10/10 reads carried the magic ---
+  delta: 559603 counts (+0 wrap) in 365.2 ms -> 392.2988 MHz [first-window-prior-guessed]
+  delta: 573970 counts (+0 wrap) in 368.2 ms -> 399.0838 MHz [ok]
+  delta: 587413 counts (+0 wrap) in 382.0 ms -> 393.6961 MHz [ok]
+  delta: 596372 counts (+0 wrap) in 384.4 ms -> 397.1532 MHz [ok]
+  delta: 599102 counts (+0 wrap) in 381.5 ms -> 402.0629 MHz [ok]
+  delta: 597950 counts (+0 wrap) in 384.7 ms -> 397.9193 MHz [ok]
+  delta: 601614 counts (+0 wrap) in 388.2 ms -> 396.7379 MHz [ok]
+  delta: 607779 counts (+0 wrap) in 378.3 ms -> 411.2987 MHz [ok]
+  delta: 590462 counts (+0 wrap) in 383.0 ms -> 394.6948 MHz [ok]
+--- SUMMARY ---
+  clock frequency: mean 399.0808 MHz, median 397.5362 MHz, stdev 5.5672 MHz, n=8
+  min 393.6961 MHz, max 411.2987 MHz
+READER_EXIT=0

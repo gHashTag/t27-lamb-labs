@@ -1,0 +1,47 @@
+{
+ "date": "2026-11-23",
+ "drafted": [
+  "v0.1.0-evidence-mvp",
+  "v0.1.1-estimate-refined",
+  "v0.1.10-critical-path-measured",
+  "v0.1.11-fmax-noise-audit",
+  "v0.1.12-silicon-measured",
+  "v0.1.13-portfolio-honest",
+  "v0.1.14-throughput-withdrawn",
+  "v0.1.15-r4t4-clock-probe",
+  "v0.1.16-divide-ratio-established",
+  "v0.1.17-attention-correction",
+  "v0.1.18-attention-verified",
+  "v0.1.2-codesign-measured",
+  "v0.1.3-attention-measured",
+  "v0.1.4-benchmark-measured",
+  "v0.1.5-joint-frontier-measured",
+  "v0.1.6-sequential-attention-measured",
+  "v0.1.7-token-sequential-measured",
+  "v0.1.8-cfgmclk-reference-measured",
+  "v0.1.9-ax7203-build-diagnosed"
+ ],
+ "log": [
+  "drafted v0.1.0-evidence-mvp -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-8127c87b9d1c34e55a88 (note sha256: ea80d5eda6203a6b)",
+  "drafted v0.1.1-estimate-refined -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-83596d9c4e6fbc4d0e71 (note sha256: ca8e6df1d26b060b)",
+  "drafted v0.1.10-critical-path-measured -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-2d6f603df4bae651a93e (note sha256: d110055349fd1f8a)",
+  "drafted v0.1.11-fmax-noise-audit -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-423b274e1660b8723e02 (note sha256: d27df8a938ac93c4)",
+  "drafted v0.1.12-silicon-measured -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-58a2405571a92c17fcbb (note sha256: ad47e617de4d2d22)",
+  "drafted v0.1.13-portfolio-honest -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-36cabcbed9868c7bdd1b (note sha256: cef3a32fe27f7c3b)",
+  "drafted v0.1.14-throughput-withdrawn -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-66ab7f0daf52b79402e5 (note sha256: 35834b1ba5f166d9)",
+  "drafted v0.1.15-r4t4-clock-probe -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-c778293becde488b7adb (note sha256: 09e246eb0417b20f)",
+  "drafted v0.1.16-divide-ratio-established -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-fdc4909f754e0fee6d7b (note sha256: 834614cac81c3cd2)",
+  "drafted v0.1.17-attention-correction -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-ac04af64f8cdccb7f8e5 (note sha256: 6a72c3fcf50fca7a)",
+  "drafted v0.1.18-attention-verified -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-c5031910b2cfd9d311fc (note sha256: b792bb6014ed3b1f)",
+  "drafted v0.1.2-codesign-measured -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-8724bb4a45cfff5cbb26 (note sha256: ff5bffcf1ee6d71e)",
+  "drafted v0.1.3-attention-measured -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-e99672f4cd64d188fb0d (note sha256: 2e09bb54901f224f)",
+  "drafted v0.1.4-benchmark-measured -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-425142d9dc945f0577bc (note sha256: 7aef7d64a9dfaf2b)",
+  "drafted v0.1.5-joint-frontier-measured -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-e724124f78fead97682e (note sha256: 1fd50b3ac301b1cb)",
+  "drafted v0.1.6-sequential-attention-measured -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-bf2973f4f815c5b23619 (note sha256: 1a1a43b6fc4388cb)",
+  "drafted v0.1.7-token-sequential-measured -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-d3e44eb0b7b05de9c464 (note sha256: 987662d2eb010321)",
+  "drafted v0.1.8-cfgmclk-reference-measured -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-f98571eeb24d72f47cc5 (note sha256: 23edf49af3c1a855)",
+  "drafted v0.1.9-ax7203-build-diagnosed -> https://github.com/gHashTag/t27-lamb-labs/releases/tag/untagged-588b6849a7d5608d423b (note sha256: 6d87a87b15adcb7d)",
+  "gh release list: 19 rows\nv0.1.18-attention-verified: five defects fixed, 1200 trials, and the cache is a co-design choice\tDraft\tv0.1.18-attention-verified\t2026-11-22T10:41:18Z\nv0.1.17-attention-correction: the published attention numbers were for a cache-less design\tDraft\tv0.1.17-attention-correction\t2026-11-22T09:18:59Z\nv0.1.16-divide-ratio-established: R4/T4 measured at 398.3 MHz\tDraft\tv0.1.16-divide-ratio-established\t2026-11-22T08:43:36Z\nv0.1.15-r4t4-clock-probe: the board clock runs, the number is not published\tDraft\tv0.1.15-r4t4-clock-probe\t2026-11-22T07:12:30Z\nv0.1.14-throughput-withdrawn: the ring oscillator confirmed dead, the published tok/s withdrawn\tDraft\tv0.1.14-throughput-withdrawn\t2026-11-22T05:12:02Z\nv0.1.13-portfolio-honest: README rewritten, manifest, acceptance verifier\tDraft\tv0.1.13-portfolio-honest\t2026-11-22T05:01:27Z\nv0.1.12-silicon-measured: 67.16 MHz measured, and the ring oscillator withdrawn\tDraft\tv0.1.12-silicon-measured\t2026-11-22T04:08:30Z\nv0.1.11-fmax-noise-audit: two frequency claims withdrawn by measurement\tDraft\tv0.1.11-fmax-noise-audit\t2026-11-21T19:54:32Z\nv0.1.10-critical-path-measured: the KV mux, not the accumulator\tDraft\tv0.1.10-critical-path-measured\t2026-11-21T19:38:13Z\nv0.1.9-ax7203-build-diagnosed: chipdb verified, bitstream blocked\tDraft\tv0.1.9-ax7203-build-diagnosed\t2026-11-21T19:27:59Z\nv0.1.8-cfgmclk-reference-measured: specified clock\tDraft\tv0.1.8-cfgmclk-reference-measured\t2026-11-21T15:50:53Z\nv0.1.7-token-sequential-measured: exact cycles/token, math verified\tDraft\tv0.1.7-token-sequential-measured\t2026-11-21T15:40:45Z\nv0.1.6-sequential-attention-measured: 98.4% LC reduction\tDraft\tv0.1.6-sequential-attention-measured\t2026-11-21T15:34:34Z\nv0.1.5-joint-frontier-measured: quality-gated co-design frontier\tDraft\tv0.1.5-joint-frontier-measured\t2026-11-21T15:29:15Z\nv0.1.4-benchmark-measured: RL-ready benchmark contract + per-parameter table\tDraft\tv0.1.4-benchmark-measured\t2026-11-21T15:19:26Z\nv0.1.3-attention-measured: attention + bounded quantised KV-cache\tDraft\tv0.1.3-attention-measured\t2026-11-21T15:16:43Z\nv0.1.2-codesign-measured: real co-design iteration\tDraft\tv0.1.2-codesign-measured\t2026-11-21T14:50:05Z\nv0.1.1-estimate-refined: LUT/BRAM/DSP now MEASURED\tDraft\tv0.1.1-estimate-refined\t2026-11-21T14:42:15Z\nv0.1.0-evidence-mvp: Evidence MVP with all gaps addressed as estimates\tDraft\tv0.1.0-evidence-mvp\t2026-11-21T13:22:35Z\n"
+ ]
+}
+SHA256_SELF: 8f87da318c45cf13120aee5e969358ba650f9910ac743c1b55cfc5893bf86d88

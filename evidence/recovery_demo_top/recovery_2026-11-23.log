@@ -1,0 +1,96 @@
+RECOVERY EVIDENCE: ternary_mac_demo_top source + constraints
+Date: 2026-11-23 (UTC+7)
+Executor: DSH session dsh-e6e4cd9f (Team Lead "lead")
+Linked issue: gHashTag/t27-lamb-labs #4 [R8]
+
+PROBLEM
+-------
+The shipped bitstream/ternary_mac_demo_top_200t.bit
+(sha256 a82c260d759f66afe95a3b6c705fb6e963a3d0ba58227511b1b69ea4a0e00c0b,
+== ARTIFACT_MANIFEST row 11) had NO committed top-level source. Verified
+2026-11-23: absent from all 28 commits of this repo (git log --all over
+'*ternary_mac_demo_top.v' is empty; initial tree 56e0712 carries only the .bit
+and the specs). The bitstream could not be rebuilt from the repository.
+
+RECOVERY PATH (chain of custody)
+--------------------------------
+1. evidence/clock/verify_ring_oscillator.py line 65 names the netlist path
+   /Users/playra/t27/fpga/verilog/ternary_mac_demo_top.json - i.e. the ORIGINAL
+   working repository (split ancestor of this lab) still on the bench machine.
+2. That directory contained the full pre-split artifact set, timestamps
+   2026-11-07 23:57. Recovered files copied byte-exact into rtl/ of this repo:
+
+   rtl/ternary_mac_demo_top.v    sha256 e2614d3d4f1c422c75e6f2f61e6b74846bf1f65b3a980826c3cbb00272cdf4e3
+   rtl/ternary_mac_demo_top.xdc  sha256 c7c8433a0b34981f0a75db59fe90c6a8d44f0de0cddb7293cd4509b75f6cd142
+
+   Original-repo intermediates left in place, hashed for provenance:
+   /Users/playra/t27/fpga/verilog/ternary_mac_demo_top.json    sha256 b70d583462cbd2e2c6c46d431bc3013b6de6389cf3ec12d190a975aa4202ff0b  (9,373,222 B)
+   /Users/playra/t27/fpga/verilog/ternary_mac_demo_top.fasm    sha256 3775823479d6a6b298bc54af45485c75941c8cf4bfa3a1d79ac1770607e88975  (13,368 B)
+   /Users/playra/t27/fpga/verilog/ternary_mac_demo_top.frames  sha256 1e0f8b67c4b1f0b01ee728747901080acd67d67d5eb797626cf0b2ee7439fe85  (10,111,464 B)
+   /Users/playra/t27/fpga/verilog/ternary_mac_demo_top_200t.bit sha256 a82c260d759f66afe95a3b6c705fb6e963a3d0ba58227511b1b69ea4a0e00c0b
+     -> BYTE-IDENTICAL to bitstream/ternary_mac_demo_top_200t.bit in this lab.
+   /Users/playra/t27/fpga/verilog/ternary_mac_synth.v sha256
+     c6d50bb1f710ecadc5805431f6b23b711416fe50aef2498eb37b2dc600ad0b52
+     -> BYTE-IDENTICAL to evidence/codesign/ternary_mac_synth.v committed here.
+
+REBUILD PROOF (yosys only; nextpnr/chipdb not installed on this host)
+----------------------------------------------------------------------
+Command: the exact one recorded in evidence/utilization/shipped_bitstream_stat.txt
+  read_verilog -sv ternary_mac_synth.v ternary_mac_demo_top.v;
+  synth_xilinx -family xc7 -nodsp -nosrl -top ternary_mac_demo_top -flatten;
+  stat -hierarchy; write_json /tmp/demo_rebuild.json
+
+Yosys build identical: 0.67+post (git sha1 b8e7da6f40ae8f552c116bf6c359b07c6533e159).
+
+TIER 1 - stat equality (rebuild vs shipped_bitstream_stat.txt): EXACT MATCH
+  46 wires / 252 wire bits / 40 public wires / 180 public wire bits
+  2 ports / 2 port bits, 34 cells:
+  1 $scopeinfo, 1 BUFG, 1 CARRY4, 6 FDRE, 4 INV, 19 LUT1, 2 OBUF
+
+TIER 2 - semantic netlist comparison (python, cells+netnames+ports):
+  ports equal ............ TRUE   (led_r23, led_t23)
+  netname count .......... 46 == 46
+  nets with differing bit assignments: 0
+  cells shared by name ... 23, ALL identical in (type, connections)
+  remaining differences .. yosys session counter suffixes only
+    ($abc$1721* vs $abc$1729*, $auto$clkbufmap...$1740 vs ...$1748,
+     $auto$blifparse...$1722-1725 vs ...$1730-1733)
+  VERDICT: the recovered source produces a STRUCTURALLY IDENTICAL netlist
+  to the one stored beside the shipped bitstream; identity modulo yosys
+  auto-renaming, which carries no information.
+
+CONCLUSION
+----------
+The shipped bitstream's provenance chain is now complete and hash-verified:
+  rtl/ternary_mac_demo_top.v (+ committed ternary_mac_synth.v)
+    -> ternary_mac_demo_top.json (b70d5834...)
+    -> .fasm (37758234...) -> .frames (1e0f8b67...)
+    -> .bit (a82c260d... == shipped, == loaded on AX7203 2026-11-23,
+       evidence/board_reconnect/board_reconnect_2026-11-23.log)
+
+HONEST LIMITS (recorded, not hidden)
+------------------------------------
+1. rtl/ternary_mac_demo_top.xdc targets the QMTech Wukong V1 (XC7A100T-FGG676,
+   LEDs R23/T23). The _200t.bit was placed on an xc7a200tfbg676 chipdb (die
+   level) and loads on the AX7203 (FBG484) because the design touches no pin
+   the die cannot resolve - but its two OBUFs drive pins the AX7203 routes
+   ELSEWHERE (AX7203 LEDs are B13/C13, see evidence/ax7203_build). The shipped
+   demo therefore never showed visible behaviour on the AX7203. This matches
+   the v2 header's own defect list and the withdrawn-performance history.
+2. The design's clock is a 20-stage LUT1 ring oscillator
+   (ALLOW_COMBINATORIAL_LOOPS): uncharacterised, and probe-verified NOT to
+   oscillate (evidence/clock_probe/shipped_bitstream_analysis.log: all 6 FDRE
+   clocked by net 'osc', the dead one). The shipped bitstream proves toolchain
+   loadability, NOT datapath behaviour. Functional smoke stays issue #5 [R5].
+3. Byte-identical .bit regeneration was NOT attempted: nextpnr-xilinx and
+   xc7frames2bit are not installed on this host. Structural equivalence is the
+   proven level; a byte-level re-cut requires the openXC7 flow (future work).
+
+ISSUE #4 ACCEPTANCE STATE (2026-11-23)
+--------------------------------------
+- [x] ternary_mac_demo_top.v + its .xdc committed          -> this commit, rtl/
+- [~] Rebuilt bitstream sha256-identical OR honestly re-cut -> structural
+      equivalence proven (TIER 1+2); byte-level re-cut deferred (no PnR tools);
+      manifest row for the shipped .bit unchanged (hash unchanged).
+- [x] Rebuild evidence log under evidence/                 -> this file
+- [ ] Owner verification before close                      -> OPEN (law)

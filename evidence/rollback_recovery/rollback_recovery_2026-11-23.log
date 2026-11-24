@@ -1,0 +1,72 @@
+=== ROLLBACK RECOVERY EXECUTION LOG — 2026-11-23 ===
+UTC: 2026-11-22T19:07:51Z
+
+--- §3.1 board identity pre-check ---
+empty
+Jtag frequency : requested 6.00MHz    -> real 6.00MHz   
+index 0:
+	idcode 0x3636093
+	manufacturer xilinx
+	family artix a7 200t
+	model  xc7a200
+	irlength 6
+detect_exit=0
+
+--- §2 restore from tag v0.1.2-codesign-measured ---
+git-show restore: OK ( 9730768 bytes)
+
+--- §2 sha256 verification (the worked example gate) ---
+a82c260d759f66afe95a3b6c705fb6e963a3d0ba58227511b1b69ea4a0e00c0b  /tmp/RESTORED_ternary_mac_demo_top_200t.bit
+manifest row 11: a82c260d759f66afe95a3b6c705fb6e963a3d0ba58227511b1b69ea4a0e00c0b  bitstream/ternary_mac_demo_top_200t.bit
+SHA256 GATE: PASS
+
+--- §3.2 SRAM load of the restored bitstream ---
+empty
+Jtag frequency : requested 6.00MHz    -> real 6.00MHz   
+Open file DONE
+Parse file DONE
+load program
+Load SRAM: [===                                               ] 5.00%
+Load SRAM: [======                                            ] 11.00%
+Load SRAM: [=========                                         ] 18.00%
+Load SRAM: [=============                                     ] 25.00%
+Load SRAM: [================                                  ] 32.00%
+Load SRAM: [===================                               ] 38.00%
+Load SRAM: [=======================                           ] 45.00%
+Load SRAM: [==========================                        ] 51.00%
+Load SRAM: [=============================                     ] 57.00%
+Load SRAM: [================================                  ] 63.00%
+Load SRAM: [===================================               ] 69.00%
+Load SRAM: [======================================            ] 75.00%
+Load SRAM: [========================================          ] 80.00%
+Load SRAM: [============================================      ] 87.00%
+Load SRAM: [===============================================   ] 93.00%
+Load SRAM: [==================================================] 99.00%
+Load SRAM: [==================================================] 100.00%
+
+Done
+Shift IR 35
+ir: 1 isc_done 1 isc_ena 0 init 1 done 1
+load_exit=0
+
+--- §3.3 post-load XADC ---
+{"temp": 42.3285, 
+    "maxtemp": 42.7649, 
+    "mintemp": 41.4345, 
+"vccint": 0.999756, 
+   "maxvccint": 1.00049, 
+   "minvccint": 0.998291, 
+"vccaux": 1.80542, 
+   "maxvccaux": 1.80688, 
+   "minvccaux": 1.80322, 
+
+--- §4 full-manifest integrity check ---
+MISMATCH: t27-lamb-labs artifact manifest
+MISMATCH: Every deliverable file with its SHA256. Regenerate: python3 scripts/manifest.py
+MISMATCH: 182 files
+MISMATCH: 
+MANIFEST_CHECK_DONE (no MISMATCH lines above = all rows verified)
+UTC end: 2026-11-22T19:08:11Z
+
+--- §4 CORRECTED: skip manifest header lines (prose), hash only ^[0-9a-f]{64} rows ---
+REAL_ROWS_CHECK_DONE

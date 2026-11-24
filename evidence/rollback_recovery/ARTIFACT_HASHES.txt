@@ -1,0 +1,2 @@
+b5f3bc536be5571f28b3ec162d714364cfdacbf668a52ddc27e4671d763fcb8d  evidence/rollback_recovery/rollback_recovery_2026-11-23.log
+071d359ecc206f3612bf14b9688dae7e72c066c996c490fd2335d77fdf931a13  docs/ROLLBACK_RECOVERY.md

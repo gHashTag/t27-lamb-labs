@@ -89,6 +89,13 @@ module clock_probe_r4t4 (
     reg cnt_carry;
     integer k;
     always @(posedge cfgmclk) begin
+        // DEFECT (documented 2026-11-23, do NOT rebuild from this file):
+        // `presc` is undeclared. iverilog: elaboration error. yosys: implicitly
+        // declares a 1-bit wire, out-of-range select -> UNDEF -> tick_rise never
+        // true -> counter frozen at 0 (this is the r4t4b.bit C6 failure mode;
+        // see remeasure_2026-11-23/ and x_mechanism_sim.v). Correct line is
+        // `tick_q <= tick;` (as in clock_probe_ctrl.v). The MEASURED bitstream
+        // clock_probe_r4t4.bit (md5 56a2e448) came from the original, lost source.
         tick_q <= presc[PW-1];
         if (tick_rise) begin
             cnt_carry = 1'b1;

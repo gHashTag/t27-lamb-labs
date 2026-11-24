@@ -1,0 +1,9 @@
+d797385afbfc4086b50a4f824d306e5f8e0d2ea13a69ef9c20b65a7e52fa1246  remeasure_full.log
+e6a07ad1ae1e7ac7443c4687cea03e30744dd913346aba81903fac20a68cb14e  wrap_aliasing_analysis.txt
+75cdaab96c137c71a9e14be0c493bd568844cf3f54e76213db59ca8ed5e92079  verdict.txt
+c49a9af7a5498a3fd05f36b733ed35e07201b0da400a7536e4407fea2fb1b223  x_mechanism_sim.v
+9f750974b15f773461ad5bd52d2c5ae5a5b07f899d6c159cd0e37b7ebc442942  sim_output.txt
+0d71219e8040149d8ec9c5370b9b2af2e48d1d0da21e70de533456e65c07b25c  selftest.log
+3f46feeea39856abe6f20644eabf914c5c35dc839760499762cc61fa8d72e479  measure_clock_wrap.py  # superseded 572cb1ca (pre-chain-fix)
+df007a86df4e97307c5418abca4e5c338e3b35b14fc132e6fffa0df0e964ef21  wrap_aware_live_2026-11-23_045701.log  # live run #1: reader chain bug found (NO USABLE DELTAS, exit 1)
+4581f289a7dcf9d7735e866975984ada5dc82a00eed739d1a1de563a3d9b983b  wrap_aware_live_2026-11-23_050142.log  # live run #2 FIXED: mean 399.0808 MHz, n=8, exit 0

@@ -1,0 +1,3 @@
+33382f78003c27b8a490acf6998ea8106024e84aa0f76ac2cb535fe3d1e75b99  evidence/recovery_demo_top/recovery_2026-11-23.log
+e2614d3d4f1c422c75e6f2f61e6b74846bf1f65b3a980826c3cbb00272cdf4e3  rtl/ternary_mac_demo_top.v
+c7c8433a0b34981f0a75db59fe90c6a8d44f0de0cddb7293cd4509b75f6cd142  rtl/ternary_mac_demo_top.xdc

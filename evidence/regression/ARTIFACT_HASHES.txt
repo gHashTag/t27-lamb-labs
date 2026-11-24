@@ -1,0 +1,25 @@
+5b6363984c7d85b199a52ea1487a848c602cca02723a828074f6bc368a1bfd7f  evidence/regression/regress_2026-11-23_031947.log
+8af60d436cc03782a273fa9b66b226636543d86d42f616aac4b35084bff15f87  evidence/regression/regress_2026-11-23_032012.log
+6faf411f11ff52efc2ccc261aa40ce7886a6d1a7d89cef825b03b55841a0fdba  evidence/regression/regress_2026-11-23_032039.log
+78b728209b4245524968031cd4b58d24eb8deac9c0885584d9a416808ac806d5  evidence/regression/regress_2026-11-23_032045.log
+880c16c46a45b93dad1c844df794e8bec107359584ae042daa4a3cb689ccb704  evidence/regression/regress_2026-11-23_032437.log
+c179693ef71650e457e62eb90ce46544be56cd4ed813ed67d39a3e46a4035789  evidence/regression/regress_2026-11-23_035747.log
+dfc81f62f4dba3004cf45b5bd4ba50aed56a27155c1ef0ad1a321e638cac9961  evidence/regression/regress_2026-11-23_035851.log
+80d7a221969554701aced18bcd6ce969eca6ba38d970e5a5059500afa2851ed8  evidence/regression/regress_2026-11-23_044025.log
+8632a68464833f10db337a1868c01351edb5469f0a4a535ce3dc36ebda41009e  evidence/regression/regress_2026-11-23_044243.log
+24351a7b1d1a66bcd41932c7a51a46e4c3c2eb879b089afa3ac5663146cfd9de  evidence/regression/regress_2026-11-23_044741.log
+1bb960202014acece07ae8fddaace2aedaaab5b9e5277a732fb96b47a1c6e56e  evidence/regression/regress_2026-11-23_045621.log
+5966db968bb151b55b5481784c40fb010e85bef1cd116cc8ed72a51b28c69468  evidence/regression/regress_2026-11-23_050644.log
+22ad34a96d0b9b7300e12b68f79051c9deab81cb139d15d5bdc2dfc16248f521  evidence/regression/regress_2026-11-23_050758.log  # superseded: captured pre-manifest-regen (G4 1 mismatch); see correction addendum inside
+b377132641fa36a6996b44f8a24d7d3d6ee6daea63b11c187668c56e6d8efe4f  evidence/regression/regress_2026-11-23_050841.log  # final verification rerun at round-10 closure HEAD (duplicate check, exit 0)
+aa5a13c299e5ca96f26541d6e64661d20d098a2f3bcf539375d00a0820ba26f8  evidence/regression/regress_2026-11-23_r11_comb.log  # ALL GATES PASS exit 0 at comb-pattern HEAD; G2 now gates 1-9 over both spec patterns
+
+== r12 clock-probe corrected-fork round (appended 2026-11-23) ==
+f9093712c2eed1019a09657842a0391b9ab384956555701f3ba96cde462b775f  evidence/regression/regress_2026-11-23_r12_r4t4c.log
+67754a4b0a2d0ef57fdad615104f8525535a82ecc03781580edba4f78472c274  evidence/regression/regress_2026-11-23_r12_r4t4c_fixed.log
+c2ffb4b6be098fc507c9c54c7bd7e82a27b979531a0fd1c13e1b5cedd8f45b59  evidence/regression/regress_2026-11-23_r12_pass.log
+
+94a5154435430bc93c2d180def010ac7dbc8d949a887000d41e71e9f07b786ec  evidence/regression/regress_2026-11-23_055642.log
+
+== r12 correction: script-side twins are authoritative (contain gate internals the stdout redirects lack) ==
+d6c0f1817178cad1e0a28ac7a1ddff5d2a2f4ea66dde4e29d7161b0f9edfd87e  evidence/regression/regress_2026-11-23_055732.log

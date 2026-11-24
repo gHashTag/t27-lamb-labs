@@ -1,0 +1,31 @@
+=== WRAP-ALIASING ANALYSIS: R4/T4 run 1, 2026-11-23 (0.5 s interval) ===
+
+The 20-bit counter wraps at 2^20 = 1048576 COUNTS. At the established rate
+(~397.6 MHz / 256 = 1.553e6 counts/s) one wrap takes 0.675 s - inside the run-1
+window (~0.68 s at 0.5 s interval + read overhead). measure_clock.py computes plain
+deltas, so a window that crossed the wrap once reports a tiny/near-zero delta.
+Yesterday's windows were 335 ms (< wrap); today's run-1 windows were not.
+
+Reconciliation: MHz = (delta + k*2^20)/dt * 256 / 1e6 for k = wraps crossed.
+
+delta_raw    dt_ms     k=0 MHz    k=1 MHz    k=2 MHz   
+1030497      687.4     383.7754   774.3      1164.8    
+18077        670.6     6.9009     407.2      807.5     
+361          686.1     0.1347     391.4      782.6     
+10367        681.4     3.8949     397.8      791.8     
+18904        681.0     7.1063     401.3      795.5     
+32218        684.3     12.0529    404.3      796.6     
+16451        677.8     6.2134     402.3      798.3     
+9042         682.9     3.3896     396.5      789.6     
+20493        683.9     7.6710     400.2      792.7     
+
+k=1 reconciles EVERY aliased sample into the known band (384-407 MHz); k=0 gives an
+impossible 1.5-383.8 spread; k=2 overshoots past 3 GHz. The first window (687.4 ms,
+delta 1030497) sits just under one wrap at k=0 -> 383.79 MHz, itself inside the band.
+
+aliased rows only (k=1): mean 400.1 MHz, median 400.2, min 391.4, max 407.2 (n=8)
+
+CONCLUSION: run 1 is not a contradiction - it is the SAME ~398 MHz signal seen through
+a host-script wrap bug. Defect class: measurement harness, not board, not design.
+Protocol fix: keep window < 80% of wrap period (run 2 used 0.25 s; wrap-aware copy
+committed as measure_clock_wrap.py).

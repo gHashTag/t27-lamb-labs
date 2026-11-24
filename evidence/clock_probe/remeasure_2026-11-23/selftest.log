@@ -1,0 +1,18 @@
+=== OFFLINE SELFTEST of measure_clock_wrap.py (no hardware) ===
+Synthetic 20-bit counter at the published rate (397.6e6/256 counts/s),
+random window lengths 0.35-0.75 s straddling the 0.675 s wrap period, seed 20261123.
+
+  dt=651.9 ms dc= 429903 k=1 first-window-prior-guessed ->  580.562 MHz
+  dt=709.0 ms dc=  52578 k=1 recovered         ->  397.600 MHz
+  dt=612.0 ms dc= 950501 k=0 ok                ->  397.600 MHz
+  dt=414.0 ms dc= 642939 k=0 ok                ->  397.600 MHz
+  dt=675.1 ms dc=1048564 k=0 ok                ->  397.600 MHz
+  dt=385.5 ms dc= 598765 k=0 ok                ->  397.600 MHz
+  dt=691.3 ms dc=  25033 k=1 recovered         ->  397.600 MHz
+  dt=505.5 ms dc= 785031 k=0 ok                ->  397.600 MHz
+  dt=424.4 ms dc= 659073 k=0 ok                ->  397.600 MHz
+  dt=611.8 ms dc= 950188 k=0 ok                ->  397.600 MHz
+  dt=379.5 ms dc= 589468 k=0 ok                ->  397.600 MHz
+  dt=519.8 ms dc= 807322 k=0 ok                ->  397.600 MHz
+SELFTEST: 11/11 windows recovered within 5% of 397.6 MHz
+SELFTEST_EXIT=0

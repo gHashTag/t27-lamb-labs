@@ -87,3 +87,25 @@ MACHINE READINGS SUMMARY
   control run 2   CFGMCLK          66.8154    67.0433  1.0871  9    10/10
   R4/T4 run 1     R4/T4            398.6926   399.0965  7.5735  9    10/10
   R4/T4 run 2     R4/T4            397.9325   400.8073 13.5241  9    10/10
+
+===================================================================
+ADDENDUM 2026-11-23 (round 10, Job B): reconciliation of this log's verdict
+
+This log's original verdict line says:
+    R4/T4 CLOCK = 398.3 MHz -> PUBLISHED VALUE 398.3 MHz
+
+That was the 2-session mean at the time of writing. The body stays unchanged.
+Current published status per evidence/clock_probe/remeasure_2026-11-23/verdict.txt:
+    pooled 3-session mean = 397.6223 MHz (sessions: 398.6926, 397.9325, 396.2419)
+    status = MEASURED / PROVISIONAL / EXPLAINED=NO (HARDWARE_SSOT.md says the R4/T4
+    oscillator is 200 MHz; the 2x discrepancy remains unexplained and the value is
+    FORBIDDEN as a design input until explained).
+
+The ratio rows above (5.965/5.953) were computed against the then-current R4/T4
+session means; re-derived against the pooled 397.6223 MHz they become
+5.9429/5.9344 -> divide ratio 256 unchanged (cell-identical control logic).
+
+Independent simulation leg of the same /256 claim (round-10 Job A):
+    evidence/clock_probe/johnson_divide_sim_2026-11-23_045517.log — 8/8 tick
+    intervals = 256 cfgmclk edges (iverilog, prescaler copied verbatim).
+Nothing in this addendum changes the original measurement rows.

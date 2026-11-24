@@ -64,9 +64,9 @@ inside the MAC datapath.
 | Parameter | Value |
 |---|---|
 | JTAG frequency | 6 MHz |
-| Clock source | 20-stage ring oscillator in fabric (~150 MHz est.) |
+| Clock source | 20-stage ring oscillator in fabric — **WITHDRAWN**: does not oscillate on silicon; real clocks are CFGMCLK 67.16 MHz MEASURED and the R4/T4 board clock (JTAG probe MEASURED ×3 sessions, pooled mean **397.62 MHz**, /256 ratio silicon-confirmed; **PROVISIONAL** — SSOT documents 200 MHz, discrepancy unexplained). Log: `evidence/clock_probe/shipped_bitstream_analysis.log` |
 | Power method | external meter required for FPGA; nvidia-smi used for the 2x RTX 3070 box |
-| Token counting | 5 cycle-1 runs = 5 tokens |
+| Token counting | ~~5 cycle-1 runs = 5 tokens~~ — **WITHDRAWN**: run provenance dead (see below); no token count is currently published |
 | Confidence interval | 95% from repeated runs |
 | Duration per run | ~0.175 s |
 
@@ -218,7 +218,8 @@ K and V stored as sign + `QUANT_W` magnitude bits.
 **RTL**: `evidence/attention/attn_kv.v`
 
 **Latency (derived, not measured on silicon)**: combinational depth = SLOTS x HEAD_DIM MAC steps
-(16 x 8 = 128), ~640 ns/token at 150 MHz. A sequential form would be 16 cycles (~107 ns) at a
+(16 x 8 = 128), ~640 ns/token at 150 MHz (basis **WITHDRAWN** — the 150 MHz oscillator is dead;
+re-derive against 67.16 MHz CFGMCLK or the R4/T4 3-session measured mean 397.62 MHz (provisional). A sequential form would be 16 cycles (~107 ns) at a
 fraction of the LUT cost - not yet built.
 
 **Quality**: measured in iteration 2 below - bit-exact against the full-precision golden for
@@ -385,7 +386,7 @@ its contribution · `phase DONE` output valid + write the new KV slot + restart.
 | **token-sequential** | **505** | **18** | **exact**: 1 clear + 16 scan + 1 write/done |
 | overhead | **+50 (+11.0%)** | **+2 (+12.5%)** | buys a per-token-defined output with a `done` pulse |
 
-### Derived attention throughput (⚠️ DERIVED, not measured on silicon)
+### Derived attention throughput (⚠️ DERIVED, not measured on silicon; basis WITHDRAWN)
 
 | KV_LEN | Exact cycles/token | Attention passes/s at 150 MHz (est.) |
 |---|---|---|
@@ -393,10 +394,14 @@ its contribution · `phase DONE` output valid + write the new KV slot + restart.
 | 16 | 18 | 8,333,333 |
 | 32 | 34 | 4,411,765 |
 
+> **Basis WITHDRAWN (2026-11-23)**: the ~150 MHz fabric oscillator does not run on silicon, so the
+> passes/s column is **historical only** — re-derive against CFGMCLK 67.16 MHz (MEASURED) or the
+> R4/T4 3-session measured mean 397.62 MHz (provisional). The cycles/token column remains exact (counted, verified).
+
 > **Important caveat**: these are attention **passes** per second for this block, **not** model tokens
 > per second. The 5.7 tok/s measured on the cycle-1 variance bitstream is a **different measurement**
 > (cycle-1 runs, dominated by the measurement harness, not by the FPGA clock) and must not be mixed
-> with this number.
+> with this number. That 5.7 tok/s figure is itself **WITHDRAWN** — see `evidence/clock_probe/shipped_bitstream_analysis.log`.
 
 ### Decision: **ADOPT the token-sequential form** (`attn_token`)
 
@@ -459,7 +464,7 @@ netlist, with the clock-buffer mapper's BUFG in the clock path (normal practice)
 
 | Variant (act=8, quant=8, kv_len=16) | Est. LCs | Clock |
 |---|---|---|
-| ring-oscillator clocked | 505 | fabric ring oscillator, **ESTIMATED** ~150 MHz |
+| ring-oscillator clocked | 505 | fabric ring oscillator, ~~ESTIMATED~~ **WITHDRAWN** — dead on silicon |
 | **CFGMCLK clocked** | **467** | **silicon-specified** ~66 MHz family nominal |
 | saving | **-38 (-7.5%)** | the 19 LUT1 + 4 INV oscillator and its BUFG are no longer needed |
 
@@ -760,10 +765,10 @@ ABC9 SCC detection"*.
 
 | Affected claim | Status |
 |---|---|
-| the ~150 MHz ring-oscillator clock in every derived throughput figure | **WITHDRAWN** - the oscillator appears not to run; the real clocks are CFGMCLK **67.16 MHz measured** and the board's 200 MHz on R4/T4 (not yet measured) |
+| the ~150 MHz ring-oscillator clock in every derived throughput figure | **WITHDRAWN** - the oscillator appears not to run; the real clocks are CFGMCLK **67.16 MHz measured** and the board clock on R4/T4: **MEASURED ×3 independent sessions**, pooled mean **397.62 MHz** (398.6926/397.9325 on 2026-11-22; 396.2419 on 2026-11-23; magic 10/10 each run; Johnson /256 silicon-confirmed; wrap-aliasing defect of the host reader found and fixed). The 2026-11-23 smoke C6 freeze was NARROWED to the r4t4b artifact by a same-session differential + x-mechanism simulation (`evidence/clock_probe/remeasure_2026-11-23/verdict.txt`); **PROVISIONAL**, SSOT-vs-measured 2x discrepancy unexplained |
 | the shipped `ternary_mac_demo_top_200t.bit` and its 5.7 tok/s variance measurement | **WITHDRAWN** - **two** independent defects, both verified from the netlist: (1) all 6 flip-flops are clocked by the dead `osc`, so no state element ever advances; (2) `acc_in` is constant 0 and `w_code` constant −1, so synthesis **pruned the 32-bit accumulator to 2 bits** - the bitstream does not exercise the ternary MAC datapath at all. The `accumulator_final` values in `evidence/variance_summary.json` cannot have come from it, so the **variance gate is REOPENED**. Log: `evidence/clock_probe/shipped_bitstream_analysis.log` |
 | the power and J/token estimates | still **ESTIMATED**, but the inputs are now real: 45.27 °C loaded, VCCINT 0.99926 V measured, +0.590 °C thermal signature |
-| the achievable attention clock | still **UNKNOWN**, but the question is sharper: time it against 67.16 MHz measured or 200 MHz, not against an estimated 150 MHz fabric oscillator |
+| the achievable attention clock | still **UNKNOWN**, but the question is sharper: time it against 67.16 MHz measured (CFGMCLK) or the R4/T4 3-session measured mean 397.62 MHz (provisional - discrepancy vs the documented 200 MHz is unexplained), not against an estimated 150 MHz fabric oscillator |
 
 ### 9e. Toolchain findings (each one a build blocker that was removed)
 
@@ -861,16 +866,16 @@ reads per generated token: **0 (measured)**.
 
 ---
 
-## Energy Per Token (⚠️ POWER ESTIMATED, J/TOKEN ESTIMATED)
+## Energy Per Token (POWER ESTIMATED; J/TOKEN **WITHDRAWN** — no tok/s is published)
 
 | Metric | Value | Status | Notes |
 |---|---|---|---|
-| Measured Tokens/sec | ~5.7 tok/s | ✅ MEASURED | 5 cycle-1 runs / 0.875 s total |
-| Run duration mean | 0.1749 s | ✅ MEASURED | std 0.0008 s, CV 0.46% |
+| ~~Measured~~ Tokens/sec | ~5.7 tok/s | ❌ **WITHDRAWN** | source bitstream's clock is dead and its 32-bit accumulator was pruned to 2 bits; no throughput number is published. Log: `evidence/clock_probe/shipped_bitstream_analysis.log` |
+| Run duration mean | 0.1749 s | ⚠️ HARNESS-ONLY | wall time of cycle-1 harness runs, carries no FPGA-throughput meaning; the 0.46% CV is withdrawn with the tok/s figure |
 | Estimated Power | ~0.7 W | ⚠️ ESTIMATE | Dominated by static/IO/clock: **0 DSP, 0 BRAM, 32 LUTs** active |
 | Confidence Level | Preliminary | ⚠️ ESTIMATE | Vivado `report_power` unavailable (AMD account login) |
 | Accuracy Band | \u00b120% | ⚠️ ESTIMATE | Vivado Preliminary class |
-| **J/token (est.)** | **~0.12 J/token** | ⚠️ ESTIMATE | = 0.7 W / 5.7 tok/s |
+| ~~J/token (est.)~~ | ~~0.12 J/token~~ | ❌ **WITHDRAWN** | was derived as 0.7 W / withdrawn tok/s; no J/token is published |
 | Measured power (external meter) | TBD | ❌ BLOCKED | Needs Monsoon / Keysight / Joulescope |
 
 **Why the estimate is credible here**: the measured utilization shows **zero DSP, zero BRAM and only
@@ -890,10 +895,10 @@ order of magnitude.
 
 | Metric | Value | Status |
 |---|---|---|
-| Cycle-1 runs | 5/5 PASSED | ✅ MEASURED |
+| Cycle-1 runs | 5/5 PASSED | ⚠️ HARNESS-ONLY | runs executed as harness events, but the bitstream's datapath provenance is withdrawn — **variance gate REOPENED** |
 | Bit-exact match vs golden | 1.0 | ✅ MEASURED |
 | Co-design iterations completed | **5** (acc x loop-topology; joint act x KV-quant; sequential vs combinational; token-sequential control; clock source) | ✅ MEASURED |
-| Timing CV | 0.46% | ✅ MEASURED |
+| Timing CV | 0.46% | ❌ **WITHDRAWN** | withdrawn with the tok/s figure it qualified |
 | Literature reference | latency 0.8-1.2%, energy 1.5-2.1% (arXiv:2511.06955) | baseline only |
 
 ---
@@ -940,7 +945,7 @@ order of magnitude.
 | RL_BENCHMARK_STATUS | ✅ contract + **19** evaluated states + validator (NOT an RL system) |
 | OPEN_SOURCE_ENGAGEMENT_STATUS | ⏳ WAITING | awaiting Lamb Labs open model release |
 | PER_PARAM_EFFICIENCY | ✅ NORMALISED | labelled non-parity; 1M/2M rows explicitly NOT MEASURED |
-| BLOCKERS | - | **No throughput number yet** - the board's clock is now MEASURED (67.16 MHz CFGMCLK, 398.3 MHz R4/T4), so the next step is a design with a running clock. **FPGA power still ESTIMATED** (needs a current meter); **the variance gate is REOPENED**; the documented 200 MHz for R4/T4 does not match the measured 398.3 MHz (discrepancy recorded, cause unknown); openXC7 cannot route the attention design (LUT6 packing + carry-chain splitting) |
+| BLOCKERS | - | **No throughput number yet** - the board's clock is now MEASURED (67.16 MHz CFGMCLK, 398.3 MHz R4/T4), so the next step is a design with a running clock. **FPGA power still ESTIMATED** (needs a current meter); **the variance gate is REOPENED**; the documented 200 MHz for R4/T4 does not match the 3-session measured mean 397.62 MHz (discrepancy recorded, cause unknown; hence PROVISIONAL); openXC7 cannot route the attention design (LUT6 packing + carry-chain splitting) |
 
 ---
 

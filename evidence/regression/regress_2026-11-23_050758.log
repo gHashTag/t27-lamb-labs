@@ -1,0 +1,16 @@
+T27-LAMB-LABS REGRESSION GATE  2026-11-22T22:07:49Z  HEAD=56eb87e
+=== G1: portfolio acceptance
+=== G1: PASS
+=== G2: t27c_lite spec->Verilog compiler
+=== G2: PASS
+=== G3: conformance pack (A/B/B2)
+=== G3: PASS
+=== G4: artifact manifest hash sweep
+REAL MISMATCH: docs/M0_M5_CAPABILITY_MAP.md
+=== G4: 275 rows checked, 1 mismatches
+=== G5: tree drift after regeneration
+=== G5: PASS (tree clean, all regenerated artifacts byte-identical)
+===========================================
+REGRESSION: FAIL
+
+[STATUS UPDATE 2026-11-23_050834: this log was copied prematurely — captured between the docs commit and the manifest regeneration, so G4 legitimately reported 1 mismatch (stale docs row). Its commit message wrongly said ALL GATES PASS; corrected here. Superseded by evidence/regression/regress_2026-11-23_050834.log captured at the same HEAD, ALL GATES PASS exit 0, 275 rows, 0 mismatches.]

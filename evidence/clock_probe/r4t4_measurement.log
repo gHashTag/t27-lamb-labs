@@ -1,4 +1,9 @@
 === R4/T4 DIFFERENTIAL OSCILLATOR: A CONSISTENT READING WHOSE DIVIDE RATIO IS NOT YET VALIDATED ===
+[STATUS UPDATE 2026-11-23, appended header note, body below unchanged: the divide
+ ratio was validated THE NEXT DAY by a cell-identical control design on silicon
+ (divide_ratio_control.log, ratio 256), and the reading was reproduced in a third
+ independent session (remeasure_2026-11-23/, pooled mean 397.62 MHz over 3
+ sessions, published PROVISIONAL). The header below predates both.]
 Date: 2026-11-22 ~13:00-13:50 UTC+7
 Host: macOS, Digilent HS2 (FT232H 0x0403:0x6014), busdev 1:3
 Bitstream: clock_probe_r4t4.bit  md5 56a2e4482c855a1be68bb9daeef837a4

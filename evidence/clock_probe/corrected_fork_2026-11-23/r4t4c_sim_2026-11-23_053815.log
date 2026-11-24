@@ -1,0 +1,26 @@
+== r4t4c corrected-fork simulation 2026-11-23 (attempt 5 FINAL; a1 IBUFDS stub params, a2 hierarchical writes to port regs -> internal c_* regs, a3 wrong instance name dut.bs vs dut.bscan, a4 ran but counted tick-1 cold-start interval as a /256 failure: 64 fill-up edges vs steady-state 256, intervals 2-8 were all exactly 256 -> TB now measures steady-state ticks 2-9 and documents why; attempts a1-a3 never compiled, a4 verdict retained in history below) ==
+
+--- iverilog compile (design + tb) ---
+IVERILOG_EXIT=0
+
+--- vvp run ---
+R4T4C_INTERVAL 2 edges=256 OK
+R4T4C_INTERVAL 3 edges=256 OK
+R4T4C_INTERVAL 4 edges=256 OK
+R4T4C_INTERVAL 5 edges=256 OK
+R4T4C_INTERVAL 6 edges=256 OK
+R4T4C_INTERVAL 7 edges=256 OK
+R4T4C_INTERVAL 8 edges=256 OK
+R4T4C_INTERVAL 9 edges=256 OK
+R4T4C_CNT OK cnt=12 == ticks_seen=12 (advancing, no wrap)
+R4T4C_READBACK OK got=0xa5a0000c == {12'hA5A, cnt} (magic 2650, cnt 12)
+R4T4C_VERDICT PASS ticks=12 cfgmclk_edges=2937 intervals_256=8/8 cnt=12 readback=OK
+clock_probe_r4t4c_tb.v:110: $finish called at 14751500 (1ps)
+VVP_EXIT=0
+
+--- yosys elaboration contrast ---
+[defective reconstruction clock_probe_r4t4.v]:
+../clock_probe_r4t4.v:99: Warning: Identifier `\presc' is implicitly declared.
+../clock_probe_r4t4.v:99: Warning: Range select out of bounds on signal `\presc': Setting result bit to undef.
+[corrected fork clock_probe_r4t4c_sim.v]:
+YOSYS_CONTRAST_DONE

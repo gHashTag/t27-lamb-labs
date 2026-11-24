@@ -1,0 +1,3 @@
+f42a8f15af6d1407c80103c7caeef9001d09aa531cf7e6b3b8f87ace6b656d7f  evidence/functional_smoke_2026-11-23/PLAN.md
+77599b9528337d234e733a0a67ce8317a41ac4d1e1663888189880b109ecd1cc  evidence/functional_smoke_2026-11-23/measured_log.txt
+1cf7fccefc17331819ce5b283912b40b5b3a8f84095f96e5e41b8c2fb41965f5  evidence/functional_smoke_2026-11-23/verdict.txt

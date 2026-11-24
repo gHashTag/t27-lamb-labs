@@ -1,0 +1,37 @@
+T27-LAMB-LABS REGRESSION GATE  2026-11-22T20:20:45Z  HEAD=b226399
+=== G1: portfolio acceptance
+PORTFOLIO ACCEPTANCE CHECK
+========================================================================
+  [PASS] measured DRAM-reads-per-token result exists         evidence/reports/dram_reads_per_token_report.json: value=0
+  [PASS] one complete co-design iteration documented         10 iterations in the dashboard
+  [PASS] raw logs + bitstream hash available                 bitstream sha256 a82c260d759f66af... in dashboard=True, 5 raw logs
+  [PASS] README distinguishes measured / estimated / target  labels present: ['MEASURED', 'ESTIMATED', 'TARGET', 'SUSPECT']
+  [PASS] no unsupported performance claims                   11 forbidden phrases found, 0 unnegated
+  [PASS] benchmark validates against the evidence            BENCHMARK VALIDATION PASSED
+  [PASS] artifact manifest matches the tree                  231 entries, 0 mismatched
+  [GAP ] one measured J/token exists                         NOT YET: power is ESTIMATED (the XADC has no current sensor); an external meter in series with the rail is required
+========================================================================
+  7/8 satisfied
+=== G1: PASS
+=== G2: t27c_lite spec->Verilog compiler
+parsed: codes={'N': 0, 'Z': 1, 'P': 2} positions=27 bits/trit=2 spec_tests=4
+gate1 PASS: golden satisfies all 4 spec-embedded tests
+gate2 PASS: emitted rtl/t27c_lite/dot27_top.v (6767 bytes)
+gate3 PASS: 117/117 bit-exact (incl. 108 randomized, seed 20261123)
+gate4 PASS: yosys synth_xilinx clean; stat captured
+WROTE evidence/t27c_lite/t27c_lite_run_2026-11-23.json
+OVERALL: PASS
+=== G2: PASS
+=== G3: conformance pack (A/B/B2)
+TIER A (RTL, iverilog): 29/29 pass
+TIER B (spec golden): 10/10 pass
+TIER B2 (dot27 RTL leg, t27c_lite emission): 50/50 pass
+OVERALL: PASS
+WROTE evidence/conformance/conformance_result_2026-11-23.json sha256=b78c6c46bbec663b...
+=== G3: PASS
+=== G4: artifact manifest hash sweep
+=== G4: 231 rows checked, 0 mismatches
+=== G5: tree drift after regeneration
+=== G5: PASS (tree clean, all regenerated artifacts byte-identical)
+===========================================
+REGRESSION: ALL GATES PASS

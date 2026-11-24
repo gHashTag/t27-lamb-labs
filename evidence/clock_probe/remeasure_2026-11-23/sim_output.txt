@@ -1,0 +1,7 @@
+XMECH_RESULT ticks_seen=4166 cnt=0 tick_rise=0
+XMECH_VERDICT FROZEN_AT_ZERO (matches r4t4b behavior)
+
+Environment: iverilog version
+Model: tick_q re-derived as x every cycle == yosys implicit-net semantics of
+presc[PW-1] (1-bit implicit wire, out-of-range select -> undef).
+Label: SIMULATED mechanism demo, not a hardware claim.

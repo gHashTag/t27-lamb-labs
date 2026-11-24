@@ -1,0 +1,5 @@
+43e0197f... was pre-B3 (A/B/B2); superseded 2026-11-23 by 4-tier A/B/B2/B3 (stream on_clock leg, 174/174):
+75f307f629a8e6976f1db815e69642903a1b2f858dbb612d58f43b195e78868c  evidence/conformance/conformance_result_2026-11-23.json
+6fd91be372164b0504fc12b8a51f9b65a6b97957c636afa79e67b88a980fe890  conformance/run_conformance.py
+9409289bb99e051d20b2df7a6e7d82f35f71434820f005ffa5df41086673a7a7  conformance/tb_ternary_mac.v
+c6d50bb1f710ecadc5805431f6b23b711416fe50aef2498eb37b2dc600ad0b52  evidence/codesign/ternary_mac_synth.v
