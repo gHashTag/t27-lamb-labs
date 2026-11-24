@@ -95,3 +95,26 @@ agent-doable), then host decision (w3070 Windows / cleaned VPS Linux). B runs
 immediately after install; C additionally needs the explicit new-build approval.
 Until then T1 stays SELECTED-but-parked. No install performed on any host (none
 fits today: w3070 closed-connection on retry, VPS disk short).
+
+## ORDER T1_INSTALL_AND_RUN — progress log (2026-11-25)
+
+- **VPS cleanup executed (owner-approved "Full cleanup ~17.6G")**: docker image prune
+  (dangling 1.047GB + unused-extra 638MB) + approved caches (/root/.cache, /root/.npm,
+  /tmp/hslm, /tmp/agent-work, /opt/zig*.tar.xz). Result: **19G → 29G free** (+10G).
+  HONEST SHORTFALL vs the ~17.6G estimate: `docker system df` "reclaimable 12.46GB"
+  turned out to be mostly container-backed image layers — docker itself refused to
+  release them (all 9 running services intact and healthy after cleanup, verified).
+- **Official Vivado disk requirements NOT yet confirmed**: docs.amd.com is a JS
+  portal (no static text), legacy UG973 PDF URL dead (HTML redirect stub). Working
+  figure — **ESTIMATE ~35–40GB installed for Vivado ML Standard + Artix-7 only**,
+  plus ~11GB-class single-file download if the offline package is used. VPS 29G is
+  therefore LIKELY SHORT; definitive numbers come from the web-installer's component
+  selection screen or the docs page (needs BrowserOS).
+- **w3070**: still down (3 probes: banner timeout ×2, connection closed ×1). Its
+  disk state unknown; it remains the cleanest host (established openXC7 build box).
+- **Download path**: AMD wall confirmed (301 → account.amd.com). BrowserOS neo MCP
+  is NOT connected to this session yet — owner to start BrowserOS and connect the
+  agent in cockpit. After connect: read exact UG973 requirements, download the
+  Web installer (small) or single-file (large) via the signed-in AMD session.
+- INSTALL: not started. B ESTIMATE: not run. C gate: not requested (per ORDER —
+  only after B). No Mac install (staging Mac has 43G free, used only for file relay).
