@@ -69,3 +69,29 @@ T1 status: SELECTED, approvals obtained (install yes / local no), execution NOT
 started — blocked on (a) routed checkpoint location and (b) a host that fits.
 Cheapest first slice when resumed: locate the original Vivado project/.dcp (likely
 on the machine that produced the shipped .bit), then install on w3070 or a cleaned VPS.
+
+## ORDER T1_CHECKPOINT_DECISION — SELECTED: «checkpoint нет» (2026-11-25)
+
+Not "lost" — **it never existed**. Provenance (both from committed evidence):
+`ax7203_build_report.json` method line — the shipped bitstream was routed by
+**openXC7/nextpnr-xilinx on the GPU box** (`bbaexport.py xc7a200tfbg484-2` → bbasm
+chipdb); G17 — **Vivado was unavailable (AMD account login wall)**, "no vendor
+timing/power report exists". A Vivado routed `.dcp` for this design was therefore
+never produced on any host. Options re-derived honestly:
+
+- **A «dcp on w3070» — dead as formulated.** What exists on the GPU box is the
+  openXC7 flow, whose Fmax output is already WITHDRAWN as placement noise.
+- **B (synthesized-only ESTIMATE)** — viable input exists: committed
+  `evidence/codesign/ternary_mac_synth.v`. Still requires the Vivado WebPACK
+  installer (AMD login = owner-side download) AND host disk (VPS has 19G free <
+  ~20–30G installer; needs cleanup or another host). Output honestly ESTIMATE-class.
+- **C (new FPGA build)** — RTL is committed (`rtl/ternary_mac_demo_top.v`); a Vivado
+  rebuild is a NEW FPGA build → separate gate. It yields routed numbers for the same
+  design (same two netlist-verified defects ride along and stay disclosed).
+
+Common unblock for B and C (single action, cheapest-first): **owner downloads the
+Vivado ML Standard WebPACK installer for the chosen host** (AMD login is not
+agent-doable), then host decision (w3070 Windows / cleaned VPS Linux). B runs
+immediately after install; C additionally needs the explicit new-build approval.
+Until then T1 stays SELECTED-but-parked. No install performed on any host (none
+fits today: w3070 closed-connection on retry, VPS disk short).
