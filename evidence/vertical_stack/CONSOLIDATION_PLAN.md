@@ -61,3 +61,21 @@ Everything else is disjoint: GPU lane writes `evidence/vertical_stack/**`,
 M2 unified readiness matrix → M3 owner decisions (acceptance record, perf/power
 methodology, hardware funding vs silicon-claims removal, canonical `t27c`) →
 M4 next scoped work → M5 vertical stack review.
+
+## 6. Dry-run rehearsal results (2026-11-25, pre-gate, detached worktree only)
+
+Executed twice in `/tmp/lamb-dryrun-merge` (detached HEAD at `a7ef751`, no branch moved,
+nothing pushed). Stage 1 merged the GPU lane, stage 2 the hardware lane.
+
+| Check | Result |
+|---|---|
+| Conflicts | exactly the predicted trio: `ARTIFACT_HASHES.txt` (AA), `ARTIFACT_MANIFEST.txt` (UU), `scripts/manifest.py` (UU); no other conflict |
+| `scripts/manifest.py` divergence | 3 distinct versions exist (master / GPU lane / HW lane); resolution: GPU lane version (superset — writes both index and manifest; HW lane's root `ARTIFACT_HASHES.txt` was a hand-maintained 5-line ad-hoc header whose files are covered by `ARTIFACT_MANIFEST.txt` rows) |
+| Coverage gap found and fixed | GPU generator indexed 337 of 630 merged files (INCLUDE_DIRS lacked `conformance`, `releases`, `rtl`, `specs`; `specs`/`fpga` were name-excluded). Fixed in lane commit `82954f5`; no nested `specs\|fpga` dirs existed under include trees (checked) |
+| v2 rehearsal (`5312bc2` + `44c157a`) | merged tree 630 tracked, index 627 rows; uncovered = {`.gitignore`, auto-generated `ARTIFACT_MANIFEST.txt`, self-excluding `ARTIFACT_HASHES.txt`} — by design only |
+| HW evidence intact post-merge | `evidence/clock_probe/corrected_fork_2026-11-23/verdict.txt`, `docs/M0_M5_CAPABILITY_MAP.md` present; 5 corrected_fork rows in manifest |
+
+Merge procedure for the real M1 (on owner go): repeat v2 exactly — GPU lane first
+(`82954f5` or later), HW lane second, `git checkout --ours` the trio, regenerate
+manifests, verify `rows == tracked − 3`, commit each stage.
+
