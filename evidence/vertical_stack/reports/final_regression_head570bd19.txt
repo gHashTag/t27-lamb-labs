@@ -166,3 +166,20 @@ exit_code=0
 exit_code=0
 
 # End of regression. PASS only when FAIL 0 and exit_code=0.
+
+# POSTSCRIPT (2026-11-24, later same day, at lane HEAD 94f4366):
+# A post-run hash check of the w3070 snapshot against the lane tree was attempted. The snapshot
+# ~/t27-work/lamb-regression/ had already been REMOVED by the w3070 idle-sweep before the check
+# (it was a plain tar copy, not a git clone, so the sweeper parked no rescue branch). Therefore
+# the "copied verbatim" statement above rests on the transfer construction (tar of worktree
+# files, no filtering at extraction) and is NOT independently measurable post-hoc.
+# Measured now, at lane HEAD 94f4366 (files unchanged since 570bd19):
+#   17b094c1…115b9  scripts/gf16_dot4_host/gf16_harness.t27
+#   9fddbe27…4d14b1 scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27
+#   11ff483b…544e82 scripts/gf16_dot4_host/gf16_gpu_batch.t27
+#   ff0f14db…031b22 specs/igla/coder/gf16_dot4_conformance.t27
+#   718e7f7e…7dc3eb specs/numeric/sha256.t27
+#   dd74e625…227914 specs/igla/coder/gf16_dot4_ptx.t27
+#   4e181244…e0eaf5 specs/igla/coder/ptx_emit.t27
+#   b6324424…26d532 specs/numeric/gf16.t27
+# The lane tree is the source of truth; any future rerun must re-copy from it (recipe unchanged).

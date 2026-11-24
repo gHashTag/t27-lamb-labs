@@ -1,6 +1,6 @@
 # SHA-256 index of the files in this directory tree (self excluded).
 # Regenerate: cd evidence/vertical_stack && find . -type f ! -name ARTIFACT_HASHES.txt | LC_ALL=C sort | xargs shasum -a 256 > ARTIFACT_HASHES.txt
-8ef287e837bd1f839c65912990c6d7f73db18edcb0cce2644fa652be0dea36f7  HANDOFF.md
+4cedd51211400380845f9bb3437615433d7dbac743bfc5d3d41b715c6874673f  HANDOFF.md
 2ef1d5a9e9ef711a0f10548d50ac3f22063dfff7a5a93cf251aca686e63c591a  HOST_ABI.md
 c3aa132eb2a53f20751b9692059a652cc0decfa284143c4025ea1aa78e5a676e  PROVENANCE.md
 c200fa8fe65d06b4449be599e10a1c45c68852d9336eb35ff9392c6a7a97a94c  READINESS_MATRIX.md
@@ -11,7 +11,7 @@ a9cb29bb72656433f6e0bf4fac67e4c323380584a97be6bc3054a9fd2b2dd65d  gpu/GPU_RUN_M4
 e5962311d5022aa02f5e318054b036ee452e10481fab8d009a91ea343767062d  host_abi_vectors.json
 ae02fe22eb2fa68f0b61d62ab9990c5f9942d6a42d217adb6b164eb59724908b  reports/device_probe.log
 88b17ec8aa3eda430a93ac033859c8c5123111fe85904e4fdd33e5ad8f889785  reports/final_regression_20261124.txt
-4666acdfd5892721296f01845a8a44610fd0545b2c779fa125b17b6e4b8f5351  reports/final_regression_head570bd19.txt
+b2a2f86c0f44e5038d8036d3be20842a3da65ed6406307ad330cb9c5595898ea  reports/final_regression_head570bd19.txt
 14226b07bb09533d9fcf9c4415f9917f2209f55b71ae6654e724cf6e9346ced2  reports/gpu_batch_run1_grid_defect.log
 140de4502be5bb846477eaae57a4a81b40f56e112aab52198a95815e341daf40  reports/gpu_batch_run2.log
 ca312ac542f1325d767924dad8bd4a51a853cfdb9b05fd543a2a5c519984f852  reports/gpu_batch_stats.txt

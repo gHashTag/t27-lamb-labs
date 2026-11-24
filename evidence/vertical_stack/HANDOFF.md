@@ -68,6 +68,9 @@ remain ESTIMATED; the measured J/token gap stays open.
   (`spec.zig:539:30`, slice-coercion defect class). Check the toolchain sha BEFORE reruns;
   verified-good: w3070 `/home/t27ssh/t27os/bin/t27c` sha `5785e3ca…` + zig 0.16.0 on PATH.
   Never edit a passing spec to satisfy a stale compiler.
+* w3070 scratch copies (`~/t27-work/<name>` WITHOUT a `.git`) are deleted by the idle-sweep and
+  leave no rescue branch — hash-verify any remote snapshot IN THE SAME SESSION that produces it;
+  the lane worktree is the source of truth for every rerun.
 * `specs/fpga/gf16_accel.*` is GF(2^4) FIELD arithmetic (`GF16_FIELD_POLY=19`, no float tokens in
   the `.v`) — a DIFFERENT numeric domain from the binary-float lane GF16 of `specs/numeric/gf16.t27`;
   same letters "GF16", different math. FPGA is NOT part of GPU acceptance; connecting it is a
