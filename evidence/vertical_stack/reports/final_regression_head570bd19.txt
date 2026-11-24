@@ -1,0 +1,168 @@
+# Final regression re-run at HEAD 570bd19 — executed on VPS w3070 (owner-designated compute).
+# Date: 2026-11-24 17:05 +07 Bangkok (= 13:05 +03 MSK on w3070; w3070 clock is MSK).
+# Purpose: confirm the 7-suite regression recorded at 5cdf614 still holds at HEAD 570bd19
+# after documentation-only commits 002139f and 570bd19. CPU-only: no CUDA init, no kernel
+# launch, no host-device transfers, no GPU touched.
+#
+# Toolchain provenance (EVIDENCE LAW):
+#   host:        w3070 (8 cores / 15 GB / ~1 TB), ssh alias per owner directive 2026-11-24.
+#   t27c:        /home/t27ssh/t27os/bin/t27c -> ../src/target/release/t27c
+#                sha256 5785e3ca7b021fc51f1fed9f67dbe6a8ff8a6b99b2862ddf35838c9c44a91cce, version 0.5.2 (build 0, commit unknown).
+#   zig:         /home/t27ssh/t27os/zig-x86_64-linux-0.16.0/zig (added to PATH for the run;
+#                first attempt without it produced BLOCKED 'zig not on PATH' — recorded here).
+#   sources:     specs/ + scripts/gf16_dot4_host/ copied verbatim from the lane worktree at
+#                HEAD 570bd19 into w3070:~/t27-work/lamb-regression/ (owner-designated work dir).
+#
+# Local-Mac note: the previous lane binary /Users/playra/.local/bin/t27c
+# (sha256 5da927dffa5eeaad195243cd809e34d316279c614065c8af788c52a256c4ff40) no longer exists.
+# The only Mac-side t27c now is /Users/playra/.cargo/bin/t27c (sha256
+# 1f5728a13222131053af16b41d9f6bcea0e31761256f9a66dd53a3223cca7fbf, dated Nov 13): it is an
+# older stock build that BLOCKS specs/igla/coder/gf16_dot4_conformance.t27 with
+# 'spec.zig:539:30: error: expected type "[]const u16", found "*[]const u16"' — the known
+# slice-coercion compiler defect class fixed in the newer builds. That Mac BLOCKED run is
+# superseded by this w3070 run; no spec was edited to satisfy the stale binary.
+
+=== suite: scripts/gf16_dot4_host/gf16_harness.t27 ===
+--- test report: scripts/gf16_dot4_host/gf16_harness.t27 ---
+
+  tests       9
+  pass        9
+  FAIL        0
+  rate    100.0%
+
+  runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+       ?  g1_embedded_cubin_matches_manifest   (passed, not counted)
+       ?  g1_corrupt_digest_rejected   (passed, not counted)
+       ?  g2_packing_reproduces_bin_words   (passed, not counted)
+       ?  g3_memory_byte_order_is_little_endian   (passed, not counted)
+       ?  g4_grid_dim_and_bounds_semantics   (passed, not counted)
+       ?  g5_base_alignment_gates   (passed, not counted)
+       ?  g6_mock_run_matches_expected_and_respects_bounds   (passed, not counted)
+       ?  g7_comparator_catches_one_bit_flip   (passed, not counted)
+       ?  harness_verdict_pass_only_when_all_gates_ok   (passed, not counted)
+  vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+exit_code=0
+
+=== suite: scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27 ===
+--- test report: scripts/gf16_dot4_host/gf16_gpu_smoke_verdict.t27 ---
+
+  tests       1
+  pass        1
+  FAIL        0
+  rate    100.0%
+
+  runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+       ?  gpu_smoke_eight_groups_bit_exact   (passed, not counted)
+  vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+exit_code=0
+
+=== suite: scripts/gf16_dot4_host/gf16_gpu_batch.t27 ===
+--- test report: scripts/gf16_dot4_host/gf16_gpu_batch.t27 ---
+
+  tests       6
+  pass        6
+  FAIL        0
+  rate    100.0%
+
+  runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+       ?  batch_shape_and_determinism   (passed, not counted)
+       ?  batch_engines_agree_on_non_nan_groups   (passed, not counted)
+       ?  batch_dump_lengths   (passed, not counted)
+       ?  batch_contains_nan_cases   (passed, not counted)
+       ?  gpu_batch_finite_groups_bit_exact   (passed, not counted)
+       ?  gpu_batch_nan_groups_are_nan   (passed, not counted)
+  vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+exit_code=0
+
+=== suite: specs/igla/coder/gf16_dot4_conformance.t27 ===
+--- test report: specs/igla/coder/gf16_dot4_conformance.t27 ---
+
+  tests       13
+  pass        13
+  FAIL        0
+  rate    100.0%
+
+  runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+       ?  decode_table_exact_engine_matches_ssot_all_65536   (passed, not counted)
+       ?  ptx_decode_off_table_counts   (passed, not counted)
+       ?  spec_anchor_bits_exact   (passed, not counted)
+       ?  golden_adopted_8_groups_all_engines   (passed, not counted)
+       ?  golden_spec_4_groups_all_engines   (passed, not counted)
+       ?  discriminators_upstream_convention   (passed, not counted)
+       ?  random_256_groups_engines_agree   (passed, not counted)
+       ?  comparator_selftest_8_cases   (passed, not counted)
+       ?  fma_single_round_criterion   (passed, not counted)
+       ?  corruption_detected_intentional   (passed, not counted)
+       ?  group_length_guard   (passed, not counted)
+       ?  exact_engine_unit_probes   (passed, not counted)
+       ?  xorshift_sanity   (passed, not counted)
+  vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+exit_code=0
+
+=== suite: specs/numeric/sha256.t27 ===
+--- test report: specs/numeric/sha256.t27 ---
+
+  tests       5
+  pass        5
+  FAIL        0
+  rate    100.0%
+
+  runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+       ?  sha256_kat_empty   (passed, not counted)
+       ?  sha256_kat_abc   (passed, not counted)
+       ?  sha256_kat_56_bytes_two_block   (passed, not counted)
+       ?  sha256_kat_112_bytes_fips   (passed, not counted)
+       ?  sha256_kat_5000_byte_stream   (passed, not counted)
+  vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+exit_code=0
+
+=== suite: specs/igla/coder/gf16_dot4_ptx.t27 ===
+--- test report: specs/igla/coder/gf16_dot4_ptx.t27 ---
+
+  tests       10
+  pass        10
+  FAIL        0
+  invariants  1   proved -- comptime, so compiling IS the check
+  rate    100.0%
+
+  runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+       ?  the_text_opens_with_the_ptx_header_for_sm_86   (passed, not counted)
+       ?  four_lanes_decode_eight_inputs_and_run_four_fma   (passed, not counted)
+       ?  one_guarded_group_per_thread_and_one_f32_store   (passed, not counted)
+       ?  the_text_is_ascii_and_the_same_every_time   (passed, not counted)
+       ?  a_short_buffer_reports_the_full_length   (passed, not counted)
+       ?  the_grid_covers_every_group   (passed, not counted)
+       ?  golden_vector_one_pos_one_neg_one_pos_two_pos_half_times_three_two_one_half   (passed, not counted)
+       ?  golden_vector_two_ones_times_e_pi_phi_three   (passed, not counted)
+       ?  golden_vector_three_zeros_cancel_to_zero   (passed, not counted)
+       ?  golden_offset_selects_the_group   (passed, not counted)
+  vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+exit_code=0
+
+=== suite: specs/igla/coder/ptx_emit.t27 ===
+--- test report: specs/igla/coder/ptx_emit.t27 ---
+
+  tests       14
+  pass        14
+  FAIL        0
+  rate    100.0%
+
+  runtime asserts per test (#6509; 0 with a folded check is CT-VERIFIED, 0 with neither is vacuous, T730):
+       ?  put_s_counts_every_byte_but_writes_only_below_cap   (passed, not counted)
+       ?  put_u_writes_decimal   (passed, not counted)
+       ?  ins_indents_by_four_and_ends_the_line   (passed, not counted)
+       ?  put_quad_names_four_consecutive_registers   (passed, not counted)
+       ?  emit_lds_writes_one_shared_load   (passed, not counted)
+       ?  at_text_and_count_text_search_the_text   (passed, not counted)
+       ?  one_k_step_has_sixteen_mma_and_the_fragment_loads   (passed, not counted)
+       ?  the_epilogue_has_thirty_two_guarded_stores   (passed, not counted)
+       ?  the_decode_maps_codes_to_zero_plus_one_minus_one_zero   (passed, not counted)
+       ?  code_at_reads_lane_zero_from_the_low_bits   (passed, not counted)
+       ?  emit_op3_writes_one_three_operand_line   (passed, not counted)
+       ?  gf16_fields_split_sign_exponent_mantissa   (passed, not counted)
+       ?  gf16_decode_rebias_by_96_and_widen_mantissa_by_14   (passed, not counted)
+       ?  fma_f32_accumulates_in_place   (passed, not counted)
+  vacuous passes  unknown  (the counting build did not compile: counting build: assert_eq not in source .t27 spec)
+exit_code=0
+
+# End of regression. PASS only when FAIL 0 and exit_code=0.
