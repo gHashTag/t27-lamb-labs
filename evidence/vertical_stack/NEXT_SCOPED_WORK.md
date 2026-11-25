@@ -144,3 +144,19 @@ fits today: w3070 closed-connection on retry, VPS disk short).
 - w3070: probes 6–8 all banner-timeout through the open Pangolin tunnel (~1.5h window).
   Physical wake/reboot remains the only unblock path (agent-side WoL not available).
 - No download/install/B-run yet: both remaining steps sit behind the two owner actions.
+
+### ORDER VPS_TAKEOVER_PARTIAL — probes from givel-vps (2026-11-25 14:05 +07)
+
+- **AMD wall is AUTH-gated, not location-gated**: same `curl -sIL` from VPS
+  → `HTTP/1.1 301` → `account.amd.com/en/forms/downloads/xef.html` — anonymous
+  download impossible from VPS exactly as from Mac. VPS cannot download the
+  installer without an authenticated session.
+- **Transfer path VPS→w3070 CONFIRMED**: `nc -z pangolin.reactotron.ru 22022`
+  from VPS → succeeded (195.191.174.197). scp/relay possible when w3070 answers.
+- **VPS disk drifted 29G→21G free** in ~5h (docker images 24.36GB, 16.82GB
+  flagged reclaimable but container-backed; morning prune already took the
+  loose layers). 21G still fits the ~11GB installer for staging.
+- Conclusion: download needs ONE authenticated action (owner's signed-in
+  browser, manual download to Mac ~/Downloads staging is allowed — no install
+  on Mac), then Mac→w3070 scp direct (Mac has working ssh config+key) with
+  VPS as backup relay. BrowserOS agent-link stays non-critical for this path.
