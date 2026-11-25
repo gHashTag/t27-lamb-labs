@@ -132,3 +132,15 @@ fits today: w3070 closed-connection on retry, VPS disk short).
 - Download remains behind AMD login (BrowserOS neo MCP still not connected to this
   session). When both are up, sequence is: BrowserOS → download Web/single-file
   installer to Mac staging → scp to w3070 → install → run the .tcl → record results.
+
+### ORDER T1_UNBLOCK_AND_EXECUTE — MCP wired, two physical gates remain (2026-11-25 ~10:20 +07)
+
+- BrowserOS neo MCP **wired into the harness profile by the agent**: configuration-only
+  bundle `@local/browseros-mcp` (mcp-client, streamable-http, `127.0.0.1:9210/mcp`,
+  serverInfo browseros-neo v0.0.93) — `install_bundle` → `application: applied`.
+  Tool call reaches the server and issues a session handle. **Browser agent-link is
+  stale** ("browser link lost ~2h ago, reconnecting") — reconnect does not self-heal;
+  needs the owner to bring the BrowserOS neo app/cockpit to front once.
+- w3070: probes 6–8 all banner-timeout through the open Pangolin tunnel (~1.5h window).
+  Physical wake/reboot remains the only unblock path (agent-side WoL not available).
+- No download/install/B-run yet: both remaining steps sit behind the two owner actions.
