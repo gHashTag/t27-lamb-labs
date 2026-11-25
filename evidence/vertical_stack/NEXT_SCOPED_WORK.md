@@ -160,3 +160,19 @@ fits today: w3070 closed-connection on retry, VPS disk short).
   browser, manual download to Mac ~/Downloads staging is allowed — no install
   on Mac), then Mac→w3070 scp direct (Mac has working ssh config+key) with
   VPS as backup relay. BrowserOS agent-link stays non-critical for this path.
+
+### ORDER «найди место» — VPS staging space found: 21G→34G free (2026-11-25 16:30 +07)
+
+- Freed on givel-vps, all rebuildable build junk + dead containers:
+  node_modules `/root/deepseek-harness` 2.1G; rust `target/` dirs: tri-claw-build
+  1.3G, t27-m13-final 420M, t27-src 324M, lanes/t27f-uikit-m0 266M, t27-m13-src
+  265M, t27-release 255M, t27-build/src 255M, woody-weed-bot 1.6G (target only,
+  source untouched); `.cargo/registry` 667M (bin kept); `.bun/install` 713M;
+  journal already vacuumed; 2 exited junk containers + 1.879GB image prune.
+- df: 92G used / 21G free (82%) → **79G used / 34G free (70%)**. The ~11GB
+  Vivado installer now fits staging comfortably.
+- NOT touched (need owner naming, other projects' sources): `/opt/woody-weed-bot`
+  source ~11.4G, `/root/house_bot` 2.0G, `/root/catalogs` 943M, `/root/lanes`,
+  t27-* source trees, `/root/.rustup` 1.6G, two Zig toolchains in /opt.
+- Gates unchanged: w3070 probe 24 banner-timeout; installer not in ~/Downloads;
+  BrowserOS link still reconnecting (handle rotated again).
