@@ -199,3 +199,17 @@ Escalation to owner — two physical actions remain owner-only:
 1. download FPGAs_AdaptiveSoCs_Unified_SDI_2024.2_1113_1001_Lin64.bin (~11GB)
    to ~/Downloads in the AMD-signed-in browser;
 2. wake/reboot w3070 (it has answered nothing since 2026-11-24 evening).
+
+### Блокер 3 снят частично: браузер снова управляем через :9211 (2026-11-25 23:58 +07)
+
+- MCP-инстанс neo на :9210 держит «link lost», но второй инстанс того же
+  BrowserOS neo **:9211 имеет живой линк к Chrome** (CDP :9333 здоров).
+  Полный JSON-RPC streamable-HTTP: initialize → tools/call (tabs, snapshot,
+  grep, name_session) — работают. Tab group: `agent/vivado-installer-download`.
+- Открыта вкладка 38 с URL скачивания Vivado 2024.2 Lin64
+  (xef.html?filename=FPGAs_AdaptiveSoCs_Unified_SDI_2024.2_1113_1001_Lin64.bin)
+  → редирект на **login.amd.com SAML, форма Sign-In** — активной AMD-сессии
+  в профиле нет. Ввод пароля = owner-only (правило секретов).
+- request_human_help/await_human_help через сырой HTTP не дают ответа
+  (сервер держит SSE keepalive и рвёт поток ~30с) → сигнал владельцу передан
+  через чат сессии; по ORDER триггер = файл в ~/Downloads или «go».
