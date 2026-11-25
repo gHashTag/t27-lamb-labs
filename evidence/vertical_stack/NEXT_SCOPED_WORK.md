@@ -176,3 +176,26 @@ fits today: w3070 closed-connection on retry, VPS disk short).
   t27-* source trees, `/root/.rustup` 1.6G, two Zig toolchains in /opt.
 - Gates unchanged: w3070 probe 24 banner-timeout; installer not in ~/Downloads;
   BrowserOS link still reconnecting (handle rotated again).
+
+### ORDER T1_GATES_STUCK_12_PROBES — probing stopped, escalated (2026-11-25 21:20 +07)
+
+Pattern recorded. Since ORDER OWNER_DOWNLOAD_AND_WAKE (14:35 +07) through
+21:10 +07 (~6h35m): 20 probes total (#18–#37), owner-visible latest window
+#26–#37 = 12 consecutive without transition.
+
+- w3070: every probe `Connection timed out during banner exchange`; zero ALIVE.
+- Installer: `~/Downloads/FPGAs_AdaptiveSoCs_Unified_SDI_2024.2_*Lin64.bin`
+  absent at every check; broad Downloads sweep found no large new files.
+- BrowserOS link: reconnecting at every check; session handles rotated 4×
+  (…ed4b → …3244a → …17d2 → 98d46768); browser process itself healthy
+  (CDP :9333 answers), only the agent↔browser link is stale.
+- VPS staging: 34G free (commit 5d24369) — the only gate moved today.
+
+Action per ORDER: scheduled auto-probe task `schedule-c3893a8b` set to
+**paused** (not deleted) at 21:17 +07; blind probing stopped. Re-probe happens
+ONCE on explicit owner signal, then the chain runs if gates are open.
+
+Escalation to owner — two physical actions remain owner-only:
+1. download FPGAs_AdaptiveSoCs_Unified_SDI_2024.2_1113_1001_Lin64.bin (~11GB)
+   to ~/Downloads in the AMD-signed-in browser;
+2. wake/reboot w3070 (it has answered nothing since 2026-11-24 evening).
