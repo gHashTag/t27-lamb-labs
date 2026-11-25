@@ -118,3 +118,17 @@ fits today: w3070 closed-connection on retry, VPS disk short).
   Web installer (small) or single-file (large) via the signed-in AMD session.
 - INSTALL: not started. B ESTIMATE: not run. C gate: not requested (per ORDER —
   only after B). No Mac install (staging Mac has 43G free, used only for file relay).
+
+### ORDER T1_INSTALL_ON_GPU_VIA_PANGOLIN — host locked to w3070 (2026-11-25 morning)
+
+- Host decision (owner): Vivado goes on **w3070 via Pangolin**; VPS 29G ruled risky;
+  Mac staging-only. 
+- **Pangolin TCP :22022 is OPEN but SSH banner never arrives (4+1 probes, incl. a
+  90s banner wait)** — tunnel up, backend box down/hung. "Pangolin alive ≠ w3070
+  alive" confirmed literally. Needs owner-side wake/reboot; agent cannot do WoL.
+- Prepared downstream artifact: `t1_b_estimate_vivado.tcl` (B variant: Vivado
+  re-synthesis of committed rtl/ternary_mac_demo_top.v → report_power/utilization,
+  part xc7a200tfbg484-2, batch mode, honestly labeled ESTIMATE in the script header).
+- Download remains behind AMD login (BrowserOS neo MCP still not connected to this
+  session). When both are up, sequence is: BrowserOS → download Web/single-file
+  installer to Mac staging → scp to w3070 → install → run the .tcl → record results.
