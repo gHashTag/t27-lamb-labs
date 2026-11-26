@@ -301,3 +301,51 @@ Escalation to owner — two physical actions remain owner-only:
   при завершении T1.
 - B-ESTIMATE после установки: `evidence/vertical_stack/t1_b_estimate_vivado.tcl`
   (batch, `xc7a200tfbg484-2`, вывод строго с меткой ESTIMATE).
+
+### w3070: трансфер 11 МБ/с, ConfigGen разгадан, установка готова — туннель закрылся на auth (2026-11-26 20:16–2026-11-27 00:20 +07)
+
+**w3070 поднялся (20:16:21, try 1)**: `Linux win11-3070 6.18.58.1-microsoft-standard-WSL2`,
+`/dev/sdd 1007G, 915G свободно, 5%`, user `t27ssh`. ОС-врата решены: Lin64.bin корректен.
+
+**Трансфер: путь Mac→w3070 через Pangolin давал ~22 КБ/с (14 МБ за 10 мин → ~4 ч остаток).
+Замена**: разовый `python3 -m http.server 39047` на VPS + `ufw allow 39047/tcp`
+(порт был закрыт default-DROP) → `wget` с w3070 забрал файл за ~30 с
+(**273 МБ за 25 с ≈ 11 МБ/с**). Сразу после: `ufw delete allow 39047/tcp`,
+http.server убит, медленный scp-джоб отменён, частичный файл удалён.
+**Итог на w3070**: `~/vivado_inst/FPGAs_..._Lin64.bin` 319 086 250 байт,
+`sha256sum` → `a028cdeb…497d6` = официальный PGP-дайджест AMD — **OK** (двойная проверка).
+
+**Payload извлечён**: `./...bin --noexec --target ~/vivado_inst/x` → `x/` 781M
+(`bin data lib tps xsetup`), `xsetup` executable.
+
+**ConfigGen разгадан (честная поправка к VPS-инциденту)**: на w3070 ConfigGen
+оказался **интерактивным**: «Select a Product from the list: 1.Vitis 2.Vivado …» →
+выбор продукта → «Select an Edition: 1.Vivado ML Standard 2.Vivado ML Enterprise».
+На VPS «ранавей» с логом 25.7 ГБ был **петлёй промптов на пустом stdin**
+(«ERROR - Not a valid choice» миллион раз в лог), а не локальным зависанием.
+Кормление ответов дало **exit=0**: `INFO - Config file available at
+/home/t27ssh/.Xilinx/install_config.txt`. Выбран Vivado ML **Standard**
+(бесплатный webpack-класс — отвечает на вопрос лицензии для B-ESTIMATE).
+
+**Сгенерированный конфиг** содержит `Edition=Vivado ML Standard`, `Destination=/tools/Xilinx`,
+`Modules=` со ВСЕМИ семействами=1 (~100 ГБ+). Подготовлен `w3070_install_launch.sh`
+(локально `/tmp/`, копия на VPS `/root/vivado_inst/`): sed-trim до **Artix-7:1, остальные 0**,
+`Destination=/home/t27ssh/tools/Xilinx` (нет sudo), шорткаты 0 → запуск
+`./xsetup -a XilinxEULA,3rdPartyEULA -b Install -c ~/.Xilinx/install_config.txt` detached.
+
+**Блокер (владелец-уровень)**: первая попытка применить конфиг+запустить установку —
+`Permission denied (publickey,password)`. Стабильно 40+ мин (20:50→00:20 +07).
+Диагностика: ключ предлагается (`id_ed25519 SHA256:O7otBJSc…`), сервер отвергает;
+host-ключи 22022 ≠ VPS:22 (туннель ведёт на w3070, не на VPS); баннер
+**`OpenSSH_9.2p1 Debian-2+deb12u10`** — SSH-сервер за туннелем Debian 12
+(дистрибутив WSL у w3070 может быть Debian — `uname` дистрибутив не показывает).
+ssh-соединения за вечер были частыми/параллельными — возможен fail2ban/смена
+состояния хоста. Агентские пути исчерпаны: нужен владелец у машины
+(разбан/проверка `authorized_keys`/туннеля). Правило порядка соблюдено: на сигнал — один перепроб.
+
+**Окружение на VPS после**: 31G свободно / 74%, 10 контейнеров, чужие данные не тронуты.
+
+**NEXT_STEP**: владелец восстанавливает auth на 22022 (или запускает
+`bash /root/vivado_inst/w3070_install_launch.sh`-эквивалент локально в WSL:
+sed-trim конфига + `cd ~/vivado_inst/x && ./xsetup -a XilinxEULA,3rdPartyEULA -b Install -c ~/.Xilinx/install_config.txt`);
+после установки — правка Tcl на абсолютный путь RTL и B-ESTIMATE.
