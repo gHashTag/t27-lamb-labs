@@ -30,6 +30,20 @@ sed-trim конфига до Artix-7:1, без ярлыков, nohup) →
 install → license-check → правка Tcl на абсолютный путь →
 B-ESTIMATE → отчёт с меткой ESTIMATE.
 
+## Путь A2 (самый быстрый): владелец входит с паролем с этого Mac — 1 команда
+
+Сервер принимает password (в отказе указан метод `password`), host-ключи
+не менялись (sshd тот же). Из терминала этого Mac:
+
+```bash
+cd /Users/playra/t27-lamb-labs && ssh -p 22022 t27ssh@pangolin.reactotron.ru "mkdir -p ~/.ssh && chmod 700 ~/.ssh && echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO+pEfK25VYt9TA3+1uRGLnqjdB4wdGKwxXFdBcRdaz2 playra@playras-MacBook-Pro.local' >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys; bash -s" < evidence/vertical_stack/w3070_install_launch.sh
+```
+
+Владелец вводит пароль `t27ssh` при prompts → команда (а) восстанавливает
+мой ключ (после чего мониторинг и B-ESTIMATE снова агентские), (б) сразу
+запускает guarded install (Artix-7-only, LOG_GUARD). Если пароль не принят —
+см. путь A (консоль WSL) или диагностику ниже.
+
 ## Путь B (fallback, без SSH): владелец запускает install локально
 
 Тот же WSL-терминал, две команды:
