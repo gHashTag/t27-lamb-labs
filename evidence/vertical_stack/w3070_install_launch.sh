@@ -8,7 +8,7 @@ sed -i -e 's|^CreateProgramGroupShortcuts=.*|CreateProgramGroupShortcuts=0|' -e 
 grep -E '^(Edition|Destination)' $C
 grep -o 'Artix-7:1' $C
 cd ~/vivado_inst/x
-nohup ./xsetup -a XilinxEULA,3rdPartyEULA -b Install -c ~/.Xilinx/install_config.txt >/tmp/xinstall.log 2>&1 &
+nohup ./xsetup -c ~/.Xilinx/install_config.txt -a XilinxEULA,3rdPartyEULA -b Install >/tmp/xinstall.log 2>&1 &
 echo "INSTALL launched pid $!"
 # LOG_GUARD: installer log writer is unbounded (2026-11-26 VPS incident: single
 # 25 692 917 631-byte log). Watch 12h; kill xsetup if logs exceed 2048 MB.

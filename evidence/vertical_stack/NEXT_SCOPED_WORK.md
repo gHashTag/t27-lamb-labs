@@ -431,3 +431,51 @@ auth одной командой), B (локальный install владель�
 пароля `t27ssh` → восстановление ключа агента + немедленный запуск
 guarded install. Это самый быстрый путь и к install, и к возврату
 агентского мониторинга.
+
+### AuthTokenGen → install → downloadlink BadRequest (2026-11-27 16–17:30 +07)
+
+Цепочка (всё на w3070, SSH-доступ агенту восстановлен ключом через A2):
+
+1. **AuthTokenGen выполнен владельцем интерактивно** (`ssh -t … ./xsetup
+   -b AuthTokenGen`, AMD-пароль владельца, агенту не передан) → токен
+   `~/.Xilinx/wi_authentication_key` сохранён, валиден до 2026-12-04.
+2. Install №1 (pid 506, конфиг ПОСЛЕ `-b Install`): ошибка «must
+   generate an authentication token» — токена ещё не было. Это было
+   до AuthTokenGen.
+3. **Install №2..№5 — все с 400 BadRequest на downloadlink.**
+4. **Найден баг парсера CLI установщика 2024.2.2**: флаги после
+   `-b Install` молча отбрасываются — конфиг `-c` НЕ применялся,
+   установщик шёл в дефолт «Vitis Unified Software Platform».
+   Лечится порядком аргументов: **`-c` ДОЛЖЕН идти первым**:
+   `./xsetup -c install_config.txt -a XilinxEULA,3rdPartyEULA -b Install`.
+   С подтверждением: `INFO - Installing Edition: Vivado ML Standard`.
+   Исправлено в `w3070_install_launch.sh` (repo-хеш изменился).
+5. Но **400 остаётся и с правильной эдишн**: oauth-validate даёт
+   200 «User oauth token is authenticated» + omsToken, а
+   `https://xilinx.entitlenow.com/wi/v1/downloadlink` стабильно
+   400 (прямые пробы с Mac: живой API, ответ
+   `{"message":"No required session_id.","error_code":400}` — у
+   установщика сессия устанавливается, режется сам запрос загрузки).
+6. Контрольный тест VPS (тот же xsetup + тот же токен) — **не
+   достиг диагноза**: «not enough disk space» (30G free < оценки
+   установки), downloadlink не вызывался. VPS-путь к B-ESTIMATE по
+   месту закрыт окончательно.
+7. W3070-сеть НЕ виновата в 400: xilinx.com/entitlenow доступны,
+   validate проходит. Оставшиеся гипотезы: (a) неполный профиль
+   admin@t27.ai в AMD (типовая причина 400 на downloadlink по
+   форумам AMD), (b) export-compliance hold (лечится только
+   websupport@xilinx.com), (c) API-drift для старого клиента
+   2024.2.2 (маловероятно: validate работает).
+
+Следствие для T1: инсталляция через web-stub заблокирована
+энтайтлментом на стороне аккаунта → **owner-level шаг**: владелец
+в браузере (уже залогинен в AMD) проверяет/заполняет ВСЕ поля
+профиля account.amd.com (имя, адрес, телефон, страна), затем агент
+ретраит install (1 команда, ~1 мин до вердикта). Фолбэки: (i)
+письмо на websupport@xilinx.com с точным текстом ошибки; (ii)
+скачивание FULL IMAGE 2024.2.2 (~60–90 ГБ) в браузере владельца →
+установка из локального payload без downloadlink вовсе.
+
+Также: ConfigGen в batch mode интерактивен («Please choose:») и
+затёр конфиг пустым — восстановлен из бэкапа; агентские пробы
+больше ConfigGen на w3070 не запускают.

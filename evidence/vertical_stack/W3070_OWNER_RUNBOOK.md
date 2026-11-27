@@ -1,11 +1,11 @@
 # W3070_OWNER_RUNBOOK — разблокировка T1 одной командой владельца
 
-Статус на 2026-11-27 20:14 +07: SSH-auth `pangolin.reactotron.ru:22022`
-(user `t27ssh`) персистентно отказывает (`Permission denied (publickey,password)`)
-с 2026-11-26. Инсталлятор Vivado 2024.2.2 доставлен на w3070 и сверен по
-SHA-256, payload распакован (`~/vivado_inst/x/`, 781M), ConfigGen пройден
-(`~/.Xilinx/install_config.txt`, Vivado ML Standard). Осталось: install →
-B-ESTIMATE → отчёт. Всё блокировано только auth.
+Статус на 2026-11-27 17:35 +07: SSH-auth **восстановлен** (Путь A2
+выполнен владельцем, агентский ключ в `authorized_keys`). AuthTokenGen
+пройден владельцем интерактивно (токен до 2026-12-04). НО install
+падает: `downloadlink` AMD-entitlement отвечает **400 BadRequest**
+(детали в NEXT_SCOPED_WORK.md). Осталось: устранить 400 (шаг «AMD
+профиль» ниже) → install → B-ESTIMATE → отчёт.
 
 ## Путь A (рекомендуется): восстановить SSH-доступ — 1 команда
 
@@ -49,10 +49,11 @@ cd /Users/playra/t27-lamb-labs && ssh -p 22022 t27ssh@pangolin.reactotron.ru "mk
 Тот же WSL-терминал, две команды:
 
 ```bash
-# 1) Install (915G свободно, встанет целиком):
+# 1) Install (915G свободно, встанет целиком). ВАЖНО: -c ПЕРВЫМ аргументом —
+#    парсер 2024.2.2 молча отбрасывает флаги после -b Install:
 cd ~/vivado_inst/x
 sed -i 's|^Destination=.*|Destination=/home/t27ssh/tools/Xilinx|' ~/.Xilinx/install_config.txt
-timeout 7200 ./xsetup -a XilinxEULA,3rdPartyEULA -b Install -c ~/.Xilinx/install_config.txt
+timeout 7200 ./xsetup -c ~/.Xilinx/install_config.txt -a XilinxEULA,3rdPartyEULA -b Install
 
 # 2) B-ESTIMATE (после установки):
 cd ~/vivado_inst
@@ -81,3 +82,26 @@ sudo mkdir -p /var/run/sshd 2>/dev/null; pgrep -a sshd || echo NO_SSHD
 
 Туннель TCP жив (пробы доходят до sshd и получают отказ auth) — проблема
 не в Pangolin-транспорте, а в auth/наличии sshd внутри WSL.
+
+## Если install падает на «downloadlink code: BadRequest» (актуальный блокер)
+
+oauth-validate проходит («Authenticated user admin@t27.ai successfully»),
+а `https://xilinx.entitlenow.com/wi/v1/downloadlink` стабильно 400.
+По форумам AMD типовая причина — **неполный профиль аккаунта**: entitlement
+не выдаёт загрузки, пока в профиле не заполнены все обязательные поля.
+
+**Шаг владельца (2 мин, в браузере, где уже залогинен в AMD):**
+1. Открыть https://account.amd.com → профиль (Account Details).
+2. Проверить и заполнить ВСЕ обязательные поля: имя, фамилия,
+   адрес, город, индекс, страна, телефон. Сохранить.
+3. Сказать агенту «профиль готов» → агент ретраит install (1 мин до
+   вердикта; токен уже на w3070, повторный AuthTokenGen не нужен).
+
+**Если профиль полный, а 400 остаётся** — два фолбэка:
+- письмо на websupport@xilinx.com (AR 44043): точный текст ошибки
+  `Unexpected Exception for: https://xilinx.entitlenow.com/wi/v1/downloadlink,
+  code: BadRequest`, лог `~/.Xilinx/xinstall/xinstall-*.log` с w3070 —
+  это документированный путь при compliance-hold аккаунта;
+- скачать в браузере **FULL IMAGE Vivado ML Standard 2024.2.2**
+  (~60–90 ГБ tarball со страницы загрузки AMD) → агент ставит из
+  локального payload — downloadlink вообще не вызывается.
