@@ -15,9 +15,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # exists in this lane already (numeric + igla coder specs). Dry run 2026-11-25 showed
 # 292 tracked files outside the index without this extension.
 INCLUDE_DIRS = ["target", "benchmark", "engagement", "evidence", "bitstream", "docs", "scripts",
-                "artifacts", "conformance", "releases", "rtl", "specs"]
+                "artifacts", "conformance", "releases", "rtl", "specs", "fpga"]
 # Files at the repository root that are part of the deliverable.
-INCLUDE_ROOT_FILES = ["README.md", "ARTIFACT_HASHES.txt", "EXECUTE_NOW.md", "t27c_lite.py"]
+INCLUDE_ROOT_FILES = ["README.md", "ARTIFACT_HASHES.txt", "EXECUTE_NOW.md", "t27c_lite.py", "Makefile"]
 # The root hash index cannot contain its own hash; the manifest (written after it) does.
 HASHES_SELF = "ARTIFACT_HASHES.txt"
 # Directories that are toolchain copies or scratch, not artifacts.
