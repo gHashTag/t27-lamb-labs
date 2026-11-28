@@ -8,7 +8,14 @@ VER="$(yosys -V)"
 NAME="$(basename "$FILE" .v)"
 mkdir -p "$ROOT/results"
 yosys -q -p "read_verilog $FILE; synth_xilinx -family xc7 -top $TOP -flatten; tee -o $ROOT/results/$NAME.stat stat; write_json $ROOT/results/$NAME.netlist.json"
-# B-ESTIMATE reduction lives in a .t27 spec (law: logic only in .t27, thin glue here);
-# until the reporter spec lands, echo the raw cell histogram from the stat artifact.
-echo "[$NAME] cell histogram:"
-sed -n '/Number of cells:/,$p' "$ROOT/results/$NAME.stat"
+# B-ESTIMATE reduction: the .t27 spec specs/fpga/bestimate_stat.t27 (law: logic
+# only in .t27). Provide the compiled reporter via BESTIMATE_BIN (host side:
+# `make stack-bestimate` builds it with t27c+zig); without it, fall back to
+# echoing the raw cell histogram.
+if [ -n "${BESTIMATE_BIN:-}" ]; then
+  "$BESTIMATE_BIN" < "$ROOT/results/$NAME.stat" > "$ROOT/results/$NAME.bestimate.json"
+  cat "$ROOT/results/$NAME.bestimate.json"
+else
+  echo "[$NAME] cell histogram (BESTIMATE_BIN not set, no reduction):"
+  sed -n '/Number of cells:/,$p' "$ROOT/results/$NAME.stat"
+fi
