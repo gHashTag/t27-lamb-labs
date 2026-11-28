@@ -479,3 +479,10 @@ guarded install. Это самый быстрый путь и к install, и к 
 Также: ConfigGen в batch mode интерактивен («Please choose:») и
 затёр конфиг пустым — восстановлен из бэкапа; агентские пробы
 больше ConfigGen на w3070 не запускают.
+
+## 2026-11-28 morning session (+07)
+- **Java-харнесс на Mac** (VH.java, код клиента b.h.a() с вендорскими jars): validate с тем же wi-токеном → **401 "User oauth token authentication failed"** — их же код вне w3070 не проходит ⇒ различие НЕ в содержимом запроса, а в окружении/IP/стеке.
+- **TTL wi-токена найден жёстко**: hарнесс VH2 на самом w3070 (их код, их IP, 08:58 +07) → валидация тоже 401 «token may have expired». CLI был успешен в 01:40 (9ч25м после создания); в 08:58 (16ч43м) токен мёртв. TTL ∈ (9ч25м, 16ч43м], вероятно ~12ч. AuthTokenGen теперь обязателен перед КАЖДОЙ сессией установки.
+- Следствие: 400 downloadlink при живом validate (00:57/01:40) — отдельная от TTL проблема; вердикт сервера (реальное сообщение из b.d) можно получить харнессом VH2.class (уже на w3070:/tmp) сразу после свежего AuthTokenGen.
+- **Browser NEO recon**: amd.com 2024.2 downloads page отдаёт SFD-линки без логин-стены; xef.html?filename=FPGAs_AdaptiveSoCs_Unified_2024.2.2_0306_2322.tar → форма "Name and Address Verification" полностью предзаполнена (включая Phone — теперь 06-2401-4170), Download-кнопка есть. Клик агентом не стартует загрузку (download-инструмент: timeout 60s «Save As dialog or blocked download»; act click ok, но ни submit, ни window.open, ни navigation — обработчик не срабатывает). POST формы через fetch(credentials) → 200 HTML = та же страница (форма не принята; вероятно CSRF/JS-флоу). ⇒ СFD-клик делегирован владельцу.
+- VH2.java/VH.java: /tmp/xjar (Mac), VH2.class развёрнут на w3070:/tmp; run: `cd ~/vivado_inst/x && java -cp /tmp:<libs> VH2` (jre21 в tps/lnx64).
