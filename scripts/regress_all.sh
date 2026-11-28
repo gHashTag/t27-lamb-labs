@@ -56,7 +56,12 @@ say "=== G4: $ROWS rows checked, $BAD mismatches"
 # G5: deterministic pipeline -> no uncommitted drift after a full re-run.
 # (the run-once log directory is excluded — pending logs are evidence, not drift)
 say "=== G5: tree drift after regeneration"
-DRIFT="$(git status --porcelain -- . ":(exclude)$(dirname "$OUT")" || true)"
+# (the run-once log directory is excluded — pending logs are evidence, not drift;
+# an OUT outside the repo needs no exclusion and a bare status is correct there)
+case "$OUT" in
+  "$PWD"/*) DRIFT="$(git status --porcelain -- . ":(exclude)$(dirname "$OUT")" || true)" ;;
+  *)        DRIFT="$(git status --porcelain || true)" ;;
+esac
 if [ -z "$DRIFT" ]; then
   say "=== G5: PASS (tree clean, all regenerated artifacts byte-identical)"
 else
