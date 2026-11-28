@@ -1,0 +1,24 @@
+
+3. Printing statistics.
+
+=== dot27_top ===
+
+   Number of wires:                278
+   Number of wire bits:            800
+   Number of public wires:         135
+   Number of public wire bits:     474
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                358
+     CARRY4                          2
+     IBUF                          108
+     LUT2                            6
+     LUT3                           12
+     LUT4                           37
+     LUT5                           18
+     LUT6                          113
+     MUXF7                          42
+     MUXF8                          14
+     OBUF                            6
+

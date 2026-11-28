@@ -1,0 +1,22 @@
+
+3. Printing statistics.
+
+=== fir4 ===
+
+   Number of wires:                 71
+   Number of wire bits:            582
+   Number of public wires:          15
+   Number of public wire bits:     163
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                163
+     BUFG                            1
+     CARRY4                          5
+     DSP48E1                         4
+     FDRE                           34
+     IBUF                           43
+     INV                            35
+     LUT2                           17
+     OBUF                           24
+

@@ -1,0 +1,24 @@
+
+3. Printing statistics.
+
+=== comb_ternary_dot_top ===
+
+   Number of wires:                291
+   Number of wire bits:            887
+   Number of public wires:         137
+   Number of public wire bits:     540
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                370
+     CARRY4                          2
+     IBUF                          108
+     LUT2                            3
+     LUT3                           13
+     LUT4                           37
+     LUT5                           16
+     LUT6                          122
+     MUXF7                          46
+     MUXF8                          15
+     OBUF                            8
+
